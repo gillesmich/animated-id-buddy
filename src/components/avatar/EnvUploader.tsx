@@ -29,11 +29,15 @@ const EnvUploader = ({ onEnvParsed }: EnvUploaderProps) => {
         }
       });
 
+      console.log("📦 Parsed env:", parsed);
       onEnvParsed(parsed);
       toast({
         title: "Fichier chargé",
         description: `${Object.keys(parsed).length} clés API détectées`,
       });
+      
+      // Reset input to allow re-upload of same file
+      e.target.value = "";
     } catch (error) {
       toast({
         title: "Erreur",

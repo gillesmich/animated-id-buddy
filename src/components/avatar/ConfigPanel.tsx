@@ -48,21 +48,21 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
 
   const handleEnvParsed = (env: Record<string, string>) => {
-    setConfig({
-      ...config,
-      didApiKey: env.DID_API_KEY || env.VITE_DID_API_KEY || config.didApiKey,
-      openaiApiKey: env.OPENAI_API_KEY || env.VITE_OPENAI_API_KEY || config.openaiApiKey,
-      elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || config.elevenlabsApiKey,
-      useN8n: useN8n, // Sauvegarder le mode backend
-    });
+    setConfig((prev: any) => ({
+      ...prev,
+      didApiKey: env.DID_API_KEY || env.VITE_DID_API_KEY || prev.didApiKey,
+      openaiApiKey: env.OPENAI_API_KEY || env.VITE_OPENAI_API_KEY || prev.openaiApiKey,
+      elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || prev.elevenlabsApiKey,
+      useN8n: useN8n,
+    }));
   };
 
   // Mettre à jour la config quand le mode backend change
   useEffect(() => {
-    setConfig({
-      ...config,
+    setConfig((prev: any) => ({
+      ...prev,
       useN8n: useN8n
-    });
+    }));
   }, [useN8n]);
 
   return (
