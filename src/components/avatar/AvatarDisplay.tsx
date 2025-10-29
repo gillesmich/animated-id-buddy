@@ -448,6 +448,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       // Étape 3: Génération vidéo D-ID
       console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      
+      // Validation de la longueur du texte (D-ID limite à ~1000 caractères)
+      let textForVideo = responseText;
+      if (textForVideo.length > 1000) {
+        console.warn("⚠️ Texte trop long, troncature à 1000 caractères");
+        textForVideo = textForVideo.substring(0, 997) + "...";
+      }
+      
       setIsVideoLoading(true);
       toast({
         title: "🎬 Génération vidéo...",
@@ -455,6 +463,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
 
       const avatarUrl = config.customAvatarImage || avatarPreviews[config.selectedAvatar];
+      
+      console.log("🔍 Configuration D-ID:", {
+        avatarUrl,
+        textLength: textForVideo.length,
+        hasApiKey: !!config.didApiKey
+      });
       
       const didResponse = await fetch('https://api.d-id.com/talks', {
         method: 'POST',
@@ -466,7 +480,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           source_url: avatarUrl,
           script: {
             type: 'text',
-            input: responseText,
+            input: textForVideo,
             provider: {
               type: 'microsoft',
               voice_id: 'fr-FR-DeniseNeural'
@@ -483,8 +497,30 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       if (!didResponse.ok) {
         const errorData = await didResponse.json().catch(() => ({}));
-        console.error('❌ Erreur D-ID:', didResponse.status, errorData);
-        throw new Error(errorData.description || 'Erreur de génération vidéo');
+        console.error('❌ Erreur D-ID:', {
+          status: didResponse.status,
+          statusText: didResponse.statusText,
+          error: errorData
+        });
+        
+        let errorMessage = 'Erreur de génération vidéo';
+        if (didResponse.status === 401) {
+          errorMessage = 'Clé API D-ID invalide ou expirée';
+        } else if (didResponse.status === 400) {
+          errorMessage = errorData.description || 'Paramètres invalides (vérifiez l\'URL de l\'avatar)';
+        } else if (didResponse.status === 500) {
+          errorMessage = 'Erreur serveur D-ID. Réessayez dans quelques instants.';
+        } else if (errorData.description) {
+          errorMessage = errorData.description;
+        }
+        
+        toast({
+          title: "❌ Erreur D-ID",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
       }
 
       const didData = await didResponse.json();
