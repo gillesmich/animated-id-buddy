@@ -541,15 +541,25 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             placeholder="Tapez votre message..."
             value={message}
             onChange={(e) => {
+              console.log("✍️ Saisie:", e.target.value);
               setMessage(e.target.value);
               handleTyping();
             }}
-            onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
+            onKeyPress={(e) => {
+              console.log("⌨️ Touche pressée:", e.key);
+              if (e.key === "Enter" && !isLoading) {
+                handleSendMessage();
+              }
+            }}
             className="glass"
             disabled={isLoading}
+            autoComplete="off"
           />
           <Button
-            onClick={handleSendMessage}
+            onClick={() => {
+              console.log("📤 Envoi du message:", message);
+              handleSendMessage();
+            }}
             disabled={isLoading || !message.trim()}
             className="gradient-primary"
           >

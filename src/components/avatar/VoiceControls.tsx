@@ -30,19 +30,26 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
 
   const startRecording = async () => {
     try {
+      console.log("🎤 Démarrage de l'enregistrement...");
+      
+      // Vérifier les permissions microphone d'abord
+      const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      console.log("🔒 Permission microphone:", permissions.state);
+      
       recorderRef.current = new AudioRecorder();
       await recorderRef.current.start();
       setIsRecording(true);
       
+      console.log("✅ Enregistrement démarré");
       toast({
         title: "Enregistrement...",
         description: "Parlez maintenant",
       });
     } catch (error) {
-      console.error('Recording error:', error);
+      console.error('❌ Recording error:', error);
       toast({
-        title: "Erreur",
-        description: "Impossible d'accéder au microphone",
+        title: "Erreur microphone",
+        description: error instanceof Error ? error.message : "Impossible d'accéder au microphone. Vérifiez les permissions.",
         variant: "destructive",
       });
     }
