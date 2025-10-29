@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import N8nWorkflowGenerator from "./N8nWorkflowGenerator";
 import { Key, Mic, Bot, User, Image as ImageIcon, Workflow } from "lucide-react";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
@@ -195,6 +196,15 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             onWorkflowsChange={(workflows) => setConfig({ ...config, workflows })}
             onSelectedChange={(id) => setConfig({ ...config, selectedWorkflow: id })}
           />
+          
+          <div className="mt-6">
+            <N8nWorkflowGenerator 
+              config={{
+                selectedWorkflow: config.selectedWorkflow,
+                workflows: config.workflows
+              }}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </Card>
