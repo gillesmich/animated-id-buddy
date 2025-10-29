@@ -313,12 +313,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       } 
       // Mode Python Backend (par défaut)
       else {
-        console.log("🐍 Utilisation du backend Python");
-        toast({
-          title: "ℹ️ Mode Backend Python",
-          description: "Déployez le backend Python Flask avec vos clés API configurées",
-        });
-        
         // Simulation pour la démo
         const demoResponse = `Backend Python activé! Déployez le code Flask généré dans l'onglet Backend pour des interactions réelles avec OpenAI (${config.selectedModel}), ElevenLabs et D-ID.`;
         
@@ -381,7 +375,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Debounced typing indicator
   const handleTyping = debounce(() => {
-    console.log('User is typing...');
+    // Typing indicator
   }, 500);
 
   return (
@@ -541,12 +535,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             placeholder="Tapez votre message..."
             value={message}
             onChange={(e) => {
-              console.log("✍️ Saisie:", e.target.value);
               setMessage(e.target.value);
               handleTyping();
             }}
             onKeyPress={(e) => {
-              console.log("⌨️ Touche pressée:", e.key);
               if (e.key === "Enter" && !isLoading) {
                 handleSendMessage();
               }
@@ -556,10 +548,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             autoComplete="off"
           />
           <Button
-            onClick={() => {
-              console.log("📤 Envoi du message:", message);
-              handleSendMessage();
-            }}
+            onClick={handleSendMessage}
             disabled={isLoading || !message.trim()}
             className="gradient-primary"
           >
