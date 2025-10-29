@@ -30,7 +30,7 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
 
   const startRecording = async () => {
     try {
-      console.log("🎤 Démarrage de l'enregistrement 10 secondes...");
+      console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
       
       // Vérifier les permissions microphone d'abord
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
@@ -42,17 +42,17 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
       
       console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement 10s",
+        title: "Enregistrement 5s",
         description: "Parlez maintenant...",
       });
 
-      // Arrêt automatique après 10 secondes
+      // Arrêt automatique après 5 secondes
       setTimeout(async () => {
         if (recorderRef.current?.isRecording()) {
-          console.log("⏱️ 10 secondes écoulées, arrêt automatique");
+          console.log("⏱️ 5 secondes écoulées, arrêt automatique");
           await stopRecording();
         }
-      }, 10000);
+      }, 5000);
       
     } catch (error) {
       console.error('❌ Recording error:', error);
@@ -114,12 +114,12 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
         ) : isRecording ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
-            Enregistrement... (10s)
+            Enregistrement... (5s)
           </>
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Parler (10s)
+            Parler (5s)
           </>
         )}
       </Button>
