@@ -11,8 +11,11 @@ const Index = () => {
     openaiApiKey: "",
     elevenlabsApiKey: "",
     selectedAvatar: "",
+    customAvatarImage: "",
     selectedVoice: "",
     selectedModel: "gpt-5-2025-08-07",
+    workflows: [],
+    selectedWorkflow: "",
   });
 
   const [showEmbed, setShowEmbed] = useState(false);
