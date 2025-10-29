@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ConfigPanel from "@/components/avatar/ConfigPanel";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import EmbedGenerator from "@/components/avatar/EmbedGenerator";
@@ -9,20 +9,41 @@ import { Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
-  const [config, setConfig] = useState({
-    didApiKey: "",
-    openaiApiKey: "",
-    elevenlabsApiKey: "",
-    selectedAvatar: "amy",
-    customAvatarImage: "",
-    selectedVoice: "EXAVITQu4vr4xnSDxMaL",
-    selectedModel: "gpt-5-2025-08-07",
-    workflows: [],
-    selectedWorkflow: "",
-    useN8n: false, // Python backend par défaut
+  // Charger la config depuis localStorage au démarrage
+  const [config, setConfig] = useState(() => {
+    const saved = localStorage.getItem("avatarAI_config");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Erreur de chargement de la config:", e);
+      }
+    }
+    return {
+      didApiKey: "",
+      openaiApiKey: "",
+      elevenlabsApiKey: "",
+      selectedAvatar: "amy",
+      customAvatarImage: "",
+      selectedVoice: "EXAVITQu4vr4xnSDxMaL",
+      selectedModel: "gpt-5-2025-08-07",
+      workflows: [],
+      selectedWorkflow: "",
+      useN8n: false,
+    };
   });
 
   const [showEmbed, setShowEmbed] = useState(false);
+
+  // Sauvegarder la config dans localStorage quand elle change
+  useEffect(() => {
+    localStorage.setItem("avatarAI_config", JSON.stringify(config));
+    console.log("💾 Config sauvegardée:", {
+      didApiKey: config.didApiKey ? "✅" : "❌",
+      openaiApiKey: config.openaiApiKey ? "✅" : "❌",
+      elevenlabsApiKey: config.elevenlabsApiKey ? "✅" : "❌",
+    });
+  }, [config]);
 
   return (
     <div className="min-h-screen">
