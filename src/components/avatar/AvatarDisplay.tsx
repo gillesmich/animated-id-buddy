@@ -48,17 +48,24 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Load avatar preview when selection changes
   useEffect(() => {
-    console.log("🔄 Avatar sélectionné:", config.selectedAvatar);
-    // Toujours utiliser les avatars D-ID officiels pour éviter les erreurs
-    if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
+    console.log("🔄 Avatar config:", { 
+      selectedAvatar: config.selectedAvatar, 
+      customAvatarImage: config.customAvatarImage?.substring(0, 50) 
+    });
+    
+    // Priorité à l'image personnalisée
+    if (config.customAvatarImage) {
+      console.log("📸 Chargement image personnalisée");
+      setVideoUrl(config.customAvatarImage);
+    } else if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
       const avatarUrl = avatarPreviews[config.selectedAvatar];
-      console.log("📸 Chargement de l'avatar URL:", avatarUrl);
+      console.log("📸 Chargement avatar D-ID:", avatarUrl);
       setVideoUrl(avatarUrl);
     } else {
-      console.log("⚠️ Aucun avatar sélectionné");
+      console.log("⚠️ Aucun avatar configuré");
       setVideoUrl("");
     }
-  }, [config.selectedAvatar]);
+  }, [config.selectedAvatar, config.customAvatarImage]);
 
   // Generate preview animation with D-ID
   const generatePreviewAnimation = async () => {
