@@ -45,22 +45,36 @@ const EnvUploader = ({ onEnvParsed }: EnvUploaderProps) => {
 
   return (
     <div className="space-y-2">
-      <label htmlFor="env-upload" className="cursor-pointer">
-        <div className="glass border-2 border-dashed border-border/50 hover:border-primary/50 rounded-lg p-6 text-center transition-colors">
-          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm font-medium">Uploader fichier .env</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Charger toutes les clés API en une fois
-          </p>
-        </div>
-        <input
-          id="env-upload"
-          type="file"
-          accept=".env,.txt"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-      </label>
+      <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/30 rounded-lg p-4 mb-4">
+        <h4 className="font-semibold text-primary mb-2 flex items-center gap-2">
+          <Upload className="w-4 h-4" />
+          Import Rapide
+        </h4>
+        <p className="text-xs text-muted-foreground mb-3">
+          Gagnez du temps en chargeant toutes vos clés API depuis un fichier .env
+        </p>
+        
+        <label htmlFor="env-upload" className="cursor-pointer block">
+          <div className="glass border-2 border-dashed border-primary/50 hover:border-primary hover:bg-primary/5 rounded-lg p-6 text-center transition-all duration-200 hover:shadow-lg">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Upload className="w-6 h-6 text-primary" />
+              </div>
+              <p className="text-sm font-semibold text-primary">Cliquez pour charger votre fichier .env</p>
+              <p className="text-xs text-muted-foreground">
+                Formats acceptés: .env, .txt
+              </p>
+            </div>
+          </div>
+          <input
+            id="env-upload"
+            type="file"
+            accept=".env,.txt"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
     </div>
   );
 };
