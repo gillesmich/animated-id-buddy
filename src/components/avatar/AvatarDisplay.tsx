@@ -32,12 +32,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Avatar preview URLs (sample videos - à remplacer par vraies URLs D-ID)
+  // Avatar preview URLs - URLs officielles D-ID
   const avatarPreviews: Record<string, string> = {
     amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
-    john: "https://create-images-results.d-id.com/default_presenter_image/john/image.jpeg",
-    sophia: "https://create-images-results.d-id.com/default_presenter_image/sophia/image.jpeg",
-    marcus: "https://create-images-results.d-id.com/default_presenter_image/marcus/image.jpeg",
+    john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
+    sophia: "https://create-images-results.d-id.com/default_presenter_image/stacey/image.jpeg",
+    marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
   };
 
   // Auto-scroll to latest message
@@ -47,14 +47,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Load avatar preview when selection changes
   useEffect(() => {
-    if (config.customAvatarImage) {
-      setVideoUrl(config.customAvatarImage);
-    } else if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
+    // Toujours utiliser les avatars D-ID officiels pour éviter les erreurs
+    if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
       setVideoUrl(avatarPreviews[config.selectedAvatar]);
     } else {
       setVideoUrl("");
     }
-  }, [config.selectedAvatar, config.customAvatarImage]);
+  }, [config.selectedAvatar]);
 
   // Generate preview animation with D-ID
   const generatePreviewAnimation = async () => {
@@ -70,6 +69,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     setIsVideoLoading(true);
 
     try {
+      console.log("Génération avec D-ID, avatar URL:", videoUrl);
+      
       const response = await fetch('https://api.d-id.com/talks', {
         method: 'POST',
         headers: {
@@ -80,7 +81,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           source_url: videoUrl,
           script: {
             type: 'text',
-            input: 'Bonjour! Je suis votre assistant virtuel. Comment puis-je vous aider aujourd\'hui?',
+            input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
             provider: {
               type: 'microsoft',
               voice_id: 'fr-FR-DeniseNeural'
@@ -89,31 +90,36 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           config: {
             fluent: true,
             pad_audio: 0,
-            stitch: true
+            stitch: true,
+            result_format: 'mp4'
           }
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Échec de génération de la prévisualisation');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erreur D-ID:', response.status, errorData);
+        throw new Error(errorData.description || `Erreur D-ID: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("D-ID réponse:", data);
       const talkId = data.id;
 
       // Poll for video status
       let attempts = 0;
-      const maxAttempts = 30;
+      const maxAttempts = 60; // 2 minutes max
       
       const checkStatus = setInterval(async () => {
         attempts++;
+        console.log(`Vérification statut ${attempts}/${maxAttempts}`);
         
         if (attempts > maxAttempts) {
           clearInterval(checkStatus);
           setIsVideoLoading(false);
           toast({
             title: "Timeout",
-            description: "La génération prend trop de temps",
+            description: "La génération prend trop de temps. Réessayez.",
             variant: "destructive",
           });
           return;
@@ -127,6 +133,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           });
 
           const statusData = await statusResponse.json();
+          console.log(`Statut D-ID (tentative ${attempts}):`, statusData.status);
 
           if (statusData.status === 'done' && statusData.result_url) {
             clearInterval(checkStatus);
@@ -136,22 +143,27 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             // Auto-play video
             if (videoRef.current) {
               videoRef.current.src = statusData.result_url;
-              videoRef.current.play();
+              videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
             }
 
             toast({
-              title: "Prévisualisation prête",
-              description: "Animation de l'avatar générée",
+              title: "✅ Prévisualisation prête",
+              description: "Animation de l'avatar générée avec succès!",
             });
-          } else if (statusData.status === 'error') {
+          } else if (statusData.status === 'error' || statusData.status === 'rejected') {
             clearInterval(checkStatus);
             setIsVideoLoading(false);
-            throw new Error(statusData.error || 'Erreur de génération');
+            throw new Error(statusData.error?.description || 'Erreur de génération');
           }
         } catch (error) {
           clearInterval(checkStatus);
           setIsVideoLoading(false);
           console.error('Status check error:', error);
+          toast({
+            title: "Erreur de suivi",
+            description: error instanceof Error ? error.message : "Erreur inconnue",
+            variant: "destructive",
+          });
         }
       }, 2000);
 
@@ -159,8 +171,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setIsVideoLoading(false);
       console.error('Preview generation error:', error);
       toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Échec de génération",
+        title: "❌ Erreur de génération",
+        description: error instanceof Error ? error.message : "Échec de génération. Vérifiez votre clé D-ID.",
         variant: "destructive",
       });
     }
