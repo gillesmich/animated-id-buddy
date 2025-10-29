@@ -371,24 +371,172 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   const handleVoiceMessage = async (audioBase64: string) => {
     setIsLoading(true);
-    setConversation((prev) => [...prev, { role: "user", content: "🎤 Message vocal", type: 'voice' }]);
 
     try {
-      if (config.selectedWorkflow) {
-        const result = await sendToWorkflow("Message vocal", audioBase64);
-        
-        setConversation((prev) => [
-          ...prev,
-          { role: "assistant", content: result.text || "Réponse vocale traitée", type: 'voice' },
-        ]);
-        
-        toast({
-          title: "Message vocal traité",
-          description: "Réponse générée avec succès",
-        });
-      } else {
-        throw new Error("Configurez un workflow pour les messages vocaux");
+      // Étape 1: Transcription avec Whisper
+      console.log("🎤 Étape 1: Transcription Whisper...");
+      toast({
+        title: "🎤 Transcription...",
+        description: "Analyse de votre message vocal",
+      });
+
+      const transcriptionResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whisper-transcribe`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ audioBase64 }),
+        }
+      );
+
+      if (!transcriptionResponse.ok) {
+        throw new Error('Erreur de transcription');
       }
+
+      const { text: transcription } = await transcriptionResponse.json();
+      console.log("✅ Transcription:", transcription);
+      
+      setConversation((prev) => [...prev, { role: "user", content: transcription, type: 'voice' }]);
+
+      // Étape 2: Génération de réponse avec OpenAI
+      console.log("🤖 Étape 2: Génération réponse OpenAI...");
+      toast({
+        title: "🤖 Réflexion...",
+        description: "Génération de la réponse",
+      });
+
+      const chatResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'Tu es un assistant virtuel intelligent et amical. Réponds de manière concise et naturelle.' },
+              { role: 'user', content: transcription }
+            ],
+            model: config.selectedModel || 'gpt-4o-mini',
+          }),
+        }
+      );
+
+      if (!chatResponse.ok) {
+        throw new Error('Erreur de génération de réponse');
+      }
+
+      const chatData = await chatResponse.json();
+      const responseText = chatData.choices[0].message.content;
+      console.log("✅ Réponse OpenAI:", responseText);
+
+      // Affichage streaming de la réponse
+      let currentText = "";
+      for (let i = 0; i < responseText.length; i++) {
+        currentText += responseText[i];
+        setStreamingText(currentText);
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      
+      setConversation((prev) => [
+        ...prev,
+        { role: "assistant", content: responseText, type: 'text' },
+      ]);
+      setStreamingText("");
+
+      // Étape 3: Génération vidéo D-ID
+      console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      setIsVideoLoading(true);
+      toast({
+        title: "🎬 Génération vidéo...",
+        description: "Création de la réponse animée",
+      });
+
+      const avatarUrl = config.customAvatarImage || avatarPreviews[config.selectedAvatar];
+      
+      const didResponse = await fetch('https://api.d-id.com/talks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${config.didApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_url: avatarUrl,
+          script: {
+            type: 'text',
+            input: responseText,
+            provider: {
+              type: 'microsoft',
+              voice_id: 'fr-FR-DeniseNeural'
+            }
+          },
+          config: {
+            fluent: true,
+            pad_audio: 0,
+            stitch: true,
+            result_format: 'mp4'
+          }
+        }),
+      });
+
+      if (!didResponse.ok) {
+        const errorData = await didResponse.json().catch(() => ({}));
+        console.error('❌ Erreur D-ID:', didResponse.status, errorData);
+        throw new Error(errorData.description || 'Erreur de génération vidéo');
+      }
+
+      const didData = await didResponse.json();
+      const talkId = didData.id;
+      console.log("✅ D-ID talk créé:", talkId);
+
+      // Poll pour le statut de la vidéo
+      let attempts = 0;
+      const maxAttempts = 60;
+      
+      const checkStatus = setInterval(async () => {
+        attempts++;
+        
+        if (attempts > maxAttempts) {
+          clearInterval(checkStatus);
+          setIsVideoLoading(false);
+          throw new Error('Timeout de génération vidéo');
+        }
+
+        const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+          headers: {
+            'Authorization': `Basic ${config.didApiKey}`,
+          },
+        });
+
+        const statusData = await statusResponse.json();
+        console.log(`Statut D-ID (${attempts}/${maxAttempts}):`, statusData.status);
+
+        if (statusData.status === 'done' && statusData.result_url) {
+          clearInterval(checkStatus);
+          setVideoUrl(statusData.result_url);
+          setIsVideoLoading(false);
+          
+          // Auto-play vidéo
+          if (videoRef.current) {
+            videoRef.current.src = statusData.result_url;
+            videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
+          }
+
+          toast({
+            title: "✅ Réponse prête!",
+            description: "Vidéo générée avec succès",
+          });
+        } else if (statusData.status === 'error' || statusData.status === 'rejected') {
+          clearInterval(checkStatus);
+          setIsVideoLoading(false);
+          throw new Error(statusData.error?.description || 'Erreur de génération');
+        }
+      }, 2000);
+
     } catch (error) {
       console.error('Voice message error:', error);
       
@@ -405,6 +553,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         description: errorMessage,
         variant: "destructive",
       });
+      
+      setIsVideoLoading(false);
     } finally {
       setIsLoading(false);
     }

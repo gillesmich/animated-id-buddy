@@ -30,7 +30,7 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
 
   const startRecording = async () => {
     try {
-      console.log("🎤 Démarrage de l'enregistrement...");
+      console.log("🎤 Démarrage de l'enregistrement 10 secondes...");
       
       // Vérifier les permissions microphone d'abord
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
@@ -42,9 +42,18 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
       
       console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement...",
-        description: "Parlez maintenant",
+        title: "Enregistrement 10s",
+        description: "Parlez maintenant...",
       });
+
+      // Arrêt automatique après 10 secondes
+      setTimeout(async () => {
+        if (recorderRef.current?.isRecording()) {
+          console.log("⏱️ 10 secondes écoulées, arrêt automatique");
+          await stopRecording();
+        }
+      }, 10000);
+      
     } catch (error) {
       console.error('❌ Recording error:', error);
       toast({
@@ -96,8 +105,8 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onClick={isRecording ? stopRecording : startRecording}
-        disabled={isProcessing}
+        onClick={startRecording}
+        disabled={isProcessing || isRecording}
         className={isRecording ? "animate-pulse" : ""}
       >
         {isProcessing ? (
@@ -105,12 +114,12 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
         ) : isRecording ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
-            Arrêter
+            Enregistrement... (10s)
           </>
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Parler
+            Parler (10s)
           </>
         )}
       </Button>
