@@ -313,21 +313,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       } 
       // Mode Python Backend (par défaut)
       else {
-        // Simulation pour la démo
-        const demoResponse = `Backend Python activé! Déployez le code Flask généré dans l'onglet Backend pour des interactions réelles avec OpenAI (${config.selectedModel}), ElevenLabs et D-ID.`;
-        
-        let currentText = "";
-        for (let i = 0; i < demoResponse.length; i++) {
-          currentText += demoResponse[i];
-          setStreamingText(currentText);
-          await new Promise(resolve => setTimeout(resolve, 20));
-        }
-        
-        setConversation((prev) => [
-          ...prev,
-          { role: "assistant", content: demoResponse, type: 'text' },
-        ]);
-        setStreamingText("");
+        console.error("Backend Python non configuré");
       }
     } catch (error) {
       console.error('Send message error:', error);
