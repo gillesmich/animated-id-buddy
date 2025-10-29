@@ -48,13 +48,23 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
 
   const handleEnvParsed = (env: Record<string, string>) => {
-    setConfig((prev: any) => ({
-      ...prev,
-      didApiKey: env.DID_API_KEY || env.VITE_DID_API_KEY || prev.didApiKey,
-      openaiApiKey: env.OPENAI_API_KEY || env.VITE_OPENAI_API_KEY || prev.openaiApiKey,
-      elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || prev.elevenlabsApiKey,
-      useN8n: useN8n,
-    }));
+    console.log("🔑 Env keys received:", Object.keys(env));
+    console.log("🔑 Env values:", env);
+    
+    const updatedConfig = {
+      ...config,
+      didApiKey: env.DID_API_KEY || env.VITE_DID_API_KEY || config.didApiKey,
+      openaiApiKey: env.OPENAI_API_KEY || env.VITE_OPENAI_API_KEY || config.openaiApiKey,
+      elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || config.elevenlabsApiKey,
+    };
+    
+    console.log("✅ Updated config:", {
+      didApiKey: updatedConfig.didApiKey ? "SET" : "EMPTY",
+      openaiApiKey: updatedConfig.openaiApiKey ? "SET" : "EMPTY",
+      elevenlabsApiKey: updatedConfig.elevenlabsApiKey ? "SET" : "EMPTY"
+    });
+    
+    setConfig(updatedConfig);
   };
 
   // Mettre à jour la config quand le mode backend change
