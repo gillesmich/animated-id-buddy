@@ -3,6 +3,7 @@ import ConfigPanel from "@/components/avatar/ConfigPanel";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import EmbedGenerator from "@/components/avatar/EmbedGenerator";
 import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
+import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +25,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen">
+      {/* Mobile Debug Overlay */}
+      <MobileDebugOverlay />
+      
       {/* Hero Header */}
       <header className="border-b border-border/50 backdrop-blur-xl bg-background/50 sticky top-0 z-50">
         <div className="container mx-auto px-6 py-6">
