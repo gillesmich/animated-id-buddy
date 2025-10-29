@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
 import WorkflowManager from "./WorkflowManager";
+import ApiKeyValidator from "./ApiKeyValidator";
 import { useState } from "react";
 
 interface WorkflowConfig {
@@ -76,6 +77,12 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
 
         <TabsContent value="api" className="space-y-4 mt-4">
           <EnvUploader onEnvParsed={handleEnvParsed} />
+
+          <ApiKeyValidator config={{
+            didApiKey: config.didApiKey,
+            openaiApiKey: config.openaiApiKey,
+            elevenlabsApiKey: config.elevenlabsApiKey
+          }} />
 
           <div className="space-y-4 pt-4 border-t border-border/50">
             <div className="space-y-2">

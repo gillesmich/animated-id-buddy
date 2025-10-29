@@ -2,8 +2,10 @@ import { useState } from "react";
 import ConfigPanel from "@/components/avatar/ConfigPanel";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import EmbedGenerator from "@/components/avatar/EmbedGenerator";
+import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const [config, setConfig] = useState({
@@ -66,9 +68,25 @@ const Index = () => {
               <ConfigPanel config={config} setConfig={setConfig} />
             </div>
 
-            {/* Avatar Display */}
+            {/* Avatar Display & Tests */}
             <div className="space-y-6">
-              <AvatarDisplay config={config} />
+              <Tabs defaultValue="preview" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="preview">Prévisualisation</TabsTrigger>
+                  <TabsTrigger value="animations">Tests d'Animation</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="preview" className="mt-6">
+                  <AvatarDisplay config={config} />
+                </TabsContent>
+                
+                <TabsContent value="animations" className="mt-6">
+                  <AvatarAnimationTest config={{
+                    customAvatarImage: config.customAvatarImage,
+                    selectedAvatar: config.selectedAvatar
+                  }} />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         )}

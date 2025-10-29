@@ -28,9 +28,15 @@ import openai
 import requests
 import base64
 import os
+import logging
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
@@ -39,17 +45,74 @@ CORS(app)
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '${config.openaiKey}')
 ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', '${config.elevenlabsKey}')
 DID_API_KEY = os.getenv('DID_API_KEY', '${config.didKey}')
-MODEL = '${config.model || 'gpt-4o-mini'}'
-VOICE_ID = '${config.voiceId || '9BWtsMINqrJLrRacOk9x'}'
+MODEL = '${config.model || 'gpt-5-2025-08-07'}'
+VOICE_ID = '${config.voiceId || 'EXAVITQu4vr4xnSDxMaL'}'
+
+# Validate API keys
+if not all([OPENAI_API_KEY, ELEVENLABS_API_KEY, DID_API_KEY]):
+    logger.warning("⚠️ Missing API keys! Check your .env file")
 
 openai.api_key = OPENAI_API_KEY
 
+@app.route('/api/validate', methods=['POST'])
+def validate_keys():
+    """Validate all API keys"""
+    results = {
+        'openai': False,
+        'elevenlabs': False,
+        'did': False
+    }
+    
+    # Test OpenAI
+    try:
+        response = requests.get(
+            'https://api.openai.com/v1/models',
+            headers={'Authorization': f'Bearer {OPENAI_API_KEY}'},
+            timeout=5
+        )
+        results['openai'] = response.status_code == 200
+    except:
+        pass
+    
+    # Test ElevenLabs
+    try:
+        response = requests.get(
+            'https://api.elevenlabs.io/v1/user',
+            headers={'xi-api-key': ELEVENLABS_API_KEY},
+            timeout=5
+        )
+        results['elevenlabs'] = response.status_code == 200
+    except:
+        pass
+    
+    # Test D-ID
+    try:
+        response = requests.get(
+            'https://api.d-id.com/credits',
+            headers={'Authorization': f'Basic {DID_API_KEY}'},
+            timeout=5
+        )
+        results['did'] = response.status_code == 200
+    except:
+        pass
+    
+    return jsonify({
+        'valid': all(results.values()),
+        'details': results
+    })
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
+    """Process chat message and generate avatar response"""
     try:
         data = request.json
         user_message = data.get('message', '')
         avatar_id = data.get('avatarId', '')
+        
+        if not user_message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        logger.info(f"Processing message: {user_message[:50]}...")
         
         # Step 1: Generate AI response with OpenAI
         response = openai.chat.completions.create(
@@ -57,15 +120,15 @@ def chat():
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful AI avatar assistant. Keep responses concise and natural for voice interaction."
+                    "content": "You are a helpful AI avatar assistant. Keep responses concise and natural for voice interaction. Maximum 150 words."
                 },
                 {"role": "user", "content": user_message}
             ],
-            max_tokens=150,
-            temperature=0.7
+            max_completion_tokens=200
         )
         
         ai_text = response.choices[0].message.content
+        logger.info(f"AI response generated: {len(ai_text)} chars")
         
         # Step 2: Generate speech with ElevenLabs
         tts_response = requests.post(
@@ -79,15 +142,20 @@ def chat():
                 'model_id': 'eleven_multilingual_v2',
                 'voice_settings': {
                     'stability': 0.5,
-                    'similarity_boost': 0.75
+                    'similarity_boost': 0.75,
+                    'style': 0.0,
+                    'use_speaker_boost': True
                 }
-            }
+            },
+            timeout=30
         )
         
         if tts_response.status_code != 200:
-            return jsonify({'error': 'ElevenLabs TTS failed'}), 500
+            logger.error(f"ElevenLabs error: {tts_response.status_code}")
+            return jsonify({'error': 'ElevenLabs TTS failed', 'details': tts_response.text}), 500
             
         audio_data = base64.b64encode(tts_response.content).decode('utf-8')
+        logger.info("Audio generated successfully")
         
         # Step 3: Create D-ID avatar video
         did_response = requests.post(
@@ -104,25 +172,35 @@ def chat():
                 },
                 'config': {
                     'fluent': True,
-                    'pad_audio': 0
+                    'pad_audio': 0,
+                    'driver_expressions': {
+                        'expressions': [
+                            {'expression': 'neutral', 'start_frame': 0, 'intensity': 0.5}
+                        ]
+                    }
                 }
-            }
+            },
+            timeout=30
         )
         
         if did_response.status_code != 201:
-            return jsonify({'error': 'D-ID video creation failed'}), 500
+            logger.error(f"D-ID error: {did_response.status_code}")
+            return jsonify({'error': 'D-ID video creation failed', 'details': did_response.text}), 500
             
         did_data = did_response.json()
+        logger.info(f"Video creation started: {did_data.get('id')}")
         
         return jsonify({
             'success': True,
             'text': ai_text,
             'talkId': did_data.get('id'),
             'status': did_data.get('status'),
-            'resultUrl': did_data.get('result_url')
+            'resultUrl': did_data.get('result_url'),
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
+        logger.error(f"Error in chat: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/status/<talk_id>', methods=['GET'])
@@ -133,7 +211,8 @@ def check_status(talk_id):
             f'https://api.d-id.com/talks/{talk_id}',
             headers={
                 'Authorization': f'Basic {DID_API_KEY}'
-            }
+            },
+            timeout=10
         )
         
         if response.status_code != 200:
@@ -142,13 +221,44 @@ def check_status(talk_id):
         return jsonify(response.json())
         
     except Exception as e:
+        logger.error(f"Error checking status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/voices', methods=['GET'])
+def list_voices():
+    """List available ElevenLabs voices"""
+    try:
+        response = requests.get(
+            'https://api.elevenlabs.io/v1/voices',
+            headers={'xi-api-key': ELEVENLABS_API_KEY},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to fetch voices'}), 500
+            
+        return jsonify(response.json())
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'healthy', 'version': '1.0.0'})
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'version': '2.0.0',
+        'timestamp': datetime.now().isoformat(),
+        'model': MODEL,
+        'voice': VOICE_ID
+    })
 
 if __name__ == '__main__':
+    logger.info(f"🚀 Starting Avatar AI Backend")
+    logger.info(f"📦 Model: {MODEL}")
+    logger.info(f"🎤 Voice: {VOICE_ID}")
+    logger.info(f"🔑 Keys configured: OpenAI={bool(OPENAI_API_KEY)}, ElevenLabs={bool(ELEVENLABS_API_KEY)}, D-ID={bool(DID_API_KEY)}")
+    
     # Pour production, utilisez gunicorn:
     # gunicorn -w 4 -b 0.0.0.0:8000 app:app
     app.run(host='0.0.0.0', port=8000, debug=False)
@@ -283,8 +393,10 @@ DID_API_KEY=your_did_key_here
         <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 space-y-2">
           <h4 className="font-semibold">Endpoints disponibles:</h4>
           <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <li><code className="text-primary">POST /api/validate</code> - Valider les clés API</li>
             <li><code className="text-primary">POST /api/chat</code> - Traiter un message</li>
             <li><code className="text-primary">GET /api/status/:id</code> - Vérifier statut vidéo</li>
+            <li><code className="text-primary">GET /api/voices</code> - Liste des voix ElevenLabs</li>
             <li><code className="text-primary">GET /health</code> - Health check</li>
           </ul>
         </div>
