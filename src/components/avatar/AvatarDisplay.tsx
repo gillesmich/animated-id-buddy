@@ -47,10 +47,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Load avatar preview when selection changes
   useEffect(() => {
+    console.log("🔄 Avatar sélectionné:", config.selectedAvatar);
     // Toujours utiliser les avatars D-ID officiels pour éviter les erreurs
     if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
-      setVideoUrl(avatarPreviews[config.selectedAvatar]);
+      const avatarUrl = avatarPreviews[config.selectedAvatar];
+      console.log("📸 Chargement de l'avatar URL:", avatarUrl);
+      setVideoUrl(avatarUrl);
     } else {
+      console.log("⚠️ Aucun avatar sélectionné");
       setVideoUrl("");
     }
   }, [config.selectedAvatar]);
@@ -375,25 +379,40 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       <div className="aspect-video rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
-        {videoUrl && !isVideoLoading ? (
-          <>
-            {videoUrl.endsWith('.mp4') || videoUrl.includes('result_url') ? (
+        {videoUrl ? (
+          <div className="relative w-full h-full">
+            {videoUrl.endsWith('.mp4') || videoUrl.includes('result_url') || videoUrl.includes('d-id.com/talks') ? (
+              // Vidéo D-ID générée
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover"
                 loop
                 muted
                 playsInline
-                poster={config.customAvatarImage || avatarPreviews[config.selectedAvatar]}
+                controls
+                poster={videoUrl.replace('.mp4', '.jpg').replace('/talks/', '/images/')}
               >
                 <source src={videoUrl} type="video/mp4" />
               </video>
             ) : (
-              <img
-                src={videoUrl}
-                alt="Avatar preview"
-                className="w-full h-full object-cover"
-              />
+              // Image statique de l'avatar
+              <div className="w-full h-full flex items-center justify-center p-8">
+                <div className="relative">
+                  <img
+                    src={videoUrl}
+                    alt="Avatar preview"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-elegant"
+                    onError={(e) => {
+                      console.error("❌ Erreur chargement image:", videoUrl);
+                      e.currentTarget.src = "https://via.placeholder.com/400x400/1a1a1a/666?text=Avatar";
+                    }}
+                  />
+                  {/* Badge "Preview" */}
+                  <div className="absolute top-2 left-2 px-2 py-1 bg-primary/90 text-primary-foreground text-xs rounded-full">
+                    Prévisualisation
+                  </div>
+                </div>
+              </div>
             )}
             
             {/* Generate Animation Button Overlay */}
@@ -413,7 +432,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                 </p>
               )}
             </div>
-          </>
+          </div>
         ) : isVideoLoading ? (
           <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-4">
             <Loader2 className="w-16 h-16 animate-spin text-primary" />
@@ -428,9 +447,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               <Video className="w-12 h-12 text-primary-foreground" />
             </div>
             <div className="text-center space-y-2">
-              <p className="text-lg font-semibold">Avatar Preview</p>
+              <p className="text-lg font-semibold">Sélectionnez un Avatar</p>
               <p className="text-sm text-muted-foreground px-4">
-                {config.selectedAvatar ? `${config.selectedAvatar} sélectionné` : "Sélectionnez un avatar"}
+                Choisissez un avatar dans l'onglet Configuration
               </p>
               {config.selectedAvatar && (
                 <Button
@@ -440,7 +459,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                   className="mt-4"
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {config.didApiKey ? 'Générer Prévisualisation' : 'Tester en Mode Démo'}
+                  {config.didApiKey ? 'Générer Animation' : 'Tester en Mode Démo'}
                 </Button>
               )}
             </div>
