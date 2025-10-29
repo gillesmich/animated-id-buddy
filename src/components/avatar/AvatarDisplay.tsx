@@ -57,10 +57,29 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Generate preview animation with D-ID
   const generatePreviewAnimation = async () => {
-    if (!config.didApiKey || !videoUrl) {
+    // Mode démo si pas de clé API
+    if (!config.didApiKey) {
       toast({
-        title: "Configuration manquante",
-        description: "Ajoutez votre clé D-ID et sélectionnez un avatar",
+        title: "Mode Démo",
+        description: "Ajoutez votre clé D-ID pour générer de vraies animations",
+      });
+      
+      // Simuler une animation de chargement
+      setIsVideoLoading(true);
+      setTimeout(() => {
+        setIsVideoLoading(false);
+        toast({
+          title: "✅ Démo terminée",
+          description: "Ajoutez vos clés API pour des animations réelles",
+        });
+      }, 3000);
+      return;
+    }
+
+    if (!videoUrl) {
+      toast({
+        title: "Avatar manquant",
+        description: "Sélectionnez d'abord un avatar",
         variant: "destructive",
       });
       return;
@@ -69,7 +88,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     setIsVideoLoading(true);
 
     try {
-      console.log("Génération avec D-ID, avatar URL:", videoUrl);
+      console.log("🎬 Génération D-ID démarrée");
+      console.log("📸 Avatar URL:", videoUrl);
+      console.log("🔑 Clé D-ID configurée:", config.didApiKey.substring(0, 10) + "...");
       
       const response = await fetch('https://api.d-id.com/talks', {
         method: 'POST',
@@ -96,14 +117,26 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         }),
       });
 
+      console.log("📡 Réponse D-ID:", response.status, response.statusText);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Erreur D-ID:', response.status, errorData);
-        throw new Error(errorData.description || `Erreur D-ID: ${response.status}`);
+        console.error('❌ Erreur D-ID:', response.status, errorData);
+        
+        let errorMessage = `Erreur D-ID (${response.status})`;
+        if (errorData.description) {
+          errorMessage = errorData.description;
+        } else if (response.status === 401) {
+          errorMessage = "Clé D-ID invalide. Vérifiez votre configuration.";
+        } else if (response.status === 500) {
+          errorMessage = "Erreur serveur D-ID. Réessayez dans quelques instants.";
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
-      console.log("D-ID réponse:", data);
+      console.log("✅ D-ID talk créé:", data);
       const talkId = data.id;
 
       // Poll for video status
@@ -364,16 +397,21 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             )}
             
             {/* Generate Animation Button Overlay */}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
               <Button
                 onClick={generatePreviewAnimation}
-                disabled={isVideoLoading || !config.didApiKey}
+                disabled={isVideoLoading}
                 className="gradient-primary"
                 size="lg"
               >
                 <Play className="w-5 h-5 mr-2" />
-                Générer Animation
+                {config.didApiKey ? 'Générer Animation' : 'Mode Démo'}
               </Button>
+              {!config.didApiKey && (
+                <p className="text-xs text-white/80 px-4 text-center">
+                  Ajoutez une clé D-ID pour des animations réelles
+                </p>
+              )}
             </div>
           </>
         ) : isVideoLoading ? (
@@ -397,12 +435,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               {config.selectedAvatar && (
                 <Button
                   onClick={generatePreviewAnimation}
-                  disabled={!config.didApiKey}
+                  disabled={isVideoLoading}
                   variant="outline"
                   className="mt-4"
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  Générer Prévisualisation
+                  {config.didApiKey ? 'Générer Prévisualisation' : 'Tester en Mode Démo'}
                 </Button>
               )}
             </div>
