@@ -19,6 +19,7 @@ const Index = () => {
     selectedModel: "gpt-5-2025-08-07",
     workflows: [],
     selectedWorkflow: "",
+    useN8n: false, // Python backend par défaut
   });
 
   const [showEmbed, setShowEmbed] = useState(false);

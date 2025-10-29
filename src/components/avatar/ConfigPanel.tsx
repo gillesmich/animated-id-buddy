@@ -12,7 +12,7 @@ import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
 import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface WorkflowConfig {
   id: string;
@@ -38,12 +38,13 @@ interface ConfigPanelProps {
     selectedModel: string;
     workflows: WorkflowConfig[];
     selectedWorkflow: string;
+    useN8n?: boolean;
   };
   setConfig: (config: any) => void;
 }
 
 const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
-  const [useN8n, setUseN8n] = useState(true);
+  const [useN8n, setUseN8n] = useState(false); // Python par défaut
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
 
   const handleEnvParsed = (env: Record<string, string>) => {
@@ -52,8 +53,17 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
       didApiKey: env.DID_API_KEY || env.VITE_DID_API_KEY || config.didApiKey,
       openaiApiKey: env.OPENAI_API_KEY || env.VITE_OPENAI_API_KEY || config.openaiApiKey,
       elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || config.elevenlabsApiKey,
+      useN8n: useN8n, // Sauvegarder le mode backend
     });
   };
+
+  // Mettre à jour la config quand le mode backend change
+  useEffect(() => {
+    setConfig({
+      ...config,
+      useN8n: useN8n
+    });
+  }, [useN8n]);
 
   return (
     <Card className="glass p-6 space-y-6">
@@ -221,7 +231,7 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
               </div>
               <div className="flex items-center gap-3">
                 <Label htmlFor="backend-mode" className="text-sm font-medium">
-                  {useN8n ? "n8n" : "Python"}
+                  {useN8n ? "n8n Workflow" : "Python Backend"}
                 </Label>
                 <Switch
                   id="backend-mode"

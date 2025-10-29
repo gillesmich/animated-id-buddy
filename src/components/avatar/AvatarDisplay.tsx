@@ -18,6 +18,7 @@ interface AvatarDisplayProps {
     selectedModel: string;
     selectedWorkflow: string;
     workflows: Array<{ id: string; name: string; webhookUrl: string }>;
+    useN8n?: boolean;
   };
 }
 
@@ -255,8 +256,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     // Validation
     if (!config.didApiKey || !config.openaiApiKey || !config.elevenlabsApiKey) {
       toast({
-        title: "Missing Configuration",
-        description: "Please configure all API keys first.",
+        title: "Configuration manquante",
+        description: "Veuillez configurer toutes les clés API",
         variant: "destructive",
       });
       return;
@@ -264,8 +265,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
     if (!config.selectedAvatar || !config.selectedVoice || !config.selectedModel) {
       toast({
-        title: "Missing Selection",
-        description: "Please select avatar, voice, and model.",
+        title: "Sélection manquante",
+        description: "Veuillez sélectionner avatar, voix et modèle",
         variant: "destructive",
       });
       return;
@@ -277,8 +278,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     setMessage("");
 
     try {
-      // Simulate streaming response for better UX
-      if (config.selectedWorkflow) {
+      // Mode n8n workflow
+      if (config.useN8n && config.selectedWorkflow) {
+        console.log("🔀 Utilisation du workflow n8n");
         const result = await sendToWorkflow(userMessage);
         
         // Simulate streaming text
@@ -298,26 +300,38 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         setStreamingText("");
         
         toast({
-          title: "Réponse reçue",
-          description: "L'avatar a traité votre message",
+          title: "✅ Réponse reçue",
+          description: "Le workflow a traité votre message",
         });
-      } else {
-        // Demo mode
-        const demoResponse = "Mode démo: Configurez vos API et sélectionnez un workflow n8n pour des interactions réelles.";
+      } 
+      // Mode Python Backend (par défaut)
+      else {
+        console.log("🐍 Utilisation du backend Python");
+        toast({
+          title: "ℹ️ Mode Backend Python",
+          description: "Déployez le backend Python Flask avec vos clés API configurées",
+        });
+        
+        // Simulation pour la démo
+        const demoResponse = `Backend Python activé! Déployez le code Flask généré dans l'onglet Backend pour des interactions réelles avec OpenAI (${config.selectedModel}), ElevenLabs et D-ID.`;
+        
+        let currentText = "";
+        for (let i = 0; i < demoResponse.length; i++) {
+          currentText += demoResponse[i];
+          setStreamingText(currentText);
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        
         setConversation((prev) => [
           ...prev,
           { role: "assistant", content: demoResponse, type: 'text' },
         ]);
-        
-        toast({
-          title: "Mode Démo",
-          description: "Configurez un workflow pour activer les fonctionnalités",
-        });
+        setStreamingText("");
       }
     } catch (error) {
       console.error('Send message error:', error);
       toast({
-        title: "Erreur",
+        title: "❌ Erreur",
         description: error instanceof Error ? error.message : "Échec de l'envoi",
         variant: "destructive",
       });
