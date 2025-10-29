@@ -4,15 +4,26 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import N8nWorkflowGenerator from "./N8nWorkflowGenerator";
+import WorkflowDesigner from "./WorkflowDesigner";
+import PythonBackendGenerator from "./PythonBackendGenerator";
 import { Key, Mic, Bot, User, Image as ImageIcon, Workflow } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
 import WorkflowManager from "./WorkflowManager";
+import { useState } from "react";
 
 interface WorkflowConfig {
   id: string;
   name: string;
   webhookUrl: string;
+}
+
+interface WorkflowNode {
+  id: string;
+  type: string;
+  name: string;
+  config: Record<string, any>;
 }
 
 interface ConfigPanelProps {
@@ -31,6 +42,9 @@ interface ConfigPanelProps {
 }
 
 const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
+  const [useN8n, setUseN8n] = useState(true);
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
+
   const handleEnvParsed = (env: Record<string, string>) => {
     setConfig({
       ...config,
@@ -57,7 +71,7 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
           <TabsTrigger value="api">API Keys</TabsTrigger>
           <TabsTrigger value="avatar">Avatar</TabsTrigger>
           <TabsTrigger value="options">Options</TabsTrigger>
-          <TabsTrigger value="workflow">Workflow</TabsTrigger>
+          <TabsTrigger value="workflow">Backend</TabsTrigger>
         </TabsList>
 
         <TabsContent value="api" className="space-y-4 mt-4">
@@ -190,21 +204,61 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
         </TabsContent>
 
         <TabsContent value="workflow" className="mt-4">
-          <WorkflowManager
-            workflows={config.workflows}
-            selectedWorkflow={config.selectedWorkflow}
-            onWorkflowsChange={(workflows) => setConfig({ ...config, workflows })}
-            onSelectedChange={(id) => setConfig({ ...config, selectedWorkflow: id })}
-          />
-          
-          <div className="mt-6">
-            <N8nWorkflowGenerator 
+          <div className="glass rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold">Mode Backend</h3>
+                <p className="text-sm text-muted-foreground">
+                  Choisissez entre n8n workflow ou Python backend
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Label htmlFor="backend-mode" className="text-sm font-medium">
+                  {useN8n ? "n8n" : "Python"}
+                </Label>
+                <Switch
+                  id="backend-mode"
+                  checked={useN8n}
+                  onCheckedChange={setUseN8n}
+                />
+              </div>
+            </div>
+          </div>
+
+          {useN8n ? (
+            <div className="space-y-6">
+              <WorkflowManager
+                workflows={config.workflows}
+                selectedWorkflow={config.selectedWorkflow}
+                onWorkflowsChange={(workflows) => setConfig({ ...config, workflows })}
+                onSelectedChange={(id) => setConfig({ ...config, selectedWorkflow: id })}
+              />
+              
+              <div className="border-t border-border/50 pt-6">
+                <h4 className="text-lg font-semibold mb-4">Designer Visuel de Workflow</h4>
+                <WorkflowDesigner onWorkflowUpdate={setWorkflowNodes} />
+              </div>
+              
+              <div className="border-t border-border/50 pt-6">
+                <N8nWorkflowGenerator 
+                  config={{
+                    selectedWorkflow: config.selectedWorkflow,
+                    workflows: config.workflows
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <PythonBackendGenerator 
               config={{
-                selectedWorkflow: config.selectedWorkflow,
-                workflows: config.workflows
+                openaiKey: config.openaiApiKey,
+                elevenlabsKey: config.elevenlabsApiKey,
+                didKey: config.didApiKey,
+                model: config.selectedModel,
+                voiceId: config.selectedVoice
               }}
             />
-          </div>
+          )}
         </TabsContent>
       </Tabs>
     </Card>
