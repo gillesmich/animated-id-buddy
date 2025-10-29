@@ -21,8 +21,18 @@ serve(async (req) => {
 
     console.log('🎤 Whisper transcription request');
 
-    // Convert base64 to blob
-    const audioData = Uint8Array.from(atob(audioBase64.split(',')[1]), c => c.charCodeAt(0));
+    // Handle both data URL format and raw base64
+    let base64Data = audioBase64;
+    if (audioBase64.includes(',')) {
+      base64Data = audioBase64.split(',')[1];
+    }
+
+    // Convert base64 to binary in chunks to handle large files
+    const binaryString = atob(base64Data);
+    const audioData = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      audioData[i] = binaryString.charCodeAt(i);
+    }
     
     const formData = new FormData();
     formData.append('file', new Blob([audioData], { type: 'audio/webm' }), 'audio.webm');
