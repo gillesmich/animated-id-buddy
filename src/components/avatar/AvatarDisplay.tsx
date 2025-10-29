@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Send, Loader2, Video, Play } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import VoiceControls from "./VoiceControls";
+import ErrorOverlay from "./ErrorOverlay";
 import { debounce } from "@/utils/audioUtils";
 
 interface AvatarDisplayProps {
@@ -29,6 +30,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [streamingText, setStreamingText] = useState("");
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [isVideoLoading, setIsVideoLoading] = useState(false);
+  const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -135,14 +137,27 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Erreur D-ID:', response.status, errorData);
         
+        let errorTitle = "Erreur API D-ID";
         let errorMessage = `Erreur D-ID (${response.status})`;
+        
         if (errorData.description) {
           errorMessage = errorData.description;
         } else if (response.status === 401) {
+          errorTitle = "Authentification échouée";
           errorMessage = "Clé D-ID invalide. Vérifiez votre configuration.";
         } else if (response.status === 500) {
-          errorMessage = "Erreur serveur D-ID. Réessayez dans quelques instants.";
+          errorTitle = "Internal Server Error";
+          errorMessage = "Erreur serveur D-ID. Le service rencontre des difficultés. Veuillez réessayer dans quelques instants.";
+        } else if (response.status === 429) {
+          errorTitle = "Limite atteinte";
+          errorMessage = "Trop de requêtes. Attendez quelques instants avant de réessayer.";
         }
+        
+        setApiError({
+          title: errorTitle,
+          message: errorMessage,
+          timestamp: new Date()
+        });
         
         throw new Error(errorMessage);
       }
@@ -204,9 +219,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           clearInterval(checkStatus);
           setIsVideoLoading(false);
           console.error('Status check error:', error);
+          
+          const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+          
+          setApiError({
+            title: "Erreur de suivi",
+            message: errorMessage,
+            timestamp: new Date()
+          });
+          
           toast({
             title: "Erreur de suivi",
-            description: error instanceof Error ? error.message : "Erreur inconnue",
+            description: errorMessage,
             variant: "destructive",
           });
         }
@@ -215,9 +239,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     } catch (error) {
       setIsVideoLoading(false);
       console.error('Preview generation error:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Échec de génération. Vérifiez votre clé D-ID.";
+      
+      setApiError({
+        title: "Erreur de génération",
+        message: errorMessage,
+        timestamp: new Date()
+      });
+      
       toast({
         title: "❌ Erreur de génération",
-        description: error instanceof Error ? error.message : "Échec de génération. Vérifiez votre clé D-ID.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -317,9 +350,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
     } catch (error) {
       console.error('Send message error:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Échec de l'envoi";
+      
+      setApiError({
+        title: "Erreur d'envoi",
+        message: errorMessage,
+        timestamp: new Date()
+      });
+      
       toast({
         title: "❌ Erreur",
-        description: error instanceof Error ? error.message : "Échec de l'envoi",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -349,9 +391,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
     } catch (error) {
       console.error('Voice message error:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Échec du traitement vocal";
+      
+      setApiError({
+        title: "Erreur vocale",
+        message: errorMessage,
+        timestamp: new Date()
+      });
+      
       toast({
         title: "Erreur",
-        description: error instanceof Error ? error.message : "Échec du traitement vocal",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -546,6 +597,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           </Button>
         </div>
       </div>
+
+      {/* Error Overlay */}
+      <ErrorOverlay 
+        error={apiError}
+        onClose={() => setApiError(null)}
+      />
     </Card>
   );
 };
