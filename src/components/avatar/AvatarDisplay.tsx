@@ -9,6 +9,7 @@ import ErrorOverlay from "./ErrorOverlay";
 import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
+import { DIDWebRTCManager } from "@/utils/didWebRTC";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -43,6 +44,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const sessionIdRef = useRef<string | null>(null);
   const pendingStreamRef = useRef<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [webRTCStatus, setWebRTCStatus] = useState<string>("");
+  const webRTCManagerRef = useRef<any>(null);
 
   // Avatar preview URLs - URLs officielles D-ID
   const avatarPreviews: Record<string, string> = {
@@ -122,8 +125,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
 
 
-  // Generate preview animation with D-ID
-  const generatePreviewAnimation = async () => {
+  // Démarrer une session WebRTC avec D-ID
+  const startWebRTCSession = async () => {
     if (!sourceImageUrl) {
       toast({
         title: "Avatar manquant",
@@ -133,144 +136,81 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       return;
     }
 
+    if (!videoRef.current) {
+      toast({
+        title: "Erreur",
+        description: "Élément vidéo non disponible",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsVideoLoading(true);
+    setIsStreaming(true);
 
     try {
-      console.log("🎬 Génération D-ID démarrée");
+      console.log("🎬 Démarrage session WebRTC D-ID");
       console.log("📸 Image source URL:", sourceImageUrl);
       
-      const response = await authenticatedFetch('did-avatar', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'create_talk',
-          data: {
-            source_url: sourceImageUrl,
-              script: {
-                type: 'text',
-                input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
-                provider: {
-                  type: 'microsoft',
-                  voice_id: 'fr-FR-DeniseNeural'
-                }
-              },
-              config: {
-                fluent: true,
-                pad_audio: 0,
-                stitch: true,
-                result_format: 'mp4'
-              }
-            }
-          }),
+      // Créer le gestionnaire WebRTC
+      webRTCManagerRef.current = new DIDWebRTCManager(
+        videoRef.current,
+        (status) => {
+          console.log("📊 Statut WebRTC:", status);
+          setWebRTCStatus(status);
         }
       );
 
-      console.log("📡 Réponse D-ID:", response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erreur D-ID:', response.status, errorData);
-        
-        let errorTitle = "Erreur API D-ID";
-        let errorMessage = `Erreur D-ID: ${errorData.error || response.status}`;
-        
-        if (response.status === 401) {
-          errorTitle = "Authentification échouée";
-          errorMessage = "Clé D-ID non configurée ou invalide.";
-        } else if (response.status === 500) {
-          errorTitle = "Internal Server Error";
-          errorMessage = "Erreur serveur D-ID. Le service rencontre des difficultés. Veuillez réessayer dans quelques instants.";
-        } else if (response.status === 429) {
-          errorTitle = "Limite atteinte";
-          errorMessage = "Trop de requêtes. Attendez quelques instants avant de réessayer.";
-        }
-        
-        setApiError({
-          title: errorTitle,
-          message: errorMessage,
-          timestamp: new Date()
-        });
-        
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      console.log("✅ D-ID talk créé:", data);
-      const talkId = data.id;
-
-      // Poll for video status
-      let attempts = 0;
-      const maxAttempts = 60;
+      // Créer la session
+      await webRTCManagerRef.current.createSession(sourceImageUrl);
       
-      const pollVideo = async (): Promise<string> => {
-        attempts++;
-        console.log(`Vérification statut ${attempts}/${maxAttempts}`);
-        
-        if (attempts > maxAttempts) {
-          throw new Error("Timeout génération vidéo");
-        }
-
-        const statusResponse = await authenticatedFetch('did-avatar', {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'get_talk',
-            data: { talkId }
-          }),
-        });
-
-        if (!statusResponse.ok) {
-          throw new Error("Erreur vérification statut");
-        }
-
-        const statusData = await statusResponse.json();
-        console.log(`Statut D-ID (tentative ${attempts}):`, statusData.status);
-
-        if (statusData.status === 'done' && statusData.result_url) {
-          return statusData.result_url;
-        } else if (statusData.status === 'error' || statusData.status === 'rejected') {
-          throw new Error(statusData.error?.description || 'Erreur de génération');
-        }
-
-        // Attendre 2 secondes avant de réessayer
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return pollVideo();
-      };
-
-      const videoUrl = await pollVideo();
-      
-      setCurrentVideoUrl(videoUrl);
-      setIsVideoLoading(false);
-      
-      // Auto-play video
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.src = videoUrl;
-        videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
-      }
-
       toast({
-        title: "Prévisualisation prête",
-        description: "Animation de l'avatar générée avec succès!",
+        title: "✅ Connexion établie",
+        description: "L'avatar est prêt en mode WebRTC",
       });
 
-    } catch (error) {
+      // Envoyer un message de test
+      await webRTCManagerRef.current.sendText(
+        "Bonjour! Je suis votre assistant virtuel en streaming WebRTC. Comment puis-je vous aider?",
+        'fr-FR-DeniseNeural'
+      );
+
       setIsVideoLoading(false);
-      console.error('Preview generation error:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : "Échec de génération. Vérifiez votre clé D-ID.";
+    } catch (error) {
+      console.error("❌ Erreur WebRTC:", error);
+      setIsVideoLoading(false);
+      setIsStreaming(false);
       
       setApiError({
-        title: "Erreur de génération",
-        message: errorMessage,
+        title: "Erreur WebRTC",
+        message: error instanceof Error ? error.message : "Impossible de démarrer la session WebRTC",
         timestamp: new Date()
       });
       
       toast({
-        title: "Erreur de génération",
-        description: errorMessage,
+        title: "Erreur",
+        description: "Impossible de démarrer le streaming WebRTC",
         variant: "destructive",
       });
     }
   };
+
+  // Arrêter la session WebRTC
+  const stopWebRTCSession = () => {
+    if (webRTCManagerRef.current) {
+      webRTCManagerRef.current.cleanup();
+      webRTCManagerRef.current = null;
+    }
+    setIsStreaming(false);
+    setWebRTCStatus("");
+  };
+
+  // Nettoyer la session WebRTC au démontage
+  useEffect(() => {
+    return () => {
+      stopWebRTCSession();
+    };
+  }, []);
 
   const sendToWorkflow = async (messageText: string, audioBase64?: string) => {
     const selectedWorkflow = config.workflows.find(w => w.id === config.selectedWorkflow);
@@ -309,7 +249,39 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
-    // Validation
+    // Mode WebRTC - envoyer le message directement au stream
+    if (isStreaming && webRTCManagerRef.current) {
+      const userMessage = message.trim();
+      setMessage("");
+      
+      setConversation(prev => [
+        ...prev,
+        { role: "user", content: userMessage, type: 'text' }
+      ]);
+
+      setIsLoading(true);
+      try {
+        // En mode WebRTC, on envoie simplement le texte pour animation
+        await webRTCManagerRef.current.sendText(userMessage, 'fr-FR-DeniseNeural');
+        
+        setConversation(prev => [
+          ...prev,
+          { role: "assistant", content: userMessage, type: 'text' }
+        ]);
+      } catch (error) {
+        console.error("Error sending WebRTC message:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible d'envoyer le message",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Validation pour mode REST classique
     if (!config.didApiKey || !config.openaiApiKey || !config.elevenlabsApiKey) {
       toast({
         title: "Configuration manquante",
@@ -686,6 +658,41 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         <p className="text-sm text-muted-foreground">
           Test your interactive avatar
         </p>
+      </div>
+
+      {/* WebRTC Controls */}
+      <div className="flex gap-2 items-center">
+        {!isStreaming ? (
+          <Button
+            onClick={startWebRTCSession}
+            disabled={isVideoLoading || !sourceImageUrl}
+            className="gradient-primary"
+          >
+            {isVideoLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Connexion WebRTC...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Démarrer WebRTC
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            onClick={stopWebRTCSession}
+            variant="destructive"
+          >
+            Arrêter WebRTC
+          </Button>
+        )}
+        {webRTCStatus && (
+          <span className="text-sm text-muted-foreground">
+            Statut: {webRTCStatus}
+          </span>
+        )}
       </div>
 
       {/* Avatar Video Area */}
