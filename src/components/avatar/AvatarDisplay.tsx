@@ -796,34 +796,22 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     // Typing indicator
   }, 500);
 
-  // Gérer quand l'utilisateur commence à parler - arrêter l'avatar
+  // Gérer quand l'utilisateur commence à parler - transition vers idle
   const handleUserSpeaking = useCallback((speaking: boolean) => {
-    console.log(speaking ? "🎤 Utilisateur commence à parler - arrêt avatar" : "🎤 Utilisateur a fini de parler");
+    console.log(speaking ? "🎤 Utilisateur commence à parler - passage en idle" : "🎤 Utilisateur a fini de parler");
     
     if (speaking) {
-      // Arrêter l'avatar quand l'utilisateur parle
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-        console.log("⏸️ Vidéo avatar mise en pause");
-      }
-      
-      // Couper l'audio si présent
+      // Passer en mode idle (image statique) quand l'utilisateur parle
       if (videoRef.current) {
-        videoRef.current.muted = true;
+        videoRef.current.pause();
+        console.log("⏸️ Avatar en position d'attente");
       }
-      
       setIsAvatarSpeaking(false);
     } else {
-      // Reprendre l'avatar quand l'utilisateur a fini
-      if (videoRef.current && videoRef.current.paused) {
-        videoRef.current.play().catch(err => {
-          console.error("❌ Erreur reprise vidéo:", err);
-        });
-        videoRef.current.muted = false;
-        console.log("▶️ Vidéo avatar reprise");
-      }
+      // Ne rien faire ici - l'avatar reprendra quand il aura une nouvelle réponse
+      console.log("✅ Utilisateur a fini - en attente de réponse");
     }
-  }, []); // Pas de dépendances - la fonction reste stable
+  }, []);
 
   // Détecter quand l'avatar parle et gérer les transitions
   useEffect(() => {

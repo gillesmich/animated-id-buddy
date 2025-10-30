@@ -54,9 +54,22 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('✅ Whisper transcription success:', data.text);
+    
+    // Filtrer les sous-titres automatiques indésirables
+    let cleanedText = data.text;
+    const subtitlePatterns = [
+      /sous[-\s]?titres?\s+réalisés?\s+(par|para)\s+la\s+communauté\s+d'?amara\.org/gi,
+      /subtítulos?\s+realizados?\s+por\s+la\s+comunidad\s+de\s+amara\.org/gi,
+      /subtitles?\s+(by|from)\s+amara\.org\s+community/gi,
+    ];
+    
+    for (const pattern of subtitlePatterns) {
+      cleanedText = cleanedText.replace(pattern, '').trim();
+    }
+    
+    console.log('✅ Whisper transcription success:', cleanedText);
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ ...data, text: cleanedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
