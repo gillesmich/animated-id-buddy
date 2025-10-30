@@ -54,8 +54,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
   };
 
-  // Vidéos d'idle (sourire/attente) - À personnaliser
-  const idleVideos: Record<string, string> = {
+  // Images de poster pour les avatars (utilisées comme fallback)
+  const posterImages: Record<string, string> = {
     amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
     john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
     sophia: "https://create-images-results.d-id.com/default_presenter_image/stacey/image.jpeg",
@@ -70,22 +70,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   // Initialiser le gestionnaire de transitions
   useEffect(() => {
     if (videoRef.current && secondaryVideoRef.current) {
-      const idleUrl = config.customAvatarImage || 
-                      (config.selectedAvatar && idleVideos[config.selectedAvatar]) || 
-                      "";
-      
       transitionManagerRef.current = new VideoTransitionManager(
         videoRef.current,
         secondaryVideoRef.current,
-        idleUrl
+        "" // Pas de vidéo idle par défaut
       );
 
       console.log("🎬 Gestionnaire de transitions initialisé");
-
-      // Démarrer avec la vidéo d'idle
-      if (!isStreaming) {
-        transitionManagerRef.current.playIdle();
-      }
     }
 
     return () => {
@@ -885,11 +876,11 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       </div>
 
       {/* Avatar Video Area */}
-      <div className="h-[600px] rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
+      <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
         {/* Deux éléments vidéo pour les transitions fluides */}
-        <div className="relative w-full h-full">
+        <div className="relative w-full aspect-video">
           {/* Vidéo principale */}
           <video
             ref={videoRef}
@@ -899,6 +890,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             autoPlay
             playsInline
             muted={false}
+            poster={config.customAvatarImage || (config.selectedAvatar && posterImages[config.selectedAvatar]) || ""}
             style={{ opacity: 1 }}
           />
           
@@ -964,6 +956,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             </p>
           )}
         </div>
+        
+        {/* Voice Controls - Positionnés directement sous la vidéo */}
+        <VoiceControls
+          onVoiceMessage={handleVoiceMessage}
+          isProcessing={isLoading}
+          className="justify-center mt-3"
+          onUserSpeaking={handleUserSpeaking}
+          isAvatarSpeaking={isAvatarSpeaking}
+        />
       </div>
 
       {/* Chat Interface */}
@@ -1005,15 +1006,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           )}
           <div ref={conversationEndRef} />
         </div>
-
-        {/* Voice Controls */}
-        <VoiceControls
-          onVoiceMessage={handleVoiceMessage}
-          isProcessing={isLoading}
-          className="justify-center"
-          onUserSpeaking={handleUserSpeaking}
-          isAvatarSpeaking={isAvatarSpeaking}
-        />
 
         {/* Text Input */}
         <div className="flex gap-2">
