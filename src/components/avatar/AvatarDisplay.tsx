@@ -88,7 +88,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   useEffect(() => {
     console.log("🔄 Avatar config:", { 
       selectedAvatar: config.selectedAvatar, 
-      customAvatarImage: config.customAvatarImage?.substring(0, 50) 
+      customAvatarImage: config.customAvatarImage?.substring(0, 50),
+      hasAvatarPreviews: Object.keys(avatarPreviews).length
     });
     
     // Priorité à l'image personnalisée
@@ -103,8 +104,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setCurrentVideoUrl(avatarUrl);
     } else {
       console.log("⚠️ Aucun avatar configuré");
-      setSourceImageUrl("");
-      setCurrentVideoUrl("");
+      // Fallback vers le premier avatar disponible
+      const firstAvatar = Object.values(avatarPreviews)[0];
+      if (firstAvatar) {
+        console.log("📸 Fallback vers premier avatar:", firstAvatar);
+        setSourceImageUrl(firstAvatar);
+        setCurrentVideoUrl(firstAvatar);
+      } else {
+        setSourceImageUrl("");
+        setCurrentVideoUrl("");
+      }
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
 
