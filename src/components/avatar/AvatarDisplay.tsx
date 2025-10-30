@@ -655,38 +655,11 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       ]);
       setStreamingText("");
 
-      // Étape 3: Génération vidéo via WebRTC stream
-      console.log("🎬 Étape 3: Envoi au stream WebRTC...");
-      
-      // Validation de la longueur du texte
-      let textForVideo = responseText;
-      if (textForVideo.length > 1000) {
-        console.warn("⚠️ Texte trop long, troncature à 1000 caractères");
-        textForVideo = textForVideo.substring(0, 997) + "...";
-      }
-      
-      // Si le stream est actif, envoyer directement
-      if (isStreaming && streamIdRef.current) {
-        await sendStreamMessage(textForVideo);
-        toast({
-          title: "✅ Message envoyé",
-          description: "L'avatar répond en temps réel",
-        });
-      } else {
-        // Sinon, initialiser le stream puis envoyer
-        toast({
-          title: "🔄 Initialisation...",
-          description: "Connexion au stream WebRTC",
-        });
-        await initializeWebRTCStream();
-        
-        // Attendre que le stream soit prêt
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        if (streamIdRef.current) {
-          await sendStreamMessage(textForVideo);
-        }
-      }
+      // Mode conversation : pas de génération vidéo automatique
+      toast({
+        title: "✅ Conversation terminée",
+        description: "Réponse générée sans vidéo",
+      });
 
 
 

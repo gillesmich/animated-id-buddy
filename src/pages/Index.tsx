@@ -14,15 +14,23 @@ const Index = () => {
     const saved = localStorage.getItem("avatarAI_config");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Charger les clés depuis .env si disponibles et pas déjà configurées
+        return {
+          ...parsed,
+          didApiKey: parsed.didApiKey || import.meta.env.VITE_DID_API_KEY || "",
+          openaiApiKey: parsed.openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY || "",
+          elevenlabsApiKey: parsed.elevenlabsApiKey || import.meta.env.VITE_ELEVENLABS_API_KEY || "",
+        };
       } catch (e) {
         console.error("Erreur de chargement de la config:", e);
       }
     }
+    // Charger depuis .env au premier démarrage
     return {
-      didApiKey: "",
-      openaiApiKey: "",
-      elevenlabsApiKey: "",
+      didApiKey: import.meta.env.VITE_DID_API_KEY || "",
+      openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY || "",
+      elevenlabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || "",
       selectedAvatar: "amy",
       customAvatarImage: "",
       selectedVoice: "EXAVITQu4vr4xnSDxMaL",
