@@ -29,10 +29,6 @@ serve(async (req) => {
     console.log('D-ID API call:', action);
     console.log('Request data:', JSON.stringify(data, null, 2));
 
-    // Encode API key properly for Basic auth (format: base64(api_key:))
-    const encodedKey = btoa(`${DID_API_KEY}:`);
-    console.log('Encoded key format verified');
-
     let url: string;
     let method = 'POST';
     let body: any;
@@ -64,7 +60,7 @@ serve(async (req) => {
     const response = await fetch(url, {
       method,
       headers: {
-        'Authorization': `Basic ${encodedKey}`,
+        'Authorization': `Basic ${DID_API_KEY}`,
         'Content-Type': 'application/json',
       },
       ...(body && { body: JSON.stringify(body) }),
