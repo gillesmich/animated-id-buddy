@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -165,68 +164,89 @@ const VoiceControls = ({
       </div>
       
       <div className="flex items-center gap-3">
-        {/* Toggle VAD Mode */}
-        <Button
-          type="button"
-          size="lg"
-          variant={vadEnabled ? "default" : "outline"}
-          onClick={() => {
-            console.log("👆 Click détecté sur bouton VAD");
+        {/* Toggle VAD Mode - DIV simple */}
+        <div
+          role="button"
+          tabIndex={0}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            console.log("👆 Touch START sur bouton VAD");
+            setClickCount(prev => prev + 1);
             toggleVAD();
           }}
-          className={isListening ? "ring-2 ring-primary" : ""}
+          onClick={(e) => {
+            e.preventDefault();
+            console.log("👆 Click détecté sur bouton VAD");
+            setClickCount(prev => prev + 1);
+            toggleVAD();
+          }}
+          className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
+            vadEnabled 
+              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+              : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+          } ${isListening ? "ring-2 ring-primary" : ""}`}
           style={{ 
-            pointerEvents: 'auto',
             cursor: 'pointer', 
             touchAction: 'manipulation',
             userSelect: 'none',
-            WebkitTapHighlightColor: 'transparent',
-            border: '2px solid red'
+            WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+            border: '3px solid red'
           }}
         >
           {vadEnabled ? (
             <>
-              <Mic className="w-5 h-5 mr-2" />
-              VAD On
+              <Mic className="w-5 h-5" />
+              <span>VAD On</span>
             </>
           ) : (
             <>
-              <MicOff className="w-5 h-5 mr-2" />
-              VAD Off
+              <MicOff className="w-5 h-5" />
+              <span>VAD Off</span>
             </>
           )}
-        </Button>
+        </div>
 
-        {/* Toggle audio */}
-        <Button
-          type="button"
-          size="lg"
-          variant={audioEnabled ? "default" : "outline"}
-          onClick={() => {
-            console.log("👆 Click détecté sur bouton Audio");
+        {/* Toggle audio - DIV simple */}
+        <div
+          role="button"
+          tabIndex={0}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            console.log("👆 Touch START sur bouton Audio");
+            setClickCount(prev => prev + 1);
             toggleAudio();
           }}
+          onClick={(e) => {
+            e.preventDefault();
+            console.log("👆 Click détecté sur bouton Audio");
+            setClickCount(prev => prev + 1);
+            toggleAudio();
+          }}
+          className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
+            audioEnabled 
+              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+              : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+          }`}
           style={{ 
-            pointerEvents: 'auto',
             cursor: 'pointer', 
             touchAction: 'manipulation',
             userSelect: 'none',
-            WebkitTapHighlightColor: 'transparent',
-            border: '2px solid red'
+            WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+            border: '3px solid red'
           }}
         >
           {audioEnabled ? (
             <>
-              <Volume2 className="w-5 h-5 mr-2" />
-              Audio
+              <Volume2 className="w-5 h-5" />
+              <span>Audio</span>
             </>
           ) : (
             <>
-              <VolumeX className="w-5 h-5 mr-2" />
-              Muet
+              <VolumeX className="w-5 h-5" />
+              <span>Muet</span>
             </>
           )}
-        </Button>
+        </div>
 
         {/* Indicateurs de statut */}
         <div className="flex items-center gap-2 ml-auto">
