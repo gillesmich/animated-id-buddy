@@ -25,8 +25,10 @@ const VoiceControls = ({
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
+  const pushToTalkRecorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const pushToTalkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
@@ -34,8 +36,14 @@ const VoiceControls = ({
       if (recorderRef.current?.isRecording()) {
         recorderRef.current.stop();
       }
+      if (pushToTalkRecorderRef.current?.isRecording()) {
+        pushToTalkRecorderRef.current.stop();
+      }
       if (pushToTalkTimeoutRef.current) {
         clearTimeout(pushToTalkTimeoutRef.current);
+      }
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
       }
     };
   }, []);
@@ -46,10 +54,10 @@ const VoiceControls = ({
   }, [isRecording, onUserSpeaking]);
 
   const startRecording = async () => {
-    if (isProcessing || isRecording) return;
+    if (isProcessing || isRecording || isPushToTalkActive) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
+      console.log("🎤 [BTN1] Démarrage de l'enregistrement 5 secondes...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -60,22 +68,22 @@ const VoiceControls = ({
       await recorderRef.current.start();
       setIsRecording(true);
       
-      console.log("✅ Enregistrement démarré");
+      console.log("✅ [BTN1] Enregistrement démarré");
       toast({
         title: "Enregistrement 5s",
         description: "Parlez maintenant...",
       });
 
       // Arrêt automatique après 5 secondes
-      setTimeout(async () => {
-        if (recorderRef.current?.isRecording() && !isPushToTalkActive) {
-          console.log("⏱️ 5 secondes écoulées, arrêt automatique");
+      autoStopTimeoutRef.current = setTimeout(async () => {
+        if (recorderRef.current?.isRecording()) {
+          console.log("⏱️ [BTN1] 5 secondes écoulées, arrêt automatique");
           await stopRecording();
         }
       }, 5000);
       
     } catch (error) {
-      console.error('❌ Recording error:', error);
+      console.error('❌ [BTN1] Recording error:', error);
       toast({
         title: "Erreur microphone",
         description: error instanceof Error ? error.message : "Impossible d'accéder au microphone. Vérifiez les permissions.",
@@ -88,7 +96,13 @@ const VoiceControls = ({
     if (!recorderRef.current) return;
 
     try {
-      console.log("🛑 Arrêt de l'enregistrement...");
+      console.log("🛑 [BTN1] Arrêt de l'enregistrement...");
+      
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+        autoStopTimeoutRef.current = null;
+      }
+      
       const audioBlob = await recorderRef.current.stop();
       setIsRecording(false);
       
@@ -96,14 +110,14 @@ const VoiceControls = ({
         throw new Error("Enregistrement vide - parlez plus longtemps");
       }
       
-      console.log(`📦 Audio blob: ${audioBlob.size} bytes`);
+      console.log(`📦 [BTN1] Audio blob: ${audioBlob.size} bytes`);
       const base64Audio = await audioToBase64(audioBlob);
       
       if (!base64Audio || base64Audio.length === 0) {
         throw new Error("Échec de conversion audio");
       }
       
-      console.log(`📤 Envoi de ${base64Audio.length} caractères`);
+      console.log(`📤 [BTN1] Envoi de ${base64Audio.length} caractères`);
       await onVoiceMessage(base64Audio);
       
       toast({
@@ -111,7 +125,7 @@ const VoiceControls = ({
         description: "Traitement en cours...",
       });
     } catch (error) {
-      console.error('Stop recording error:', error);
+      console.error('[BTN1] Stop recording error:', error);
       setIsRecording(false);
       toast({
         title: "Erreur",
@@ -123,18 +137,18 @@ const VoiceControls = ({
 
   // Push-to-talk: Maintenir le bouton pour enregistrer
   const handlePushToTalkStart = async () => {
-    if (isProcessing || isRecording) return;
+    if (isProcessing || isPushToTalkActive || isRecording) return;
 
     try {
-      console.log("🎤 Push-to-talk: Début enregistrement");
+      console.log("🎤 [BTN2] Push-to-talk: Début enregistrement");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
         throw new Error("Permission microphone refusée");
       }
       
-      recorderRef.current = new AudioRecorder();
-      await recorderRef.current.start();
+      pushToTalkRecorderRef.current = new AudioRecorder();
+      await pushToTalkRecorderRef.current.start();
       setIsPushToTalkActive(true);
       setIsRecording(true);
       
@@ -144,7 +158,7 @@ const VoiceControls = ({
       });
       
     } catch (error) {
-      console.error('❌ Push-to-talk error:', error);
+      console.error('❌ [BTN2] Push-to-talk error:', error);
       toast({
         title: "Erreur microphone",
         description: error instanceof Error ? error.message : "Impossible d'accéder au microphone",
@@ -157,15 +171,53 @@ const VoiceControls = ({
   const handlePushToTalkEnd = async () => {
     if (!isPushToTalkActive) return;
 
-    console.log("🎤 Push-to-talk: Fin enregistrement");
+    console.log("🎤 [BTN2] Push-to-talk: Fin enregistrement");
     setIsPushToTalkActive(false);
     
     // Petit délai pour éviter les enregistrements trop courts
     pushToTalkTimeoutRef.current = setTimeout(async () => {
-      if (recorderRef.current?.isRecording()) {
-        await stopRecording();
+      if (pushToTalkRecorderRef.current?.isRecording()) {
+        await stopPushToTalkRecording();
       }
     }, 100);
+  };
+
+  const stopPushToTalkRecording = async () => {
+    if (!pushToTalkRecorderRef.current) return;
+
+    try {
+      console.log("🛑 [BTN2] Arrêt push-to-talk...");
+      
+      const audioBlob = await pushToTalkRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (audioBlob.size === 0) {
+        throw new Error("Enregistrement vide - parlez plus longtemps");
+      }
+      
+      console.log(`📦 [BTN2] Audio blob: ${audioBlob.size} bytes`);
+      const base64Audio = await audioToBase64(audioBlob);
+      
+      if (!base64Audio || base64Audio.length === 0) {
+        throw new Error("Échec de conversion audio");
+      }
+      
+      console.log(`📤 [BTN2] Envoi de ${base64Audio.length} caractères`);
+      await onVoiceMessage(base64Audio);
+      
+      toast({
+        title: "Message envoyé",
+        description: "Traitement en cours...",
+      });
+    } catch (error) {
+      console.error('[BTN2] Stop recording error:', error);
+      setIsRecording(false);
+      toast({
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Échec de l'enregistrement",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleAudio = () => {
@@ -187,7 +239,7 @@ const VoiceControls = ({
         size="lg"
         variant={isRecording && !isPushToTalkActive ? "destructive" : "default"}
         onClick={startRecording}
-        disabled={isProcessing || isRecording}
+        disabled={isProcessing || isPushToTalkActive}
         className={isRecording && !isPushToTalkActive ? "animate-pulse" : ""}
       >
         {isProcessing ? (
@@ -214,7 +266,7 @@ const VoiceControls = ({
         onMouseLeave={handlePushToTalkEnd}
         onTouchStart={handlePushToTalkStart}
         onTouchEnd={handlePushToTalkEnd}
-        disabled={isProcessing || (isRecording && !isPushToTalkActive)}
+        disabled={isProcessing || isRecording}
         className={`glass ${isPushToTalkActive ? "animate-pulse ring-2 ring-destructive" : ""}`}
       >
         {isPushToTalkActive ? (

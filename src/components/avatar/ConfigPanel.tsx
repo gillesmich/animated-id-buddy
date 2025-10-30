@@ -16,6 +16,8 @@ import VideoUploader from "./VideoUploader";
 import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface WorkflowConfig {
   id: string;
@@ -51,6 +53,9 @@ interface ConfigPanelProps {
 const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
   const [useN8n, setUseN8n] = useState(false); // Python par défaut
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
+  const [voices, setVoices] = useState<Array<{ voice_id: string; name: string }>>([]);
+  const [loadingVoices, setLoadingVoices] = useState(false);
+  const { toast } = useToast();
 
   const handleEnvParsed = (env: Record<string, string>) => {
     console.log("🔑 Env keys received:", Object.keys(env));
@@ -71,6 +76,40 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
     
     setConfig(updatedConfig);
   };
+
+  // Charger les voix ElevenLabs au montage si la clé API est présente
+  useEffect(() => {
+    const loadVoices = async () => {
+      if (!config.elevenlabsApiKey) {
+        console.log('⚠️ ElevenLabs API key not set, skipping voice fetch');
+        return;
+      }
+
+      setLoadingVoices(true);
+      try {
+        console.log('🎤 Fetching ElevenLabs voices...');
+        const { data, error } = await supabase.functions.invoke('elevenlabs-voices');
+        
+        if (error) throw error;
+        
+        if (data?.voices) {
+          setVoices(data.voices);
+          console.log(`✅ Loaded ${data.voices.length} voices`);
+        }
+      } catch (error) {
+        console.error('❌ Error loading voices:', error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les voix ElevenLabs. Vérifiez votre clé API.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingVoices(false);
+      }
+    };
+
+    loadVoices();
+  }, [config.elevenlabsApiKey]);
 
   // Mettre à jour la config quand le mode backend change
   useEffect(() => {
@@ -209,15 +248,26 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             <Select
               value={config.selectedVoice}
               onValueChange={(value) => setConfig({ ...config, selectedVoice: value })}
+              disabled={loadingVoices}
             >
               <SelectTrigger className="glass">
-                <SelectValue placeholder="Select a voice" />
+                <SelectValue placeholder={loadingVoices ? "Chargement..." : "Sélectionner une voix"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="EXAVITQu4vr4xnSDxMaL">Sarah - Warm & Friendly</SelectItem>
-                <SelectItem value="TX3LPaxmHKxFdv7VOQHJ">Liam - Professional</SelectItem>
-                <SelectItem value="pNInz6obpgDQGcFmaJgB">Charlotte - Energetic</SelectItem>
-                <SelectItem value="nPczCjzI2devNBz1zQrb">Brian - Clear & Concise</SelectItem>
+                {voices.length > 0 ? (
+                  voices.map((voice) => (
+                    <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                      {voice.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <>
+                    <SelectItem value="EXAVITQu4vr4xnSDxMaL">Sarah - Warm & Friendly</SelectItem>
+                    <SelectItem value="TX3LPaxmHKxFdv7VOQHJ">Liam - Professional</SelectItem>
+                    <SelectItem value="pNInz6obpgDQGcFmaJgB">Charlotte - Energetic</SelectItem>
+                    <SelectItem value="nPczCjzI2devNBz1zQrb">Brian - Clear & Concise</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>

@@ -55,17 +55,29 @@ serve(async (req) => {
 
     const data = await response.json();
     
-    // Filtrer les sous-titres automatiques indésirables
+    // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
     const subtitlePatterns = [
-      /sous[-\s]?titres?\s+réalisés?\s+(par|para)\s+la\s+communauté\s+d'?amara\.org/gi,
-      /subtítulos?\s+realizados?\s+por\s+la\s+comunidad\s+de\s+amara\.org/gi,
-      /subtitles?\s+(by|from)\s+amara\.org\s+community/gi,
+      // Patterns pour "sous-titres réalisés"
+      /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
+      /subtítulos?\s+realizados?\s+(por|para)\s+(la\s+)?comunidad\s+de\s+amara\.org/gi,
+      /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
+      // Patterns génériques pour toute mention d'Amara
+      /.*amara\.org.*/gi,
+      /.*communauté\s+(d'?|de\s+)?amara.*/gi,
+      /.*community.*amara.*/gi,
+      // Patterns pour crédits vidéo courants
+      /.*sous[-\s]?titr.*/gi,
+      /.*subtítulo.*/gi,
+      /.*subtitle.*/gi,
     ];
     
     for (const pattern of subtitlePatterns) {
       cleanedText = cleanedText.replace(pattern, '').trim();
     }
+    
+    // Nettoyer les espaces multiples et lignes vides
+    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
     
     console.log('✅ Whisper transcription success:', cleanedText);
 
