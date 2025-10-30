@@ -133,12 +133,23 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       // Handle incoming tracks
       peerConnection.ontrack = (event) => {
-        console.log("📹 Stream vidéo reçu");
-        if (videoRef.current && event.streams[0]) {
+        console.log("📹 Track reçu:", event.track.kind, "- Streams:", event.streams.length);
+        
+        // Ne traiter que le track vidéo pour éviter les doublons
+        if (event.track.kind === 'video' && videoRef.current && event.streams[0]) {
+          console.log("🎬 Configuration du stream vidéo WebRTC");
+          
           videoRef.current.srcObject = event.streams[0];
-          videoRef.current.play().catch(err => console.log("Autoplay:", err));
           setIsStreaming(true);
           setIsVideoLoading(false);
+          
+          // Forcer la lecture dès que les métadonnées sont chargées
+          videoRef.current.onloadedmetadata = () => {
+            console.log("✅ Métadonnées vidéo chargées, lancement lecture");
+            videoRef.current?.play()
+              .then(() => console.log("✅ Lecture vidéo démarrée"))
+              .catch(err => console.error("❌ Erreur autoplay:", err));
+          };
         }
       };
 
