@@ -151,25 +151,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       const streamData = await streamResponse.json();
       streamIdRef.current = streamData.id;
+      sessionIdRef.current = streamData.session_id;
       
-      // Extract cookies from session_id - D-ID returns cookies as a string
-      const rawSessionId = streamData.session_id;
-      if (rawSessionId && typeof rawSessionId === 'string') {
-        // Parse cookies - they are separated by semicolons
-        const cookies = rawSessionId.split(';')
-          .map(c => c.trim())
-          .filter(c => c.startsWith('AWSALB') || c.startsWith('Path=') || c.startsWith('Expires=') || c.startsWith('SameSite=') || c.startsWith('Secure'));
-        
-        // Store only the AWSALB cookies (the actual session identifiers)
-        const sessionCookies = cookies
-          .filter(c => c.startsWith('AWSALB'))
-          .join('; ');
-        
-        sessionIdRef.current = sessionCookies || rawSessionId;
-        console.log("✅ Session cookies:", sessionCookies.substring(0, 100) + "...");
-      } else {
-        sessionIdRef.current = rawSessionId;
-      }
+      console.log("✅ Stream créé:", streamIdRef.current);
+      console.log("✅ Session ID:", sessionIdRef.current);
       
       const offer = streamData.offer;
       const iceServers = streamData.ice_servers || [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -227,17 +212,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
 
-      // Step 3: Send answer to D-ID with session cookies in headers
+      // Step 3: Send answer to D-ID
       const sdpResponse = await fetch(`https://api.d-id.com/talks/streams/${streamIdRef.current}/sdp`, {
         method: 'POST',
         headers: {
           'Authorization': `Basic ${config.didApiKey}`,
           'Content-Type': 'application/json',
-          'Cookie': sessionIdRef.current || '', // Send session as Cookie header
         },
         body: JSON.stringify({
           answer: answer,
-          session_id: sessionIdRef.current, // Also keep in body for compatibility
+          session_id: sessionIdRef.current,
         }),
       });
 
@@ -288,7 +272,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         headers: {
           'Authorization': `Basic ${config.didApiKey}`,
           'Content-Type': 'application/json',
-          'Cookie': sessionIdRef.current || '', // Send session as Cookie header
         },
         body: JSON.stringify({
           script: {
@@ -302,7 +285,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           config: {
             stitch: true,
           },
-          session_id: sessionIdRef.current // Also keep in body for compatibility
+          session_id: sessionIdRef.current
         }),
       });
 
