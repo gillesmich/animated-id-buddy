@@ -10,7 +10,7 @@ import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { DIDWebRTCManager } from "@/utils/didWebRTC";
-import { getAvatarImage, getAvatarPublicUrl, PRESET_AVATARS } from "@/config/avatars";
+import { getAvatarImage, getAvatarPublicUrl } from "@/config/avatars";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -48,18 +48,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [webRTCStatus, setWebRTCStatus] = useState<string>("");
   const webRTCManagerRef = useRef<any>(null);
 
-  // Avatar preview images - Images locales pour affichage UI
-  const avatarPreviews: Record<string, string> = Object.fromEntries(
-    PRESET_AVATARS.map(avatar => [avatar.id, avatar.image])
-  );
-
-  // URLs publiques pour API D-ID
   const [sourceImageUrl, setSourceImageUrl] = useState<string>(getAvatarPublicUrl('amy'));
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const posterImages: Record<string, string> = Object.fromEntries(
-    PRESET_AVATARS.map(avatar => [avatar.id, avatar.image])
-  );
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -87,8 +78,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   useEffect(() => {
     console.log("🔄 Avatar config:", { 
       selectedAvatar: config.selectedAvatar, 
-      customAvatarImage: config.customAvatarImage?.substring(0, 50),
-      hasAvatarPreviews: Object.keys(avatarPreviews).length
+      customAvatarImage: config.customAvatarImage?.substring(0, 50)
     });
     
     // Priorité à l'image personnalisée
@@ -101,8 +91,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       const publicUrl = getAvatarPublicUrl(config.selectedAvatar);
       const localUrl = getAvatarImage(config.selectedAvatar);
       console.log("📸 Chargement avatar:", { publicUrl, localUrl });
-      setSourceImageUrl(publicUrl); // URL publique pour D-ID API
-      setCurrentVideoUrl(localUrl);  // URL locale pour affichage
+      setSourceImageUrl(publicUrl); // URL publique HTTP pour D-ID API
+      setCurrentVideoUrl(localUrl);  // URL locale pour affichage UI
     } else {
       console.log("⚠️ Aucun avatar configuré - utilisation avatar par défaut");
       const defaultPublicUrl = getAvatarPublicUrl('amy');
@@ -702,7 +692,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             autoPlay
             playsInline
             muted={false}
-            poster={config.customAvatarImage || (config.selectedAvatar && posterImages[config.selectedAvatar]) || ""}
+            poster={config.customAvatarImage || getAvatarImage(config.selectedAvatar) || ""}
             style={{ opacity: 1 }}
           />
           
