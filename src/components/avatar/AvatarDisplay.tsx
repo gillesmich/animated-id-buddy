@@ -758,7 +758,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       </div>
 
       {/* Avatar Video Area */}
-      <div className="aspect-video rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
+      <div className="h-[600px] rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
         {currentVideoUrl || isStreaming ? (
