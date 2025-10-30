@@ -25,7 +25,7 @@ const VoiceControls = ({
   
   const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
-  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
@@ -33,8 +33,8 @@ const VoiceControls = ({
       if (recorderRef.current?.isRecording()) {
         recorderRef.current.stop();
       }
-      if (recordingTimeoutRef.current) {
-        clearTimeout(recordingTimeoutRef.current);
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
       }
     };
   }, []);
@@ -48,7 +48,7 @@ const VoiceControls = ({
     if (isProcessing || isRecording) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement...");
+      console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -61,9 +61,17 @@ const VoiceControls = ({
       
       console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement actif",
-        description: "Parlez maintenant... Cliquez à nouveau pour arrêter",
+        title: "Enregistrement 5s",
+        description: "Parlez maintenant...",
       });
+
+      // Arrêt automatique après 5 secondes
+      autoStopTimeoutRef.current = setTimeout(async () => {
+        if (recorderRef.current?.isRecording()) {
+          console.log("⏱️ 5 secondes écoulées, arrêt automatique");
+          await stopRecording();
+        }
+      }, 5000);
       
     } catch (error) {
       console.error('❌ Recording error:', error);
@@ -81,9 +89,9 @@ const VoiceControls = ({
     try {
       console.log("🛑 Arrêt de l'enregistrement...");
       
-      if (recordingTimeoutRef.current) {
-        clearTimeout(recordingTimeoutRef.current);
-        recordingTimeoutRef.current = null;
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+        autoStopTimeoutRef.current = null;
       }
       
       const audioBlob = await recorderRef.current.stop();
@@ -118,13 +126,6 @@ const VoiceControls = ({
     }
   };
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
 
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
@@ -140,11 +141,11 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Bouton Parlez et maintenez enfoncé */}
+      {/* Bouton enregistrement 5 secondes */}
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onClick={toggleRecording}
+        onClick={startRecording}
         disabled={isProcessing}
         className={isRecording ? "animate-pulse" : ""}
       >
@@ -153,12 +154,12 @@ const VoiceControls = ({
         ) : isRecording ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
-            Arrêter
+            Enregistrement...
           </>
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Parlez et maintenez enfoncé
+            Parler (5s)
           </>
         )}
       </Button>
