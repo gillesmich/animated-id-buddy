@@ -46,10 +46,10 @@ const VoiceControls = ({
 
   // Push-to-talk: Maintenir le bouton pour enregistrer
   const handlePushToTalkStart = async () => {
-    if (isProcessing || isRecording) return;
+    if (isProcessing) return;
 
     try {
-      console.log("🎤 [BTN2] Push-to-talk: Début enregistrement");
+      console.log("🎤 Push-to-talk: Début enregistrement");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -79,7 +79,6 @@ const VoiceControls = ({
     if (!isRecording) return;
 
     console.log("🎤 Push-to-talk: Fin enregistrement");
-    setIsRecording(false);
     
     // Petit délai pour éviter les enregistrements trop courts
     pushToTalkTimeoutRef.current = setTimeout(async () => {
@@ -96,6 +95,7 @@ const VoiceControls = ({
       console.log("🛑 Arrêt push-to-talk...");
       
       const audioBlob = await pushToTalkRecorderRef.current.stop();
+      setIsRecording(false);
       
       if (audioBlob.size === 0) {
         throw new Error("Enregistrement vide - parlez plus longtemps");
@@ -117,6 +117,7 @@ const VoiceControls = ({
       });
     } catch (error) {
       console.error('Stop recording error:', error);
+      setIsRecording(false);
       toast({
         title: "Erreur",
         description: error instanceof Error ? error.message : "Échec de l'enregistrement",
