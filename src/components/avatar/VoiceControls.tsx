@@ -95,10 +95,22 @@ const VoiceControls = ({
     if (!recorderRef.current) return;
 
     try {
+      console.log("🛑 Arrêt de l'enregistrement...");
       const audioBlob = await recorderRef.current.stop();
       setIsRecording(false);
       
+      if (audioBlob.size === 0) {
+        throw new Error("Enregistrement vide - parlez plus longtemps");
+      }
+      
+      console.log(`📦 Audio blob: ${audioBlob.size} bytes`);
       const base64Audio = await audioToBase64(audioBlob);
+      
+      if (!base64Audio || base64Audio.length === 0) {
+        throw new Error("Échec de conversion audio");
+      }
+      
+      console.log(`📤 Envoi de ${base64Audio.length} caractères`);
       await onVoiceMessage(base64Audio);
       
       toast({
@@ -107,9 +119,10 @@ const VoiceControls = ({
       });
     } catch (error) {
       console.error('Stop recording error:', error);
+      setIsRecording(false);
       toast({
         title: "Erreur",
-        description: "Échec de l'enregistrement",
+        description: error instanceof Error ? error.message : "Échec de l'enregistrement",
         variant: "destructive",
       });
     }

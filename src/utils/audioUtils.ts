@@ -40,12 +40,35 @@ export class AudioRecorder {
         return;
       }
 
-      this.mediaRecorder.onstop = () => {
+      if (this.mediaRecorder.state === 'inactive') {
+        // Already stopped, return existing chunks
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         this.cleanup();
         resolve(audioBlob);
+        return;
+      }
+
+      this.mediaRecorder.onstop = () => {
+        // Wait a bit to ensure all chunks are collected
+        setTimeout(() => {
+          if (this.audioChunks.length === 0) {
+            console.warn('⚠️ No audio chunks collected');
+            reject(new Error('No audio data recorded'));
+            return;
+          }
+          
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          console.log(`✅ Audio blob created: ${audioBlob.size} bytes`);
+          this.cleanup();
+          resolve(audioBlob);
+        }, 100);
       };
 
+      // Request final data before stopping
+      if (this.mediaRecorder.state === 'recording') {
+        this.mediaRecorder.requestData();
+      }
+      
       this.mediaRecorder.stop();
     });
   }
