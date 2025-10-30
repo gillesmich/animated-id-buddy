@@ -35,6 +35,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const streamIdRef = useRef<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // Avatar preview URLs - URLs officielles D-ID
   const avatarPreviews: Record<string, string> = {
@@ -73,7 +76,208 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
 
-  // Generate preview animation with D-ID
+  // Initialize WebRTC streaming with D-ID
+  const initializeWebRTCStream = async () => {
+    if (!config.didApiKey) {
+      toast({
+        title: "Mode Démo",
+        description: "Ajoutez votre clé D-ID pour le streaming en temps réel",
+      });
+      return;
+    }
+
+    if (!sourceImageUrl) {
+      toast({
+        title: "Avatar manquant",
+        description: "Sélectionnez d'abord un avatar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsVideoLoading(true);
+
+    try {
+      console.log("🔄 Initialisation WebRTC stream...");
+
+      // Step 1: Create stream session
+      const streamResponse = await fetch('https://api.d-id.com/talks/streams', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${config.didApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_url: sourceImageUrl,
+          driver_url: 'bank://lively',
+        }),
+      });
+
+      if (!streamResponse.ok) {
+        throw new Error(`Erreur création stream: ${streamResponse.status}`);
+      }
+
+      const streamData = await streamResponse.json();
+      streamIdRef.current = streamData.id;
+      const sessionId = streamData.session_id;
+      const offer = streamData.offer;
+      const iceServers = streamData.ice_servers || [{ urls: 'stun:stun.l.google.com:19302' }];
+
+      console.log("✅ Stream créé:", streamIdRef.current);
+
+      // Step 2: Setup WebRTC
+      const peerConnection = new RTCPeerConnection({ iceServers });
+      peerConnectionRef.current = peerConnection;
+
+      // Handle incoming tracks
+      peerConnection.ontrack = (event) => {
+        console.log("📹 Stream vidéo reçu");
+        if (videoRef.current && event.streams[0]) {
+          videoRef.current.srcObject = event.streams[0];
+          videoRef.current.play().catch(err => console.log("Autoplay:", err));
+          setIsStreaming(true);
+          setIsVideoLoading(false);
+        }
+      };
+
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log("🧊 ICE state:", peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'failed') {
+          toast({
+            title: "Connexion échouée",
+            description: "Erreur de connexion WebRTC",
+            variant: "destructive",
+          });
+        }
+      };
+
+      // Set remote description
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Create answer
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      // Step 3: Send answer to D-ID
+      const sdpResponse = await fetch(`https://api.d-id.com/talks/streams/${streamIdRef.current}/sdp`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${config.didApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          answer: answer,
+          session_id: sessionId,
+        }),
+      });
+
+      if (!sdpResponse.ok) {
+        throw new Error('Erreur envoi SDP');
+      }
+
+      console.log("✅ WebRTC stream initialisé");
+      toast({
+        title: "✅ Stream actif",
+        description: "Connexion WebRTC établie",
+      });
+
+    } catch (error) {
+      console.error('WebRTC init error:', error);
+      setIsVideoLoading(false);
+      const errorMessage = error instanceof Error ? error.message : "Erreur WebRTC";
+      setApiError({
+        title: "Erreur WebRTC",
+        message: errorMessage,
+        timestamp: new Date()
+      });
+      toast({
+        title: "❌ Erreur",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Send message via WebRTC stream
+  const sendStreamMessage = async (text: string) => {
+    if (!streamIdRef.current || !config.didApiKey) {
+      toast({
+        title: "Stream non actif",
+        description: "Initialisez d'abord le stream",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://api.d-id.com/talks/streams/${streamIdRef.current}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${config.didApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          script: {
+            type: 'text',
+            input: text,
+            provider: {
+              type: 'microsoft',
+              voice_id: 'fr-FR-DeniseNeural'
+            }
+          },
+          config: {
+            stitch: true,
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur envoi message: ${response.status}`);
+      }
+
+      console.log("✅ Message envoyé au stream");
+    } catch (error) {
+      console.error('Stream message error:', error);
+      throw error;
+    }
+  };
+
+  // Clean up WebRTC connection
+  const closeWebRTCStream = async () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    if (streamIdRef.current && config.didApiKey) {
+      try {
+        await fetch(`https://api.d-id.com/talks/streams/${streamIdRef.current}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${config.didApiKey}`,
+          },
+        });
+        console.log("✅ Stream fermé");
+      } catch (error) {
+        console.error('Stream close error:', error);
+      }
+      streamIdRef.current = null;
+    }
+
+    setIsStreaming(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      closeWebRTCStream();
+    };
+  }, []);
+
+  // Generate preview animation with D-ID (fallback method)
   const generatePreviewAnimation = async () => {
     // Mode démo si pas de clé API
     if (!config.didApiKey) {
@@ -206,6 +410,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             
             // Auto-play video
             if (videoRef.current) {
+              videoRef.current.srcObject = null; // Clear stream if any
               videoRef.current.src = statusData.result_url;
               videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
             }
@@ -450,135 +655,38 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       ]);
       setStreamingText("");
 
-      // Étape 3: Génération vidéo D-ID
-      console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      // Étape 3: Génération vidéo via WebRTC stream
+      console.log("🎬 Étape 3: Envoi au stream WebRTC...");
       
-      // Validation de la longueur du texte (D-ID limite à ~1000 caractères)
+      // Validation de la longueur du texte
       let textForVideo = responseText;
       if (textForVideo.length > 1000) {
         console.warn("⚠️ Texte trop long, troncature à 1000 caractères");
         textForVideo = textForVideo.substring(0, 997) + "...";
       }
       
-      setIsVideoLoading(true);
-      toast({
-        title: "🎬 Génération vidéo...",
-        description: "Création de la réponse animée",
-      });
-
-      const avatarUrl = config.customAvatarImage || avatarPreviews[config.selectedAvatar];
-      
-      console.log("🔍 Configuration D-ID:", {
-        avatarUrl,
-        textLength: textForVideo.length,
-        hasApiKey: !!config.didApiKey,
-        apiKeyPreview: config.didApiKey?.substring(0, 10) + "..."
-      });
-      
-      const didResponse = await fetch('https://api.d-id.com/talks', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${config.didApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source_url: avatarUrl,
-          script: {
-            type: 'text',
-            input: textForVideo,
-            provider: {
-              type: 'microsoft',
-              voice_id: 'fr-FR-DeniseNeural'
-            }
-          },
-          config: {
-            fluent: true,
-            pad_audio: 0,
-            stitch: true,
-            result_format: 'mp4'
-          }
-        }),
-      });
-
-      if (!didResponse.ok) {
-        const errorData = await didResponse.json().catch(() => ({}));
-        console.error('❌ Erreur D-ID complète:', {
-          status: didResponse.status,
-          statusText: didResponse.statusText,
-          headers: Object.fromEntries(didResponse.headers.entries()),
-          error: errorData
-        });
-        
-        let errorMessage = 'Erreur de génération vidéo';
-        if (didResponse.status === 401) {
-          errorMessage = 'Clé API D-ID invalide ou expirée';
-        } else if (didResponse.status === 400) {
-          errorMessage = errorData.description || 'Paramètres invalides (vérifiez l\'URL de l\'avatar)';
-        } else if (didResponse.status === 402) {
-          errorMessage = 'Crédits D-ID insuffisants';
-        } else if (didResponse.status === 500) {
-          errorMessage = 'Erreur serveur D-ID. Vérifiez votre URL d\'avatar et vos crédits.';
-        } else if (errorData.description) {
-          errorMessage = errorData.description;
-        }
-        
+      // Si le stream est actif, envoyer directement
+      if (isStreaming && streamIdRef.current) {
+        await sendStreamMessage(textForVideo);
         toast({
-          title: "❌ Erreur D-ID",
-          description: errorMessage,
-          variant: "destructive",
+          title: "✅ Message envoyé",
+          description: "L'avatar répond en temps réel",
         });
+      } else {
+        // Sinon, initialiser le stream puis envoyer
+        toast({
+          title: "🔄 Initialisation...",
+          description: "Connexion au stream WebRTC",
+        });
+        await initializeWebRTCStream();
         
-        throw new Error(errorMessage);
+        // Attendre que le stream soit prêt
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (streamIdRef.current) {
+          await sendStreamMessage(textForVideo);
+        }
       }
-
-      const didData = await didResponse.json();
-      const talkId = didData.id;
-      console.log("✅ D-ID talk créé:", talkId);
-
-      // Poll pour le statut de la vidéo
-      let attempts = 0;
-      const maxAttempts = 60;
-      
-      const checkStatus = setInterval(async () => {
-        attempts++;
-        
-        if (attempts > maxAttempts) {
-          clearInterval(checkStatus);
-          setIsVideoLoading(false);
-          throw new Error('Timeout de génération vidéo');
-        }
-
-        const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
-          headers: {
-            'Authorization': `Basic ${config.didApiKey}`,
-          },
-        });
-
-        const statusData = await statusResponse.json();
-        console.log(`📊 Statut D-ID (${attempts}/${maxAttempts}):`, statusData.status);
-
-        if (statusData.status === 'done' && statusData.result_url) {
-          clearInterval(checkStatus);
-          setCurrentVideoUrl(statusData.result_url);
-          setIsVideoLoading(false);
-          
-          // Auto-play vidéo
-          if (videoRef.current) {
-            videoRef.current.src = statusData.result_url;
-            videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
-          }
-
-          toast({
-            title: "✅ Réponse prête!",
-            description: "Vidéo générée avec succès",
-          });
-        } else if (statusData.status === 'error' || statusData.status === 'rejected') {
-          clearInterval(checkStatus);
-          setIsVideoLoading(false);
-          console.error("❌ Erreur D-ID détaillée:", statusData);
-          throw new Error(statusData.error?.description || 'Erreur de génération');
-        }
-      }, 2000);
 
 
 
@@ -662,20 +770,41 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               </div>
             )}
             
-            {/* Generate Animation Button Overlay */}
+            {/* WebRTC Controls Overlay */}
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-              <Button
-                onClick={generatePreviewAnimation}
-                disabled={isVideoLoading}
-                className="gradient-primary"
-                size="lg"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                {config.didApiKey ? 'Générer Animation' : 'Mode Démo'}
-              </Button>
+              {!isStreaming ? (
+                <>
+                  <Button
+                    onClick={initializeWebRTCStream}
+                    disabled={isVideoLoading}
+                    className="gradient-primary"
+                    size="lg"
+                  >
+                    <Video className="w-5 h-5 mr-2" />
+                    {config.didApiKey ? 'Stream WebRTC' : 'Mode Démo'}
+                  </Button>
+                  <Button
+                    onClick={generatePreviewAnimation}
+                    disabled={isVideoLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Prévisualisation MP4
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={closeWebRTCStream}
+                  variant="destructive"
+                  size="lg"
+                >
+                  Arrêter le Stream
+                </Button>
+              )}
               {!config.didApiKey && (
                 <p className="text-xs text-white/80 px-4 text-center">
-                  Ajoutez une clé D-ID pour des animations réelles
+                  Ajoutez une clé D-ID pour le streaming en temps réel
                 </p>
               )}
             </div>
