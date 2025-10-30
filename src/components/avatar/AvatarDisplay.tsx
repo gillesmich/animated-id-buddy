@@ -8,6 +8,7 @@ import VoiceControls from "./VoiceControls";
 import ErrorOverlay from "./ErrorOverlay";
 import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
+import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -138,17 +139,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       console.log("🎬 Génération D-ID démarrée");
       console.log("📸 Image source URL:", sourceImageUrl);
       
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'create_talk',
-            data: {
-              source_url: sourceImageUrl,
+      const response = await authenticatedFetch('did-avatar', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create_talk',
+          data: {
+            source_url: sourceImageUrl,
               script: {
                 type: 'text',
                 input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
@@ -213,19 +209,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           throw new Error("Timeout génération vidéo");
         }
 
-        const statusResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'get_talk',
-              data: { talkId }
-            }),
-          }
-        );
+        const statusResponse = await authenticatedFetch('did-avatar', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'get_talk',
+            data: { talkId }
+          }),
+        });
 
         if (!statusResponse.ok) {
           throw new Error("Erreur vérification statut");
@@ -406,16 +396,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         description: "Analyse de votre message vocal",
       });
 
-      const transcriptionResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whisper-transcribe`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ audioBase64 }),
-        }
-      );
+      const transcriptionResponse = await authenticatedFetch('whisper-transcribe', {
+        method: 'POST',
+        body: JSON.stringify({ audioBase64 }),
+      });
 
       if (!transcriptionResponse.ok) {
         throw new Error('Erreur de transcription');
@@ -449,22 +433,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         description: "Génération de la réponse",
       });
 
-      const chatResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-chat`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: 'Tu es un assistant virtuel intelligent et amical. Réponds de manière concise et naturelle.' },
-              { role: 'user', content: cleanTranscription }
-            ],
-            model: config.selectedModel || 'gpt-4o-mini',
-          }),
-        }
-      );
+      const chatResponse = await authenticatedFetch('openai-chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'Tu es un assistant virtuel intelligent et amical. Réponds de manière concise et naturelle.' },
+            { role: 'user', content: cleanTranscription }
+          ],
+          model: config.selectedModel || 'gpt-4o-mini',
+        }),
+      });
 
       if (!chatResponse.ok) {
         throw new Error('Erreur de génération de réponse');
@@ -518,35 +496,29 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       
       try {
         // Créer une vidéo avec l'edge function D-ID
-        const talkResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'create_talk',
-              data: {
-                source_url: sourceImageUrl,
-                script: {
-                  type: 'text',
-                  input: textForVideo,
-                  provider: {
-                    type: 'microsoft',
-                    voice_id: 'fr-FR-DeniseNeural'
-                  }
-                },
-                config: {
-                  fluent: true,
-                  pad_audio: 0,
-                  stitch: true,
-                  result_format: 'mp4'
+        const talkResponse = await authenticatedFetch('did-avatar', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'create_talk',
+            data: {
+              source_url: sourceImageUrl,
+              script: {
+                type: 'text',
+                input: textForVideo,
+                provider: {
+                  type: 'microsoft',
+                  voice_id: 'fr-FR-DeniseNeural'
                 }
+              },
+              config: {
+                fluent: true,
+                pad_audio: 0,
+                stitch: true,
+                result_format: 'mp4'
               }
-            }),
-          }
-        );
+            }
+          }),
+        });
 
         if (!talkResponse.ok) {
           const errorData = await talkResponse.json().catch(() => ({}));
@@ -569,19 +541,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             throw new Error("Timeout génération vidéo");
           }
 
-          const statusResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                action: 'get_talk',
-                data: { talkId }
-              }),
-            }
-          );
+          const statusResponse = await authenticatedFetch('did-avatar', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'get_talk',
+              data: { talkId }
+            }),
+          });
 
           if (!statusResponse.ok) {
             throw new Error("Erreur vérification statut");

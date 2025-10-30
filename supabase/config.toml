@@ -1,16 +1,1 @@
 project_id = "lmxcucdyvowoshqoblhk"
-
-[functions.did-avatar]
-verify_jwt = false
-
-[functions.openai-chat]
-verify_jwt = false
-
-[functions.elevenlabs-tts]
-verify_jwt = false
-
-[functions.whisper-transcribe]
-verify_jwt = false
-
-[functions.avatar-export]
-verify_jwt = false

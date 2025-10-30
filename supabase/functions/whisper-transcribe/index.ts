@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,13 @@ serve(async (req) => {
   }
 
   try {
-    const { audioBase64 } = await req.json();
+    const requestSchema = z.object({
+      audioBase64: z.string().min(1, 'Audio data cannot be empty').max(10000000, 'Audio file too large')
+    });
+
+    const body = await req.json();
+    const validatedData = requestSchema.parse(body);
+    const { audioBase64 } = validatedData;
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {

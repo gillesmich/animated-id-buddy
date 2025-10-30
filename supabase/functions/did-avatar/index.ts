@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { action, data } = await req.json();
+    const requestSchema = z.object({
+      action: z.enum(['create_talk', 'get_talk', 'list_voices', 'list_presenters']),
+      data: z.any().optional()
+    });
+
+    const requestBody = await req.json();
+    const validatedData = requestSchema.parse(requestBody);
+    const { action, data } = validatedData;
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
 
     if (!DID_API_KEY) {

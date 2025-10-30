@@ -68,12 +68,6 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
       elevenlabsApiKey: env.ELEVENLABS_API_KEY || env.VITE_ELEVENLABS_API_KEY || config.elevenlabsApiKey,
     };
     
-    console.log("✅ Updated config:", {
-      didApiKey: updatedConfig.didApiKey ? "SET" : "EMPTY",
-      openaiApiKey: updatedConfig.openaiApiKey ? "SET" : "EMPTY",
-      elevenlabsApiKey: updatedConfig.elevenlabsApiKey ? "SET" : "EMPTY"
-    });
-    
     setConfig(updatedConfig);
   };
 

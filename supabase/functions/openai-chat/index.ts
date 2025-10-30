@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,17 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = 'gpt-4o-mini' } = await req.json();
+    const requestSchema = z.object({
+      messages: z.array(z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().max(4000, 'Message content exceeds 4000 characters')
+      })).max(50, 'Too many messages in conversation'),
+      model: z.enum(['gpt-4o-mini', 'gpt-5-2025-08-07', 'gpt-5-mini-2025-08-07', 'gpt-5-nano-2025-08-07']).optional()
+    });
+
+    const requestBody = await req.json();
+    const validatedData = requestSchema.parse(requestBody);
+    const { messages, model = 'gpt-4o-mini' } = validatedData;
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!OPENAI_API_KEY) {

@@ -74,11 +74,6 @@ const Index = () => {
   // Sauvegarder la config dans localStorage quand elle change
   useEffect(() => {
     localStorage.setItem("avatarAI_config", JSON.stringify(config));
-    console.log("💾 Config sauvegardée:", {
-      didApiKey: config.didApiKey ? "✅" : "❌",
-      openaiApiKey: config.openaiApiKey ? "✅" : "❌",
-      elevenlabsApiKey: config.elevenlabsApiKey ? "✅" : "❌",
-    });
   }, [config]);
 
   if (isLoading) {

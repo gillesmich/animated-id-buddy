@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,20 +12,24 @@ serve(async (req) => {
   }
 
   try {
+    const requestSchema = z.object({
+      avatarUrl: z.string().url('Invalid avatar URL').max(2000),
+      voiceId: z.string().optional(),
+      model: z.string().optional(),
+      systemPrompt: z.string().max(2000, 'System prompt too long').optional(),
+      workflows: z.array(z.any()).optional()
+    });
+
+    const body = await req.json();
+    const validatedData = requestSchema.parse(body);
     const { 
       avatarUrl, 
       voiceId = "21m00Tcm4TlvDq8ikWAM",
       model = "gpt-4o-2025-04-16",
       systemPrompt = "Vous êtes un assistant virtuel sympathique et professionnel.",
       workflows = []
-    } = await req.json();
+    } = validatedData;
 
-    if (!avatarUrl) {
-      return new Response(
-        JSON.stringify({ error: "L'URL de l'avatar est requise" }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const embedCode = generateEmbedCode({
       avatarUrl,

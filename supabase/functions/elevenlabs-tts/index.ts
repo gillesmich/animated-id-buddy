@@ -1,4 +1,6 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +13,15 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voiceId = '9BWtsMINqrJLrRacOk9x', modelId = 'eleven_turbo_v2_5' } = await req.json();
+    const requestSchema = z.object({
+      text: z.string().min(1, 'Text cannot be empty').max(5000, 'Text exceeds 5000 characters'),
+      voiceId: z.string().optional(),
+      modelId: z.string().optional()
+    });
+
+    const requestBody = await req.json();
+    const validatedData = requestSchema.parse(requestBody);
+    const { text, voiceId = '9BWtsMINqrJLrRacOk9x', modelId = 'eleven_turbo_v2_5' } = validatedData;
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
 
     if (!ELEVENLABS_API_KEY) {
@@ -19,7 +29,7 @@ serve(async (req) => {
     }
 
     if (!text) {
-      throw new Error('Text is required');
+      throw new Error('Text is required (validation bypass)');
     }
 
     console.log('ElevenLabs TTS request:', voiceId, modelId);
