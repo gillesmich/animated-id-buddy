@@ -44,7 +44,7 @@ const VoiceControls = ({
     if (isProcessing || isRecording) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement - maintenir enfoncé...");
+      console.log("🎤 Démarrage de l'enregistrement...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -55,10 +55,10 @@ const VoiceControls = ({
       await recorderRef.current.start();
       setIsRecording(true);
       
-      console.log("✅ Enregistrement démarré - maintenez le bouton");
+      console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement actif",
-        description: "Maintenez le bouton et parlez...",
+        title: "Enregistrement",
+        description: "Parlez maintenant. Cliquez à nouveau pour arrêter.",
       });
       
     } catch (error) {
@@ -125,50 +125,32 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* DEBUG OVERLAY */}
-      <div className="fixed top-4 right-4 bg-black/90 text-white p-4 rounded-lg text-xs z-50 font-mono">
-        <div>isProcessing: {isProcessing.toString()}</div>
-        <div>isRecording: {isRecording.toString()}</div>
-        <div>isAvatarSpeaking: {isAvatarSpeaking.toString()}</div>
-        <div>disabled: {isProcessing.toString()}</div>
-      </div>
-
-      {/* Bouton Push-to-Talk - maintenir enfoncé */}
+      {/* Bouton enregistrement - clic pour démarrer/arrêter */}
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onPointerDown={(e) => {
-          e.preventDefault();
-          console.log("🖱️ PointerDown - isProcessing:", isProcessing, "isRecording:", isRecording);
-          if (!isProcessing && !isRecording) {
+        onClick={() => {
+          console.log("🖱️ Click - isProcessing:", isProcessing, "isRecording:", isRecording);
+          if (isRecording) {
+            stopRecording();
+          } else if (!isProcessing) {
             startRecording();
           }
         }}
-        onPointerUp={(e) => {
-          e.preventDefault();
-          console.log("🖱️ PointerUp - isRecording:", isRecording);
-          if (isRecording) {
-            stopRecording();
-          }
-        }}
-        onPointerLeave={() => {
-          console.log("🖱️ PointerLeave - isRecording:", isRecording);
-          if (isRecording) stopRecording();
-        }}
-        className={isRecording ? "animate-pulse ring-2 ring-destructive" : ""}
-        style={{ pointerEvents: isProcessing ? 'none' : 'auto' }}
+        disabled={isProcessing}
+        className={isRecording ? "animate-pulse" : ""}
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
         ) : isRecording ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
-            Enregistrement...
+            Arrêter
           </>
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Maintenir pour parler
+            Parler
           </>
         )}
       </Button>
