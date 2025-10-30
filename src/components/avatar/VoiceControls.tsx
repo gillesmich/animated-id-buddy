@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { AudioRecorder, AudioPlayer, audioToBase64 } from "@/utils/audioUtils";
@@ -21,14 +22,21 @@ const VoiceControls = ({
 }: VoiceControlsProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [vadEnabled, setVadEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [volume, setVolume] = useState(0);
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
+  const vadRecordingRef = useRef<boolean>(false);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
     return () => {
+      if (vadEnabled) {
+        stopVADListening();
+      }
       if (recorderRef.current?.isRecording()) {
         recorderRef.current.stop();
       }
@@ -40,73 +48,91 @@ const VoiceControls = ({
     onUserSpeaking?.(isRecording);
   }, [isRecording, onUserSpeaking]);
 
-  const startRecording = async () => {
-    if (isProcessing || isRecording) return;
+  const startVADListening = async () => {
+    if (isListening) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement...");
+      console.log("🎤 Démarrage de l'écoute VAD...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
-        throw new Error("Permission microphone refusée");
+        throw new Error('Microphone access denied');
       }
-      
+
       recorderRef.current = new AudioRecorder();
-      await recorderRef.current.start();
-      setIsRecording(true);
       
-      console.log("✅ Enregistrement démarré");
+      await recorderRef.current.start({
+        enableVAD: true,
+        onSpeechStart: () => {
+          console.log("🎤 Début de parole détecté - Démarrage enregistrement");
+          vadRecordingRef.current = true;
+          setIsRecording(true);
+        },
+        onSpeechEnd: async () => {
+          console.log("🔇 Fin de parole - Arrêt enregistrement");
+          if (vadRecordingRef.current && recorderRef.current) {
+            vadRecordingRef.current = false;
+            setIsRecording(false);
+            
+            try {
+              const audioBlob = await recorderRef.current.stop();
+              const base64Audio = await audioToBase64(audioBlob);
+              console.log("📤 Envoi de l'audio au parent");
+              await onVoiceMessage(base64Audio);
+              
+              // Redémarrer l'écoute
+              setTimeout(() => startVADListening(), 500);
+            } catch (error) {
+              console.error("❌ Erreur lors du traitement audio:", error);
+              setTimeout(() => startVADListening(), 500);
+            }
+          }
+        },
+        onVolumeChange: (vol) => {
+          setVolume(vol);
+        }
+      });
+      
+      setIsListening(true);
+      
       toast({
-        title: "Enregistrement",
-        description: "Parlez maintenant. Cliquez à nouveau pour arrêter.",
+        title: "Mode VAD activé",
+        description: "Parlez naturellement, l'enregistrement se fera automatiquement",
       });
       
     } catch (error) {
-      console.error('❌ Recording error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Impossible d'accéder au microphone";
+      console.error("❌ Erreur VAD:", error);
       toast({
         title: "Erreur microphone",
-        description: errorMessage,
+        description: "Impossible d'accéder au microphone",
         variant: "destructive",
       });
     }
   };
 
-  const stopRecording = async () => {
-    if (!recorderRef.current || !isRecording) return;
+  const stopVADListening = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stop().catch(() => {});
+      recorderRef.current = null;
+    }
+    vadRecordingRef.current = false;
+    setIsListening(false);
+    setIsRecording(false);
+    setVolume(0);
+    
+    toast({
+      title: "Mode VAD désactivé",
+      description: "L'écoute automatique est arrêtée",
+    });
+  };
 
-    try {
-      console.log("🛑 Arrêt de l'enregistrement...");
-      
-      const audioBlob = await recorderRef.current.stop();
-      setIsRecording(false);
-      
-      if (audioBlob.size === 0) {
-        throw new Error("Enregistrement vide - parlez plus longtemps");
-      }
-      
-      console.log(`📦 Audio blob: ${audioBlob.size} bytes`);
-      const base64Audio = await audioToBase64(audioBlob);
-      
-      if (!base64Audio || base64Audio.length === 0) {
-        throw new Error("Échec de conversion audio");
-      }
-      
-      console.log(`📤 Envoi de ${base64Audio.length} caractères`);
-      await onVoiceMessage(base64Audio);
-      
-      toast({
-        title: "Message envoyé",
-        description: "Traitement en cours...",
-      });
-    } catch (error) {
-      console.error('Stop recording error:', error);
-      setIsRecording(false);
-      toast({
-        title: "Erreur",
-        description: error instanceof Error ? error.message : "Échec de l'enregistrement",
-        variant: "destructive",
-      });
+  const toggleVAD = async () => {
+    if (vadEnabled) {
+      stopVADListening();
+      setVadEnabled(false);
+    } else {
+      setVadEnabled(true);
+      await startVADListening();
     }
   };
 
@@ -124,64 +150,79 @@ const VoiceControls = ({
   };
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {/* Bouton enregistrement - clic pour démarrer/arrêter */}
-      <Button
-        size="lg"
-        variant={isRecording ? "destructive" : "default"}
-        onClick={() => {
-          console.log("🖱️ Click - isProcessing:", isProcessing, "isRecording:", isRecording);
-          if (isRecording) {
-            stopRecording();
-          } else if (!isProcessing) {
-            startRecording();
-          }
-        }}
-        disabled={isProcessing}
-        className={isRecording ? "animate-pulse" : ""}
-      >
-        {isProcessing ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : isRecording ? (
-          <>
-            <MicOff className="w-5 h-5 mr-2" />
-            Arrêter
-          </>
-        ) : (
-          <>
-            <Mic className="w-5 h-5 mr-2" />
-            Parler
-          </>
-        )}
-      </Button>
+    <div className={`flex flex-col gap-4 ${className}`}>
+      <div className="flex items-center gap-3">
+        {/* Toggle VAD Mode */}
+        <Button
+          size="lg"
+          variant={vadEnabled ? "default" : "outline"}
+          onClick={toggleVAD}
+          disabled={isProcessing}
+          className={isListening ? "ring-2 ring-primary" : ""}
+        >
+          {vadEnabled ? (
+            <>
+              <Mic className="w-5 h-5 mr-2" />
+              VAD On
+            </>
+          ) : (
+            <>
+              <MicOff className="w-5 h-5 mr-2" />
+              VAD Off
+            </>
+          )}
+        </Button>
 
-      {/* Bouton audio on/off */}
-      <Button
-        size="lg"
-        variant="outline"
-        onClick={toggleAudio}
-        disabled={isProcessing}
-        className="glass"
-      >
-        {audioEnabled ? (
-          <Volume2 className="w-5 h-5" />
-        ) : (
-          <VolumeX className="w-5 h-5" />
-        )}
-      </Button>
+        {/* Toggle audio */}
+        <Button
+          size="lg"
+          variant={audioEnabled ? "default" : "outline"}
+          onClick={toggleAudio}
+          disabled={isProcessing}
+        >
+          {audioEnabled ? (
+            <>
+              <Volume2 className="w-5 h-5 mr-2" />
+              Audio
+            </>
+          ) : (
+            <>
+              <VolumeX className="w-5 h-5 mr-2" />
+              Muet
+            </>
+          )}
+        </Button>
 
-      {/* Indicateur d'état */}
-      {isAvatarSpeaking && !isRecording && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          Avatar parle...
+        {/* Indicateurs de statut */}
+        <div className="flex items-center gap-2 ml-auto">
+          {isAvatarSpeaking && (
+            <Badge variant="secondary" className="animate-pulse">
+              <Volume2 className="w-3 h-3 mr-1" />
+              Avatar
+            </Badge>
+          )}
+          {isRecording && (
+            <Badge variant="destructive" className="animate-pulse">
+              <Mic className="w-3 h-3 mr-1" />
+              Enregistrement
+            </Badge>
+          )}
         </div>
-      )}
-      
-      {isRecording && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-          Vous parlez...
+      </div>
+
+      {/* Indicateur visuel de volume en temps réel */}
+      {vadEnabled && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-secondary/20 rounded-lg">
+          <Volume2 className="w-4 h-4 text-muted-foreground" />
+          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-primary transition-all duration-100"
+              style={{ width: `${Math.min(volume * 200, 100)}%` }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground min-w-[60px]">
+            {isListening ? 'En écoute' : 'Inactif'}
+          </span>
         </div>
       )}
     </div>

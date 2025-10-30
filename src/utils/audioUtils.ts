@@ -1,10 +1,137 @@
+// Voice Activity Detection
+export class VoiceActivityDetector {
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private stream: MediaStream | null = null;
+  private dataArray: Uint8Array | null = null;
+  private animationFrame: number | null = null;
+  
+  private volumeThreshold: number = 0.02;
+  private silenceDuration: number = 1500;
+  private minSpeechDuration: number = 500;
+  
+  private isSpeaking: boolean = false;
+  private speechStartTime: number = 0;
+  private lastSpeechTime: number = 0;
+  
+  private onSpeechStart?: () => void;
+  private onSpeechEnd?: () => void;
+  private onVolumeChange?: (volume: number) => void;
+
+  constructor(options?: {
+    volumeThreshold?: number;
+    silenceDuration?: number;
+    minSpeechDuration?: number;
+    onSpeechStart?: () => void;
+    onSpeechEnd?: () => void;
+    onVolumeChange?: (volume: number) => void;
+  }) {
+    if (options) {
+      this.volumeThreshold = options.volumeThreshold ?? this.volumeThreshold;
+      this.silenceDuration = options.silenceDuration ?? this.silenceDuration;
+      this.minSpeechDuration = options.minSpeechDuration ?? this.minSpeechDuration;
+      this.onSpeechStart = options.onSpeechStart;
+      this.onSpeechEnd = options.onSpeechEnd;
+      this.onVolumeChange = options.onVolumeChange;
+    }
+  }
+
+  async start(stream: MediaStream): Promise<void> {
+    this.stream = stream;
+    this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    const source = this.audioContext.createMediaStreamSource(stream);
+    this.analyser = this.audioContext.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.8;
+    
+    source.connect(this.analyser);
+    
+    const bufferLength = this.analyser.frequencyBinCount;
+    this.dataArray = new Uint8Array(bufferLength) as Uint8Array;
+    
+    this.detectVoice();
+  }
+
+  private detectVoice(): void {
+    if (!this.analyser || !this.dataArray) return;
+
+    const checkVolume = () => {
+      if (!this.analyser || !this.dataArray) return;
+
+      this.analyser.getByteTimeDomainData(this.dataArray as any);
+      
+      // Calculer le volume RMS
+      let sum = 0;
+      for (let i = 0; i < this.dataArray.length; i++) {
+        const normalized = (this.dataArray[i] - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const rms = Math.sqrt(sum / this.dataArray.length);
+      
+      this.onVolumeChange?.(rms);
+      
+      const now = Date.now();
+      
+      if (rms > this.volumeThreshold) {
+        // Détection de parole
+        if (!this.isSpeaking) {
+          this.speechStartTime = now;
+          this.isSpeaking = true;
+          console.log('🎤 Parole détectée');
+          this.onSpeechStart?.();
+        }
+        this.lastSpeechTime = now;
+      } else {
+        // Silence détecté
+        if (this.isSpeaking) {
+          const speechDuration = now - this.speechStartTime;
+          const silenceDuration = now - this.lastSpeechTime;
+          
+          if (speechDuration >= this.minSpeechDuration && silenceDuration >= this.silenceDuration) {
+            this.isSpeaking = false;
+            console.log('🔇 Fin de parole détectée');
+            this.onSpeechEnd?.();
+          }
+        }
+      }
+      
+      this.animationFrame = requestAnimationFrame(checkVolume);
+    };
+    
+    checkVolume();
+  }
+
+  stop(): void {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+    
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    
+    this.analyser = null;
+    this.dataArray = null;
+    this.isSpeaking = false;
+  }
+}
+
 // Audio recording utilities
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  private vad: VoiceActivityDetector | null = null;
 
-  async start(): Promise<void> {
+  async start(options?: {
+    enableVAD?: boolean;
+    onSpeechStart?: () => void;
+    onSpeechEnd?: () => void;
+    onVolumeChange?: (volume: number) => void;
+  }): Promise<void> {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -26,7 +153,17 @@ export class AudioRecorder {
         }
       };
       
-      this.mediaRecorder.start(100); // Collect data every 100ms for smooth streaming
+      // Démarrer VAD si demandé
+      if (options?.enableVAD) {
+        this.vad = new VoiceActivityDetector({
+          onSpeechStart: options.onSpeechStart,
+          onSpeechEnd: options.onSpeechEnd,
+          onVolumeChange: options.onVolumeChange,
+        });
+        await this.vad.start(this.stream);
+      }
+      
+      this.mediaRecorder.start(100);
     } catch (error) {
       console.error('Error starting audio recording:', error);
       throw new Error('Microphone access denied');
@@ -41,7 +178,6 @@ export class AudioRecorder {
       }
 
       if (this.mediaRecorder.state === 'inactive') {
-        // Already stopped, return existing chunks
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         this.cleanup();
         resolve(audioBlob);
@@ -49,7 +185,6 @@ export class AudioRecorder {
       }
 
       this.mediaRecorder.onstop = () => {
-        // Wait a bit to ensure all chunks are collected
         setTimeout(() => {
           if (this.audioChunks.length === 0) {
             console.warn('⚠️ No audio chunks collected');
@@ -64,7 +199,6 @@ export class AudioRecorder {
         }, 100);
       };
 
-      // Request final data before stopping
       if (this.mediaRecorder.state === 'recording') {
         this.mediaRecorder.requestData();
       }
@@ -78,6 +212,11 @@ export class AudioRecorder {
   }
 
   private cleanup(): void {
+    if (this.vad) {
+      this.vad.stop();
+      this.vad = null;
+    }
+    
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
