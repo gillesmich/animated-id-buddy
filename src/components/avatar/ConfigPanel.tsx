@@ -18,6 +18,7 @@ import ApiKeyValidator from "./ApiKeyValidator";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { PRESET_AVATARS } from "@/config/avatars";
 
 interface WorkflowConfig {
   id: string;
@@ -224,10 +225,18 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 <SelectValue placeholder="Select an avatar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="amy">Amy - Professional Woman</SelectItem>
-                <SelectItem value="john">John - Business Man</SelectItem>
-                <SelectItem value="sophia">Sophia - Young Professional</SelectItem>
-                <SelectItem value="marcus">Marcus - Tech Expert</SelectItem>
+                {PRESET_AVATARS.map((avatar) => (
+                  <SelectItem key={avatar.id} value={avatar.id}>
+                    <div className="flex items-center gap-2">
+                      <img 
+                        src={avatar.image} 
+                        alt={avatar.name}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                      <span>{avatar.name} - {avatar.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

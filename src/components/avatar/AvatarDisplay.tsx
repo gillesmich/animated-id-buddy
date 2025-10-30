@@ -10,6 +10,7 @@ import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { DIDWebRTCManager } from "@/utils/didWebRTC";
+import { getAvatarImage, PRESET_AVATARS } from "@/config/avatars";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -47,23 +48,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [webRTCStatus, setWebRTCStatus] = useState<string>("");
   const webRTCManagerRef = useRef<any>(null);
 
-  // Avatar preview URLs - URLs officielles D-ID
-  const avatarPreviews: Record<string, string> = {
-    amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
-    john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
-    sophia: "https://create-images-results.d-id.com/default_presenter_image/stacey/image.jpeg",
-    marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
-  };
+  // Avatar preview images - Images locales
+  const avatarPreviews: Record<string, string> = Object.fromEntries(
+    PRESET_AVATARS.map(avatar => [avatar.id, avatar.image])
+  );
 
-  const [sourceImageUrl, setSourceImageUrl] = useState<string>(avatarPreviews.amy);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(avatarPreviews.amy);
+  const [sourceImageUrl, setSourceImageUrl] = useState<string>(getAvatarImage('amy'));
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const posterImages: Record<string, string> = {
-    amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
-    john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
-    sophia: "https://create-images-results.d-id.com/default_presenter_image/stacey/image.jpeg",
-    marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
-  };
+  const posterImages: Record<string, string> = Object.fromEntries(
+    PRESET_AVATARS.map(avatar => [avatar.id, avatar.image])
+  );
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -108,16 +103,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     } else {
       console.log("⚠️ Aucun avatar configuré - utilisation avatar par défaut");
       // Fallback vers Amy (premier avatar) par défaut
-      const defaultAvatar = avatarPreviews.amy || Object.values(avatarPreviews)[0];
-      if (defaultAvatar) {
-        console.log("📸 Avatar par défaut:", defaultAvatar);
-        setSourceImageUrl(defaultAvatar);
-        setCurrentVideoUrl(defaultAvatar);
-      } else {
-        console.error("❌ Aucun avatar disponible!");
-        setSourceImageUrl("");
-        setCurrentVideoUrl("");
-      }
+      const defaultAvatar = getAvatarImage('amy');
+      console.log("📸 Avatar par défaut:", defaultAvatar);
+      setSourceImageUrl(defaultAvatar);
+      setCurrentVideoUrl(defaultAvatar);
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
 

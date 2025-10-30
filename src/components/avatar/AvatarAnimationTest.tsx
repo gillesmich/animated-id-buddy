@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw, Sparkles, Volume2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { getAvatarImage } from "@/config/avatars";
 
 interface AvatarAnimationTestProps {
   config: {
@@ -124,6 +125,12 @@ const AvatarAnimationTest = ({ config }: AvatarAnimationTestProps) => {
               {config.customAvatarImage ? (
                 <img 
                   src={config.customAvatarImage} 
+                  alt="Avatar" 
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : config.selectedAvatar ? (
+                <img 
+                  src={getAvatarImage(config.selectedAvatar)} 
                   alt="Avatar" 
                   className="w-full h-full rounded-full object-cover"
                 />
