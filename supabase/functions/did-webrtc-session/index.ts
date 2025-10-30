@@ -44,18 +44,28 @@ serve(async (req) => {
         break;
       
       case 'start_stream':
+        // ✅ FIX: Vérifier que sessionId existe
+        if (!sessionId || sessionId.trim() === '') {
+          throw new Error('sessionId is required for start_stream action');
+        }
+        
         // Démarrer le stream avec SDP answer
         url = `https://api.d-id.com/talks/streams/${sessionId}/sdp`;
         body = {
           answer: {
             type: 'answer',
             sdp: data.sdp
-          },
-          session_id: sessionId
+          }
+          // ✅ FIX: session_id RETIRÉ - déjà dans l'URL
         };
         break;
       
       case 'submit_network':
+        // ✅ FIX: Vérifier que sessionId existe
+        if (!sessionId || sessionId.trim() === '') {
+          throw new Error('sessionId is required for submit_network action');
+        }
+        
         // Soumettre les ICE candidates
         url = `https://api.d-id.com/talks/streams/${sessionId}/ice`;
         body = {
@@ -67,6 +77,14 @@ serve(async (req) => {
         break;
       
       case 'send_audio':
+        // ✅ FIX: Vérifier que streamId et sessionId existent
+        if (!streamId || streamId.trim() === '') {
+          throw new Error('streamId is required for send_audio action');
+        }
+        if (!sessionId || sessionId.trim() === '') {
+          throw new Error('sessionId is required for send_audio action');
+        }
+        
         // Envoyer un script audio à streamer
         url = `https://api.d-id.com/talks/streams/${streamId}`;
         body = {
