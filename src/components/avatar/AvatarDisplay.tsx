@@ -217,7 +217,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       console.log("✅ WebRTC stream initialisé");
       toast({
-        title: "✅ Stream actif",
+        title: "Stream actif",
         description: "Connexion WebRTC établie",
       });
 
@@ -231,7 +231,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         timestamp: new Date()
       });
       toast({
-        title: "❌ Erreur",
+        title: "Erreur",
         description: errorMessage,
         variant: "destructive",
       });
@@ -339,7 +339,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setTimeout(() => {
         setIsVideoLoading(false);
         toast({
-          title: "✅ Démo terminée",
+          title: "Démo terminée",
           description: "Ajoutez vos clés API pour des animations réelles",
         });
       }, 3000);
@@ -464,7 +464,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             }
 
             toast({
-              title: "✅ Prévisualisation prête",
+              title: "Prévisualisation prête",
               description: "Animation de l'avatar générée avec succès!",
             });
           } else if (statusData.status === 'error' || statusData.status === 'rejected') {
@@ -506,7 +506,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
       
       toast({
-        title: "❌ Erreur de génération",
+        title: "Erreur de génération",
         description: errorMessage,
         variant: "destructive",
       });
@@ -597,7 +597,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         setStreamingText("");
         
         toast({
-          title: "✅ Réponse reçue",
+          title: "Réponse reçue",
           description: "Le workflow a traité votre message",
         });
       } 
@@ -617,7 +617,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
       
       toast({
-        title: "❌ Erreur",
+        title: "Erreur",
         description: errorMessage,
         variant: "destructive",
       });
@@ -717,13 +717,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       if (isStreaming && streamIdRef.current) {
         await sendStreamMessage(textForVideo);
         toast({
-          title: "✅ Message envoyé",
+          title: "Message envoyé",
           description: "L'avatar répond en temps réel",
         });
       } else {
         // Sinon, initialiser le stream puis envoyer
         toast({
-          title: "🔄 Initialisation...",
+          title: "Initialisation...",
           description: "Connexion au stream WebRTC",
         });
         await initializeWebRTCStream();
