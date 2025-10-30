@@ -28,7 +28,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [conversation, setConversation] = useState<Array<{ role: string; content: string; type?: 'text' | 'voice' }>>([]);
   const [streamingText, setStreamingText] = useState("");
-  const [videoUrl, setVideoUrl] = useState<string>("");
+  const [sourceImageUrl, setSourceImageUrl] = useState<string>(""); // URL de l'image source (PNG)
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(""); // URL de la vidéo générée (MP4)
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const { toast } = useToast();
@@ -58,14 +59,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     // Priorité à l'image personnalisée
     if (config.customAvatarImage) {
       console.log("📸 Chargement image personnalisée");
-      setVideoUrl(config.customAvatarImage);
+      setSourceImageUrl(config.customAvatarImage);
+      setCurrentVideoUrl(config.customAvatarImage);
     } else if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
       const avatarUrl = avatarPreviews[config.selectedAvatar];
       console.log("📸 Chargement avatar D-ID:", avatarUrl);
-      setVideoUrl(avatarUrl);
+      setSourceImageUrl(avatarUrl);
+      setCurrentVideoUrl(avatarUrl);
     } else {
       console.log("⚠️ Aucun avatar configuré");
-      setVideoUrl("");
+      setSourceImageUrl("");
+      setCurrentVideoUrl("");
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
 
@@ -90,7 +94,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       return;
     }
 
-    if (!videoUrl) {
+    if (!sourceImageUrl) {
       toast({
         title: "Avatar manquant",
         description: "Sélectionnez d'abord un avatar",
@@ -103,7 +107,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
     try {
       console.log("🎬 Génération D-ID démarrée");
-      console.log("📸 Avatar URL:", videoUrl);
+      console.log("📸 Image source URL:", sourceImageUrl);
       console.log("🔑 Clé D-ID configurée:", config.didApiKey.substring(0, 10) + "...");
       
       const response = await fetch('https://api.d-id.com/talks', {
@@ -113,7 +117,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          source_url: videoUrl,
+          source_url: sourceImageUrl,
           script: {
             type: 'text',
             input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
@@ -197,7 +201,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
           if (statusData.status === 'done' && statusData.result_url) {
             clearInterval(checkStatus);
-            setVideoUrl(statusData.result_url);
+            setCurrentVideoUrl(statusData.result_url);
             setIsVideoLoading(false);
             
             // Auto-play video
@@ -555,7 +559,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
         if (statusData.status === 'done' && statusData.result_url) {
           clearInterval(checkStatus);
-          setVideoUrl(statusData.result_url);
+          setCurrentVideoUrl(statusData.result_url);
           setIsVideoLoading(false);
           
           // Auto-play vidéo
@@ -622,9 +626,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       <div className="aspect-video rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
-        {videoUrl ? (
+        {currentVideoUrl ? (
           <div className="relative w-full h-full">
-            {videoUrl.endsWith('.mp4') || videoUrl.includes('result_url') || videoUrl.includes('d-id.com/talks') ? (
+            {currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('result_url') || currentVideoUrl.includes('d-id.com/talks') ? (
               // Vidéo D-ID générée
               <video
                 ref={videoRef}
@@ -633,20 +637,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                 muted
                 playsInline
                 controls
-                poster={videoUrl.replace('.mp4', '.jpg').replace('/talks/', '/images/')}
+                poster={currentVideoUrl.replace('.mp4', '.jpg').replace('/talks/', '/images/')}
               >
-                <source src={videoUrl} type="video/mp4" />
+                <source src={currentVideoUrl} type="video/mp4" />
               </video>
             ) : (
               // Image statique de l'avatar
               <div className="w-full h-full flex items-center justify-center p-8">
                 <div className="relative">
                   <img
-                    src={videoUrl}
+                    src={currentVideoUrl}
                     alt="Avatar preview"
                     className="max-w-full max-h-full object-contain rounded-lg shadow-elegant"
                     onError={(e) => {
-                      console.error("❌ Erreur chargement image:", videoUrl);
+                      console.error("❌ Erreur chargement image:", currentVideoUrl);
                       e.currentTarget.src = "https://via.placeholder.com/400x400/1a1a1a/666?text=Avatar";
                     }}
                   />
