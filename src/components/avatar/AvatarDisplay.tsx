@@ -7,6 +7,8 @@ import { useToast } from "@/components/ui/use-toast";
 import VoiceControls from "./VoiceControls";
 import ErrorOverlay from "./ErrorOverlay";
 import { debounce } from "@/utils/audioUtils";
+import { VideoTransitionManager } from "@/utils/videoTransitions";
+import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
   config: {
@@ -36,6 +38,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const secondaryVideoRef = useRef<HTMLVideoElement>(null);
+  const transitionManagerRef = useRef<VideoTransitionManager | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const streamIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -50,10 +54,44 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
   };
 
+  // Vidéos d'idle (sourire/attente) - À personnaliser
+  const idleVideos: Record<string, string> = {
+    amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
+    john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
+    sophia: "https://create-images-results.d-id.com/default_presenter_image/stacey/image.jpeg",
+    marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
+  };
+
   // Auto-scroll to latest message
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation, streamingText]);
+
+  // Initialiser le gestionnaire de transitions
+  useEffect(() => {
+    if (videoRef.current && secondaryVideoRef.current) {
+      const idleUrl = config.customAvatarImage || 
+                      (config.selectedAvatar && idleVideos[config.selectedAvatar]) || 
+                      "";
+      
+      transitionManagerRef.current = new VideoTransitionManager(
+        videoRef.current,
+        secondaryVideoRef.current,
+        idleUrl
+      );
+
+      console.log("🎬 Gestionnaire de transitions initialisé");
+
+      // Démarrer avec la vidéo d'idle
+      if (!isStreaming) {
+        transitionManagerRef.current.playIdle();
+      }
+    }
+
+    return () => {
+      transitionManagerRef.current?.cleanup();
+    };
+  }, [config.customAvatarImage, config.selectedAvatar, isStreaming]);
 
   // Load avatar preview when selection changes
   useEffect(() => {
@@ -796,7 +834,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
   };
 
-  // Détecter quand l'avatar parle
+  // Détecter quand l'avatar parle et gérer les transitions
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -811,9 +849,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       console.log("🤫 Avatar arrête de parler");
     };
 
-    const handleEnded = () => {
+    const handleEnded = async () => {
       setIsAvatarSpeaking(false);
-      console.log("✅ Avatar a fini de parler");
+      console.log("✅ Avatar a fini de parler - retour à l'idle");
+      
+      // Retourner à l'idle après un court délai
+      setTimeout(async () => {
+        if (transitionManagerRef.current && !isStreaming) {
+          await transitionManagerRef.current.returnToIdle();
+        }
+      }, 500);
     };
 
     video.addEventListener('play', handlePlay);
@@ -825,7 +870,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ended', handleEnded);
     };
-  }, []);
+  }, [isStreaming]);
 
   return (
     <Card className="glass p-6 space-y-6 h-full">
@@ -843,134 +888,82 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       <div className="h-[600px] rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
-        {currentVideoUrl || isStreaming ? (
-          <div className="relative w-full h-full">
-            {isStreaming ? (
-              // Stream WebRTC actif
-              <video
-                ref={(el) => {
-                  videoRef.current = el;
-                  // Assigner le stream en attente si disponible
-                  if (el && pendingStreamRef.current && !el.srcObject) {
-                    console.log("🔗 Assignment du stream en attente à la vidéo");
-                    el.srcObject = pendingStreamRef.current;
-                    el.onloadedmetadata = () => {
-                      console.log("✅ Métadonnées chargées (ref callback)");
-                      el.play()
-                        .then(() => console.log("✅ Lecture démarrée (ref callback)"))
-                        .catch(err => console.error("❌ Erreur autoplay:", err));
-                    };
-                  }
-                }}
-                className="w-full h-full object-cover"
-                autoPlay
-                playsInline
-                muted={false}
-              />
-            ) : currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('cloudfront.net') || currentVideoUrl.includes('result') ? (
-              // Vidéo D-ID générée
-              <video
-                className="w-full h-full object-cover"
-                loop
-                muted
-                playsInline
-                controls
-                src={currentVideoUrl}
-              >
-                <source src={currentVideoUrl} type="video/mp4" />
-              </video>
-            ) : (
-              // Image statique de l'avatar
-              <div className="w-full h-full flex items-center justify-center p-8">
-                <div className="relative">
-                  <img
-                    src={currentVideoUrl}
-                    alt="Avatar preview"
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-elegant"
-                    onError={(e) => {
-                      console.error("❌ Erreur chargement image:", currentVideoUrl);
-                      e.currentTarget.src = "https://via.placeholder.com/400x400/1a1a1a/666?text=Avatar";
-                    }}
-                  />
-                  {/* Badge "Preview" */}
-                  <div className="absolute top-2 left-2 px-2 py-1 bg-primary/90 text-primary-foreground text-xs rounded-full">
-                    Prévisualisation
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Deux éléments vidéo pour les transitions fluides */}
+        <div className="relative w-full h-full">
+          {/* Vidéo principale */}
+          <video
+            ref={videoRef}
+            className={`absolute inset-0 w-full h-full object-cover avatar-video-transition ${
+              isAvatarSpeaking ? 'avatar-speaking' : 'avatar-idle'
+            }`}
+            autoPlay
+            playsInline
+            muted={false}
+            style={{ opacity: 1 }}
+          />
+          
+          {/* Vidéo secondaire pour transitions */}
+          <video
+            ref={secondaryVideoRef}
+            className="absolute inset-0 w-full h-full object-cover avatar-video-transition"
+            playsInline
+            muted={false}
+            style={{ opacity: 0, display: 'none' }}
+          />
+          
+          {/* Indicateur d'état */}
+          {isAvatarSpeaking && (
+            <div className="absolute top-4 right-4 px-3 py-2 bg-primary/90 text-primary-foreground text-sm rounded-full flex items-center gap-2 animate-pulse">
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              Parle...
+            </div>
+          )}
+          
+          {!isStreaming && !isAvatarSpeaking && (
+            <div className="absolute top-4 right-4 px-3 py-2 bg-secondary/90 text-secondary-foreground text-sm rounded-full">
+              En attente
+            </div>
+          )}
+        </div>
             
-            {/* WebRTC Controls Overlay */}
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-              {!isStreaming ? (
-                <>
-                  <Button
-                    onClick={initializeWebRTCStream}
-                    disabled={isVideoLoading}
-                    className="gradient-primary"
-                    size="lg"
-                  >
-                    <Video className="w-5 h-5 mr-2" />
-                    {config.didApiKey ? 'Stream WebRTC' : 'Mode Démo'}
-                  </Button>
-                  <Button
-                    onClick={generatePreviewAnimation}
-                    disabled={isVideoLoading}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Prévisualisation MP4
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={closeWebRTCStream}
-                  variant="destructive"
-                  size="lg"
-                >
-                  Arrêter le Stream
-                </Button>
-              )}
-              {!config.didApiKey && (
-                <p className="text-xs text-white/80 px-4 text-center">
-                  Ajoutez une clé D-ID pour le streaming en temps réel
-                </p>
-              )}
-            </div>
-          </div>
-        ) : isVideoLoading ? (
-          <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-4">
-            <Loader2 className="w-16 h-16 animate-spin text-primary" />
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold">Génération en cours...</p>
-              <p className="text-sm text-muted-foreground">Création de l'animation avatar</p>
-            </div>
-          </div>
-        ) : (
-          <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-4">
-            <div className="w-24 h-24 rounded-full gradient-primary mx-auto flex items-center justify-center">
-              <Video className="w-12 h-12 text-primary-foreground" />
-            </div>
-            <div className="text-center space-y-2">
-              <p className="text-lg font-semibold">Sélectionnez un Avatar</p>
-              <p className="text-sm text-muted-foreground px-4">
-                Choisissez un avatar dans l'onglet Configuration
-              </p>
-              {config.selectedAvatar && (
-                <Button
-                  onClick={generatePreviewAnimation}
-                  disabled={isVideoLoading}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  {config.didApiKey ? 'Générer Animation' : 'Tester en Mode Démo'}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* WebRTC Controls Overlay */}
+        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+          {!isStreaming ? (
+            <>
+              <Button
+                onClick={initializeWebRTCStream}
+                disabled={isVideoLoading}
+                className="gradient-primary"
+                size="lg"
+              >
+                <Video className="w-5 h-5 mr-2" />
+                {config.didApiKey ? 'Stream WebRTC' : 'Mode Démo'}
+              </Button>
+              <Button
+                onClick={generatePreviewAnimation}
+                disabled={isVideoLoading}
+                variant="outline"
+                size="sm"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Prévisualisation MP4
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={closeWebRTCStream}
+              variant="destructive"
+              size="lg"
+            >
+              Arrêter le Stream
+            </Button>
+          )}
+          {!config.didApiKey && (
+            <p className="text-xs text-white/80 px-4 text-center">
+              Ajoutez une clé D-ID pour le streaming en temps réel
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Chat Interface */}
