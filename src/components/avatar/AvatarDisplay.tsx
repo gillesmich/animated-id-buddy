@@ -103,14 +103,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setSourceImageUrl(avatarUrl);
       setCurrentVideoUrl(avatarUrl);
     } else {
-      console.log("⚠️ Aucun avatar configuré");
-      // Fallback vers le premier avatar disponible
-      const firstAvatar = Object.values(avatarPreviews)[0];
-      if (firstAvatar) {
-        console.log("📸 Fallback vers premier avatar:", firstAvatar);
-        setSourceImageUrl(firstAvatar);
-        setCurrentVideoUrl(firstAvatar);
+      console.log("⚠️ Aucun avatar configuré - utilisation avatar par défaut");
+      // Fallback vers Amy (premier avatar) par défaut
+      const defaultAvatar = avatarPreviews.amy || Object.values(avatarPreviews)[0];
+      if (defaultAvatar) {
+        console.log("📸 Avatar par défaut:", defaultAvatar);
+        setSourceImageUrl(defaultAvatar);
+        setCurrentVideoUrl(defaultAvatar);
       } else {
+        console.error("❌ Aucun avatar disponible!");
         setSourceImageUrl("");
         setCurrentVideoUrl("");
       }
