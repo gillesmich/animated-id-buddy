@@ -739,17 +739,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         return;
       }
       
-      // Déterminer l'URL de l'avatar à utiliser
-      const avatarUrl = config.customAvatarImage || 
-                       (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) ||
-                       sourceImageUrl;
-      
-      if (!avatarUrl) {
-        console.log("⚠️ Pas d'avatar configuré");
+      if (!sourceImageUrl) {
+        console.log("⚠️ Pas d'avatar configuré - sourceImageUrl vide");
+        toast({
+          title: "Avatar manquant",
+          description: "Veuillez sélectionner un avatar dans la configuration",
+          variant: "destructive",
+        });
         return;
       }
       
-      console.log("📸 Avatar URL:", avatarUrl.substring(0, 100));
+      console.log("📸 Avatar URL:", sourceImageUrl.substring(0, 100));
       
       // Validation de la longueur du texte
       let textForVideo = responseText;
@@ -773,7 +773,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            source_url: avatarUrl,
+            source_url: sourceImageUrl,
             script: {
               type: 'text',
               input: textForVideo,
