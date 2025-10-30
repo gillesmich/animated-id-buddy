@@ -348,12 +348,27 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
   };
 
-  // Cleanup on unmount
+  // Initialize WebRTC stream on mount if API keys are available
   useEffect(() => {
+    const initStreamOnMount = async () => {
+      if (config.didApiKey && config.selectedAvatar && sourceImageUrl) {
+        console.log("🎬 Initialisation automatique du stream WebRTC...");
+        try {
+          await initializeWebRTCStream();
+        } catch (error) {
+          console.error("❌ Erreur initialisation auto stream:", error);
+        }
+      }
+    };
+
+    // Délai pour laisser le temps au composant de monter
+    const timer = setTimeout(initStreamOnMount, 1000);
+
     return () => {
+      clearTimeout(timer);
       closeWebRTCStream();
     };
-  }, []);
+  }, [config.didApiKey, config.selectedAvatar, sourceImageUrl]);
 
   // Generate preview animation with D-ID (fallback method)
   const generatePreviewAnimation = async () => {
@@ -743,15 +758,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         textForVideo = textForVideo.substring(0, 997) + "...";
       }
       
-      // Si le stream est actif, envoyer directement
-      if (isStreaming && streamIdRef.current) {
-        await sendStreamMessage(textForVideo);
-        toast({
-          title: "Message envoyé",
-          description: "L'avatar répond en temps réel",
-        });
-      } else {
-        // Sinon, initialiser le stream puis envoyer
+      // Si le stream n'est pas actif, l'initialiser d'abord
+      if (!isStreaming || !streamIdRef.current) {
+        console.log("⚠️ Stream non actif, initialisation...");
         toast({
           title: "Initialisation...",
           description: "Connexion au stream WebRTC",
@@ -759,11 +768,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         await initializeWebRTCStream();
         
         // Attendre que le stream soit prêt
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        if (streamIdRef.current) {
-          await sendStreamMessage(textForVideo);
-        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+      
+      // Envoyer le message au stream
+      if (streamIdRef.current) {
+        await sendStreamMessage(textForVideo);
+        toast({
+          title: "✅ Réponse en cours",
+          description: "L'avatar répond...",
+        });
+      } else {
+        throw new Error("Stream non disponible");
       }
 
 
@@ -899,9 +915,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             </div>
           )}
           
+          {isStreaming && !isAvatarSpeaking && (
+            <div className="absolute top-4 right-4 px-3 py-2 bg-green-500/90 text-white text-sm rounded-full flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-white" />
+              Prêt
+            </div>
+          )}
+          
           {!isStreaming && !isAvatarSpeaking && (
-            <div className="absolute top-4 right-4 px-3 py-2 bg-secondary/90 text-secondary-foreground text-sm rounded-full">
-              En attente
+            <div className="absolute top-4 right-4 px-3 py-2 bg-yellow-500/90 text-white text-sm rounded-full animate-pulse">
+              Connexion...
             </div>
           )}
         </div>
