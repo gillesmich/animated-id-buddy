@@ -918,44 +918,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           )}
         </div>
             
-        {/* WebRTC Controls Overlay */}
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-          {!isStreaming ? (
-            <>
-              <Button
-                onClick={initializeWebRTCStream}
-                disabled={isVideoLoading}
-                className="gradient-primary"
-                size="lg"
-              >
-                <Video className="w-5 h-5 mr-2" />
-                {config.didApiKey ? 'Stream WebRTC' : 'Mode Démo'}
-              </Button>
-              <Button
-                onClick={generatePreviewAnimation}
-                disabled={isVideoLoading}
-                variant="outline"
-                size="sm"
-              >
-                <Play className="w-4 h-4 mr-2" />
-                Prévisualisation MP4
-              </Button>
-            </>
-          ) : (
-            <Button
-              onClick={closeWebRTCStream}
-              variant="destructive"
-              size="lg"
-            >
-              Arrêter le Stream
-            </Button>
-          )}
-          {!config.didApiKey && (
-            <p className="text-xs text-white/80 px-4 text-center">
-              Ajoutez une clé D-ID pour le streaming en temps réel
-            </p>
-          )}
-        </div>
         
         {/* Voice Controls - Positionnés directement sous la vidéo */}
         <VoiceControls
