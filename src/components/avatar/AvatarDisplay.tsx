@@ -446,43 +446,136 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       ]);
       setStreamingText("");
 
-      // Étape 3: Génération audio avec ElevenLabs
-      console.log("🔊 Étape 3: Génération audio ElevenLabs...");
+      // Étape 3: Génération vidéo D-ID
+      console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      
+      // Validation de la longueur du texte (D-ID limite à ~1000 caractères)
+      let textForVideo = responseText;
+      if (textForVideo.length > 1000) {
+        console.warn("⚠️ Texte trop long, troncature à 1000 caractères");
+        textForVideo = textForVideo.substring(0, 997) + "...";
+      }
+      
+      setIsVideoLoading(true);
       toast({
-        title: "🔊 Génération audio...",
-        description: "Création de la réponse vocale",
+        title: "🎬 Génération vidéo...",
+        description: "Création de la réponse animée",
       });
 
-      const audioResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      const avatarUrl = config.customAvatarImage || avatarPreviews[config.selectedAvatar];
+      
+      console.log("🔍 Configuration D-ID:", {
+        avatarUrl,
+        textLength: textForVideo.length,
+        hasApiKey: !!config.didApiKey,
+        apiKeyPreview: config.didApiKey?.substring(0, 10) + "..."
+      });
+      
+      const didResponse = await fetch('https://api.d-id.com/talks', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${config.didApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_url: avatarUrl,
+          script: {
+            type: 'text',
+            input: textForVideo,
+            provider: {
+              type: 'microsoft',
+              voice_id: 'fr-FR-DeniseNeural'
+            }
           },
-          body: JSON.stringify({
-            text: responseText.substring(0, 1000), // Limiter la longueur
-            voiceId: '9BWtsMINqrJLrRacOk9x', // Voix française
-            modelId: 'eleven_turbo_v2_5',
-          }),
-        }
-      );
+          config: {
+            fluent: true,
+            pad_audio: 0,
+            stitch: true,
+            result_format: 'mp4'
+          }
+        }),
+      });
 
-      if (!audioResponse.ok) {
-        throw new Error('Erreur de génération audio');
+      if (!didResponse.ok) {
+        const errorData = await didResponse.json().catch(() => ({}));
+        console.error('❌ Erreur D-ID complète:', {
+          status: didResponse.status,
+          statusText: didResponse.statusText,
+          headers: Object.fromEntries(didResponse.headers.entries()),
+          error: errorData
+        });
+        
+        let errorMessage = 'Erreur de génération vidéo';
+        if (didResponse.status === 401) {
+          errorMessage = 'Clé API D-ID invalide ou expirée';
+        } else if (didResponse.status === 400) {
+          errorMessage = errorData.description || 'Paramètres invalides (vérifiez l\'URL de l\'avatar)';
+        } else if (didResponse.status === 402) {
+          errorMessage = 'Crédits D-ID insuffisants';
+        } else if (didResponse.status === 500) {
+          errorMessage = 'Erreur serveur D-ID. Vérifiez votre URL d\'avatar et vos crédits.';
+        } else if (errorData.description) {
+          errorMessage = errorData.description;
+        }
+        
+        toast({
+          title: "❌ Erreur D-ID",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
       }
 
-      const { audioContent } = await audioResponse.json();
-      console.log("✅ Audio généré avec succès");
+      const didData = await didResponse.json();
+      const talkId = didData.id;
+      console.log("✅ D-ID talk créé:", talkId);
 
-      // Jouer l'audio
-      const audio = new Audio(`data:audio/mpeg;base64,${audioContent}`);
-      await audio.play();
+      // Poll pour le statut de la vidéo
+      let attempts = 0;
+      const maxAttempts = 60;
+      
+      const checkStatus = setInterval(async () => {
+        attempts++;
+        
+        if (attempts > maxAttempts) {
+          clearInterval(checkStatus);
+          setIsVideoLoading(false);
+          throw new Error('Timeout de génération vidéo');
+        }
 
-      toast({
-        title: "✅ Réponse prête!",
-        description: "Audio généré avec succès",
-      });
+        const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+          headers: {
+            'Authorization': `Basic ${config.didApiKey}`,
+          },
+        });
+
+        const statusData = await statusResponse.json();
+        console.log(`📊 Statut D-ID (${attempts}/${maxAttempts}):`, statusData.status);
+
+        if (statusData.status === 'done' && statusData.result_url) {
+          clearInterval(checkStatus);
+          setVideoUrl(statusData.result_url);
+          setIsVideoLoading(false);
+          
+          // Auto-play vidéo
+          if (videoRef.current) {
+            videoRef.current.src = statusData.result_url;
+            videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
+          }
+
+          toast({
+            title: "✅ Réponse prête!",
+            description: "Vidéo générée avec succès",
+          });
+        } else if (statusData.status === 'error' || statusData.status === 'rejected') {
+          clearInterval(checkStatus);
+          setIsVideoLoading(false);
+          console.error("❌ Erreur D-ID détaillée:", statusData);
+          throw new Error(statusData.error?.description || 'Erreur de génération');
+        }
+      }, 2000);
+
 
 
     } catch (error) {
