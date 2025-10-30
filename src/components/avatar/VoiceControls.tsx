@@ -56,7 +56,7 @@ const VoiceControls = ({
     if (isProcessing || isRecording) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement push-to-talk...");
+      console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -67,10 +67,19 @@ const VoiceControls = ({
       await recorderRef.current.start();
       setIsRecording(true);
       
+      console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement",
-        description: "Maintenez le bouton et parlez...",
+        title: "Enregistrement 5s",
+        description: "Parlez maintenant...",
       });
+
+      // Arrêt automatique après 5 secondes
+      setTimeout(async () => {
+        if (recorderRef.current?.isRecording() && !isPushToTalkActive) {
+          console.log("⏱️ 5 secondes écoulées, arrêt automatique");
+          await stopRecording();
+        }
+      }, 5000);
       
     } catch (error) {
       console.error('❌ Recording error:', error);
@@ -167,29 +176,13 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Bouton enregistrement push-to-talk */}
+      {/* Bouton enregistrement 5 secondes */}
       <Button
         size="lg"
         variant={isRecording && !isPushToTalkActive ? "destructive" : "default"}
-        onMouseDown={startRecording}
-        onMouseUp={async () => {
-          if (isRecording && !isPushToTalkActive) {
-            await stopRecording();
-          }
-        }}
-        onMouseLeave={async () => {
-          if (isRecording && !isPushToTalkActive) {
-            await stopRecording();
-          }
-        }}
-        onTouchStart={startRecording}
-        onTouchEnd={async () => {
-          if (isRecording && !isPushToTalkActive) {
-            await stopRecording();
-          }
-        }}
-        disabled={isProcessing || (isRecording && isPushToTalkActive)}
-        className={isRecording && !isPushToTalkActive ? "animate-pulse ring-2 ring-destructive" : ""}
+        onClick={startRecording}
+        disabled={isProcessing || isRecording}
+        className={isRecording && !isPushToTalkActive ? "animate-pulse" : ""}
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -201,7 +194,7 @@ const VoiceControls = ({
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Parler
+            Parler (5s)
           </>
         )}
       </Button>
