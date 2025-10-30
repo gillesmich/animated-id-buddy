@@ -1,1 +1,22 @@
 project_id = "lmxcucdyvowoshqoblhk"
+
+["did-webrtc-session"]
+verify_jwt = false
+
+["elevenlabs-tts"]
+verify_jwt = false
+
+["elevenlabs-voices"]
+verify_jwt = false
+
+["openai-chat"]
+verify_jwt = false
+
+["whisper-transcribe"]
+verify_jwt = false
+
+["avatar-export"]
+verify_jwt = false
+
+["musetalk-avatar"]
+verify_jwt = false

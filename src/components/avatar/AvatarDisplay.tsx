@@ -25,6 +25,7 @@ interface AvatarDisplayProps {
     selectedWorkflow: string;
     workflows: Array<{ id: string; name: string; webhookUrl: string }>;
     useN8n?: boolean;
+    avatarProvider?: 'did' | 'musetalk';
   };
 }
 
@@ -421,8 +422,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       ]);
       setStreamingText("");
 
-      // Étape 3: Génération vidéo avec D-ID Talks API
-      console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      // Étape 3: Génération vidéo avec provider sélectionné
+      const provider = config.avatarProvider || 'did';
+      console.log(`🎬 Étape 3: Génération vidéo ${provider.toUpperCase()}...`);
       
       if (!avatarForDID.presenterId && !avatarForDID.url) {
         console.log("⚠️ Pas d'avatar configuré");
@@ -450,90 +452,158 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
       
       try {
-        // Créer une vidéo avec l'edge function D-ID
-        const requestBody: any = {
-          action: 'create_talk',
-          data: {
-            script: {
-              type: 'text',
-              input: textForVideo,
-              provider: {
-                type: 'microsoft',
-                voice_id: 'fr-FR-DeniseNeural'
+        let videoUrl: string;
+
+        if (provider === 'musetalk') {
+          // Appel à MuseTalk
+          const requestBody = {
+            action: 'create_talk',
+            data: {
+              source_url: avatarForDID.url || currentVideoUrl,
+              audio_url: textForVideo, // À adapter selon votre backend
+              config: {
+                result_format: 'mp4'
               }
-            },
-            config: {
-              fluent: true,
-              pad_audio: 0,
-              stitch: true,
-              result_format: 'mp4'
             }
-          }
-        };
+          };
 
-        // Ajouter soit presenter_id soit source_url
-        if (avatarForDID.presenterId) {
-          requestBody.data.presenter_id = avatarForDID.presenterId;
-          console.log("📸 Utilisation presenter ID:", avatarForDID.presenterId);
-        } else if (avatarForDID.url) {
-          requestBody.data.source_url = avatarForDID.url;
-          console.log("📸 Utilisation URL:", avatarForDID.url);
-        }
-
-        const talkResponse = await authenticatedFetch('did-avatar', {
-          method: 'POST',
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!talkResponse.ok) {
-          const errorData = await talkResponse.json().catch(() => ({}));
-          console.error('❌ Erreur D-ID:', talkResponse.status, errorData);
-          throw new Error(`Erreur D-ID: ${errorData.error || talkResponse.status}`);
-        }
-
-        const talkData = await talkResponse.json();
-        const talkId = talkData.id;
-        console.log("✅ Talk créé:", talkId);
-
-        // Polling pour attendre la vidéo
-        let attempts = 0;
-        const maxAttempts = 60;
-        
-        const pollVideo = async (): Promise<string> => {
-          attempts++;
-          
-          if (attempts > maxAttempts) {
-            throw new Error("Timeout génération vidéo");
-          }
-
-          const statusResponse = await authenticatedFetch('did-avatar', {
+          const talkResponse = await authenticatedFetch('musetalk-avatar', {
             method: 'POST',
-            body: JSON.stringify({
-              action: 'get_talk',
-              data: { talkId }
-            }),
+            body: JSON.stringify(requestBody),
           });
 
-          if (!statusResponse.ok) {
-            throw new Error("Erreur vérification statut");
+          if (!talkResponse.ok) {
+            const errorData = await talkResponse.json().catch(() => ({}));
+            console.error('❌ Erreur MuseTalk:', talkResponse.status, errorData);
+            throw new Error(`Erreur MuseTalk: ${errorData.error || talkResponse.status}`);
           }
 
-          const statusData = await statusResponse.json();
-          console.log(`📊 Statut (${attempts}/${maxAttempts}):`, statusData.status);
+          const talkData = await talkResponse.json();
+          const talkId = talkData.id;
+          console.log("✅ MuseTalk généré:", talkId);
 
-          if (statusData.status === 'done' && statusData.result_url) {
-            return statusData.result_url;
-          } else if (statusData.status === 'error') {
-            throw new Error(`Erreur D-ID: ${statusData.error?.description || 'Inconnue'}`);
+          // Polling pour attendre la vidéo MuseTalk
+          let attempts = 0;
+          const maxAttempts = 60;
+          
+          const pollMuseTalkVideo = async (): Promise<string> => {
+            attempts++;
+            
+            if (attempts > maxAttempts) {
+              throw new Error("Timeout génération vidéo MuseTalk");
+            }
+
+            const statusResponse = await authenticatedFetch('musetalk-avatar', {
+              method: 'POST',
+              body: JSON.stringify({
+                action: 'get_talk',
+                data: { talkId }
+              }),
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error("Erreur vérification statut MuseTalk");
+            }
+
+            const statusData = await statusResponse.json();
+            console.log(`📊 Statut MuseTalk (${attempts}/${maxAttempts}):`, statusData.status);
+
+            if (statusData.status === 'done' && statusData.result_url) {
+              return statusData.result_url;
+            } else if (statusData.status === 'error') {
+              throw new Error(`Erreur MuseTalk: ${statusData.error || 'Inconnue'}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return pollMuseTalkVideo();
+          };
+
+          videoUrl = await pollMuseTalkVideo();
+          console.log("✅ Vidéo MuseTalk générée:", videoUrl);
+        } else {
+          // Appel à D-ID (code existant)
+          const requestBody: any = {
+            action: 'create_talk',
+            data: {
+              script: {
+                type: 'text',
+                input: textForVideo,
+                provider: {
+                  type: 'microsoft',
+                  voice_id: 'fr-FR-DeniseNeural'
+                }
+              },
+              config: {
+                fluent: true,
+                pad_audio: 0,
+                stitch: true,
+                result_format: 'mp4'
+              }
+            }
+          };
+
+          if (avatarForDID.presenterId) {
+            requestBody.data.presenter_id = avatarForDID.presenterId;
+            console.log("📸 Utilisation presenter ID:", avatarForDID.presenterId);
+          } else if (avatarForDID.url) {
+            requestBody.data.source_url = avatarForDID.url;
+            console.log("📸 Utilisation URL:", avatarForDID.url);
           }
 
-          // Attendre 2 secondes avant de réessayer
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          return pollVideo();
-        };
+          const talkResponse = await authenticatedFetch('did-avatar', {
+            method: 'POST',
+            body: JSON.stringify(requestBody),
+          });
 
-        const videoUrl = await pollVideo();
-        console.log("✅ Vidéo générée:", videoUrl);
+          if (!talkResponse.ok) {
+            const errorData = await talkResponse.json().catch(() => ({}));
+            console.error('❌ Erreur D-ID:', talkResponse.status, errorData);
+            throw new Error(`Erreur D-ID: ${errorData.error || talkResponse.status}`);
+          }
+
+          const talkData = await talkResponse.json();
+          const talkId = talkData.id;
+          console.log("✅ Talk créé:", talkId);
+
+          // Polling pour attendre la vidéo D-ID
+          let attempts = 0;
+          const maxAttempts = 60;
+          
+          const pollVideo = async (): Promise<string> => {
+            attempts++;
+            
+            if (attempts > maxAttempts) {
+              throw new Error("Timeout génération vidéo");
+            }
+
+            const statusResponse = await authenticatedFetch('did-avatar', {
+              method: 'POST',
+              body: JSON.stringify({
+                action: 'get_talk',
+                data: { talkId }
+              }),
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error("Erreur vérification statut");
+            }
+
+            const statusData = await statusResponse.json();
+            console.log(`📊 Statut (${attempts}/${maxAttempts}):`, statusData.status);
+
+            if (statusData.status === 'done' && statusData.result_url) {
+              return statusData.result_url;
+            } else if (statusData.status === 'error') {
+              throw new Error(`Erreur D-ID: ${statusData.error?.description || 'Inconnue'}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return pollVideo();
+          };
+
+          videoUrl = await pollVideo();
+          console.log("✅ Vidéo générée:", videoUrl);
+        }
 
         // Jouer la vidéo avec transition
         if (transitionManagerRef.current) {

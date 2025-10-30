@@ -8,7 +8,7 @@ import N8nWorkflowGenerator from "./N8nWorkflowGenerator";
 import WorkflowDesigner from "./WorkflowDesigner";
 import PythonBackendGenerator from "./PythonBackendGenerator";
 import EmbedGenerator from "./EmbedGenerator";
-import { Key, Mic, Bot, User, Image as ImageIcon, FileCode, MessageSquare } from "lucide-react";
+import { Key, Mic, Bot, User, Image as ImageIcon, FileCode, MessageSquare, Video } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
@@ -47,6 +47,7 @@ interface ConfigPanelProps {
     selectedWorkflow: string;
     useN8n?: boolean;
     systemPrompt?: string;
+    avatarProvider?: 'did' | 'musetalk';
   };
   setConfig: (config: any) => void;
 }
@@ -243,6 +244,25 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
         </TabsContent>
 
         <TabsContent value="options" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="avatar-provider" className="flex items-center gap-2">
+              <Video className="w-4 h-4" />
+              Avatar Provider
+            </Label>
+            <Select
+              value={config.avatarProvider || 'did'}
+              onValueChange={(value: 'did' | 'musetalk') => setConfig({ ...config, avatarProvider: value })}
+            >
+              <SelectTrigger className="glass">
+                <SelectValue placeholder="Select provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="did">D-ID</SelectItem>
+                <SelectItem value="musetalk">MuseTalk</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="voice" className="flex items-center gap-2">
               <Mic className="w-4 h-4" />

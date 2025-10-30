@@ -67,6 +67,7 @@ const Index = () => {
       selectedWorkflow: "",
       useN8n: false,
       systemPrompt: "Vous êtes un assistant virtuel nommé Clara. Vous êtes sympathique, professionnelle et vous aidez les utilisateurs avec leurs questions.",
+      avatarProvider: 'did' as 'did' | 'musetalk',
     };
   });
 
