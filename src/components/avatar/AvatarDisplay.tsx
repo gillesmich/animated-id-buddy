@@ -731,8 +731,18 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       ]);
       setStreamingText("");
 
-      // Étape 3: Génération vidéo via WebRTC stream
-      console.log("🎬 Étape 3: Envoi au stream WebRTC...");
+      // Étape 3: Génération vidéo avec D-ID Talks API
+      console.log("🎬 Étape 3: Génération vidéo D-ID...");
+      
+      if (!config.didApiKey) {
+        console.log("⚠️ Pas de clé D-ID, affichage texte seul");
+        return;
+      }
+      
+      if (!sourceImageUrl) {
+        console.log("⚠️ Pas d'avatar sélectionné");
+        return;
+      }
       
       // Validation de la longueur du texte
       let textForVideo = responseText;
@@ -741,28 +751,106 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         textForVideo = textForVideo.substring(0, 997) + "...";
       }
       
-      // Si le stream n'est pas actif, l'initialiser d'abord
-      if (!isStreaming || !streamIdRef.current) {
-        console.log("⚠️ Stream non actif, initialisation...");
-        toast({
-          title: "Initialisation...",
-          description: "Connexion au stream WebRTC",
-        });
-        await initializeWebRTCStream();
-        
-        // Attendre que le stream soit prêt
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
+      setIsVideoLoading(true);
+      toast({
+        title: "🎬 Génération vidéo...",
+        description: "Création de l'animation",
+      });
       
-      // Envoyer le message au stream
-      if (streamIdRef.current) {
-        await sendStreamMessage(textForVideo);
-        toast({
-          title: "✅ Réponse en cours",
-          description: "L'avatar répond...",
+      try {
+        // Créer une vidéo avec l'API D-ID Talks
+        const talkResponse = await fetch('https://api.d-id.com/talks', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${config.didApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            source_url: sourceImageUrl,
+            script: {
+              type: 'text',
+              input: textForVideo,
+              provider: {
+                type: 'microsoft',
+                voice_id: 'fr-FR-DeniseNeural'
+              }
+            },
+            config: {
+              fluent: true,
+              pad_audio: 0,
+              stitch: true,
+              result_format: 'mp4'
+            }
+          }),
         });
-      } else {
-        throw new Error("Stream non disponible");
+
+        if (!talkResponse.ok) {
+          const errorData = await talkResponse.json().catch(() => ({}));
+          console.error('❌ Erreur D-ID:', talkResponse.status, errorData);
+          throw new Error(`Erreur D-ID: ${talkResponse.status}`);
+        }
+
+        const talkData = await talkResponse.json();
+        const talkId = talkData.id;
+        console.log("✅ Talk créé:", talkId);
+
+        // Polling pour attendre la vidéo
+        let attempts = 0;
+        const maxAttempts = 60;
+        
+        const pollVideo = async (): Promise<string> => {
+          attempts++;
+          
+          if (attempts > maxAttempts) {
+            throw new Error("Timeout génération vidéo");
+          }
+
+          const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+            headers: {
+              'Authorization': `Basic ${config.didApiKey}`,
+            },
+          });
+
+          if (!statusResponse.ok) {
+            throw new Error("Erreur vérification statut");
+          }
+
+          const statusData = await statusResponse.json();
+          console.log(`📊 Statut (${attempts}/${maxAttempts}):`, statusData.status);
+
+          if (statusData.status === 'done' && statusData.result_url) {
+            return statusData.result_url;
+          } else if (statusData.status === 'error') {
+            throw new Error(`Erreur D-ID: ${statusData.error?.description || 'Inconnue'}`);
+          }
+
+          // Attendre 2 secondes avant de réessayer
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return pollVideo();
+        };
+
+        const videoUrl = await pollVideo();
+        console.log("✅ Vidéo générée:", videoUrl);
+
+        // Jouer la vidéo avec transition
+        if (transitionManagerRef.current) {
+          transitionManagerRef.current.transitionToVideo(videoUrl);
+          setIsAvatarSpeaking(true);
+        }
+
+        setIsVideoLoading(false);
+        toast({
+          title: "✅ Vidéo prête",
+          description: "L'avatar répond",
+        });
+      } catch (videoError) {
+        console.error("❌ Erreur génération vidéo:", videoError);
+        setIsVideoLoading(false);
+        // Continuer sans vidéo - le texte est déjà affiché
+        toast({
+          title: "⚠️ Vidéo non disponible",
+          description: "Réponse affichée en texte",
+        });
       }
 
 
