@@ -8,16 +8,25 @@ interface VoiceControlsProps {
   onVoiceMessage: (audioBase64: string) => Promise<void>;
   isProcessing: boolean;
   className?: string;
+  onUserSpeaking?: (speaking: boolean) => void;
+  isAvatarSpeaking?: boolean;
 }
 
-const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceControlsProps) => {
+const VoiceControls = ({ 
+  onVoiceMessage, 
+  isProcessing, 
+  className = "",
+  onUserSpeaking,
+  isAvatarSpeaking = false
+}: VoiceControlsProps) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPushToTalkActive, setIsPushToTalkActive] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
+  const pushToTalkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
@@ -25,14 +34,28 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
       if (recorderRef.current?.isRecording()) {
         recorderRef.current.stop();
       }
+      if (pushToTalkTimeoutRef.current) {
+        clearTimeout(pushToTalkTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Arrêter l'avatar quand l'utilisateur commence à parler
+  useEffect(() => {
+    if (isRecording && onUserSpeaking) {
+      onUserSpeaking(true);
+    }
+    return () => {
+      if (onUserSpeaking) {
+        onUserSpeaking(false);
+      }
+    };
+  }, [isRecording, onUserSpeaking]);
 
   const startRecording = async () => {
     try {
       console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
       
-      // Vérifier les permissions microphone d'abord
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       console.log("🔒 Permission microphone:", permissions.state);
       
@@ -88,6 +111,53 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
     }
   };
 
+  // Push-to-talk: Maintenir le bouton pour enregistrer
+  const handlePushToTalkStart = async () => {
+    if (isProcessing || isRecording) return;
+
+    try {
+      console.log("🎤 Push-to-talk: Début enregistrement");
+      
+      const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (permissions.state === 'denied') {
+        throw new Error("Permission microphone refusée");
+      }
+      
+      recorderRef.current = new AudioRecorder();
+      await recorderRef.current.start();
+      setIsPushToTalkActive(true);
+      setIsRecording(true);
+      
+      toast({
+        title: "Enregistrement",
+        description: "Maintenez le bouton et parlez...",
+      });
+      
+    } catch (error) {
+      console.error('❌ Push-to-talk error:', error);
+      toast({
+        title: "Erreur microphone",
+        description: error instanceof Error ? error.message : "Impossible d'accéder au microphone",
+        variant: "destructive",
+      });
+      setIsPushToTalkActive(false);
+    }
+  };
+
+  const handlePushToTalkEnd = async () => {
+    if (!isPushToTalkActive) return;
+
+    console.log("🎤 Push-to-talk: Fin enregistrement");
+    setIsPushToTalkActive(false);
+    
+    // Petit délai pour éviter les enregistrements trop courts
+    pushToTalkTimeoutRef.current = setTimeout(async () => {
+      if (recorderRef.current?.isRecording()) {
+        await stopRecording();
+      }
+    }, 100);
+  };
+
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
@@ -102,16 +172,17 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
+      {/* Bouton enregistrement 5 secondes */}
       <Button
         size="lg"
-        variant={isRecording ? "destructive" : "default"}
+        variant={isRecording && !isPushToTalkActive ? "destructive" : "default"}
         onClick={startRecording}
         disabled={isProcessing || isRecording}
-        className={isRecording ? "animate-pulse" : ""}
+        className={isRecording && !isPushToTalkActive ? "animate-pulse" : ""}
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
-        ) : isRecording ? (
+        ) : isRecording && !isPushToTalkActive ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
             Enregistrement... (5s)
@@ -124,6 +195,32 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
         )}
       </Button>
 
+      {/* Bouton Push-to-Talk (maintenir) */}
+      <Button
+        size="lg"
+        variant={isPushToTalkActive ? "destructive" : "outline"}
+        onMouseDown={handlePushToTalkStart}
+        onMouseUp={handlePushToTalkEnd}
+        onMouseLeave={handlePushToTalkEnd}
+        onTouchStart={handlePushToTalkStart}
+        onTouchEnd={handlePushToTalkEnd}
+        disabled={isProcessing || (isRecording && !isPushToTalkActive)}
+        className={`glass ${isPushToTalkActive ? "animate-pulse ring-2 ring-destructive" : ""}`}
+      >
+        {isPushToTalkActive ? (
+          <>
+            <MicOff className="w-5 h-5 mr-2" />
+            Enregistrement...
+          </>
+        ) : (
+          <>
+            <Mic className="w-5 h-5 mr-2" />
+            Maintenir
+          </>
+        )}
+      </Button>
+
+      {/* Bouton audio on/off */}
       <Button
         size="lg"
         variant="outline"
@@ -138,10 +235,18 @@ const VoiceControls = ({ onVoiceMessage, isProcessing, className = "" }: VoiceCo
         )}
       </Button>
 
-      {isSpeaking && (
+      {/* Indicateur d'état */}
+      {isAvatarSpeaking && !isRecording && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
           Avatar parle...
+        </div>
+      )}
+      
+      {isRecording && (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+          Vous parlez...
         </div>
       )}
     </div>
