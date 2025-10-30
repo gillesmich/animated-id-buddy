@@ -26,28 +26,28 @@ export const PRESET_AVATARS: AvatarConfig[] = [
     name: "John",
     description: "Business Man",
     image: avatarJohn,
-    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
+    didApiUrl: avatarJohn, // Using local image
   },
   {
     id: "sophia",
     name: "Sophia",
     description: "Young Professional",
     image: avatarSophia,
-    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
+    didApiUrl: avatarSophia, // Using local image
   },
   {
     id: "marcus",
     name: "Marcus",
     description: "Tech Expert",
     image: avatarMarcus,
-    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
+    didApiUrl: avatarMarcus, // Using local image
   },
   {
     id: "clara",
     name: "Clara",
     description: "Default Avatar",
     image: claraAvatar,
-    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
+    didApiUrl: claraAvatar, // Using local image
   },
 ];
 
