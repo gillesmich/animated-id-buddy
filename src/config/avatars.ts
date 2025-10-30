@@ -9,7 +9,8 @@ export interface AvatarConfig {
   name: string;
   description: string;
   image: string;
-  didApiUrl: string; // URL publique pour D-ID API (doit être accessible via HTTP)
+  didPresenterId?: string; // D-ID presenter ID (preferred over URL)
+  didApiUrl?: string; // URL publique pour D-ID API (doit finir par .jpg/.jpeg/.png)
 }
 
 export const PRESET_AVATARS: AvatarConfig[] = [
@@ -18,36 +19,35 @@ export const PRESET_AVATARS: AvatarConfig[] = [
     name: "Amy",
     description: "Professional Woman",
     image: avatarAmy,
-    // URL temporaire D-ID - utilisateur peut uploader sa propre image
-    didApiUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop&crop=face",
+    didPresenterId: "amy-jcwCkr1grs", // D-ID default female presenter
   },
   {
     id: "john",
     name: "John",
     description: "Business Man",
     image: avatarJohn,
-    didApiUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face",
+    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
   },
   {
     id: "sophia",
     name: "Sophia",
     description: "Young Professional",
     image: avatarSophia,
-    didApiUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face",
+    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
   },
   {
     id: "marcus",
     name: "Marcus",
     description: "Tech Expert",
     image: avatarMarcus,
-    didApiUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face",
+    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
   },
   {
     id: "clara",
     name: "Clara",
     description: "Default Avatar",
     image: claraAvatar,
-    didApiUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face",
+    didPresenterId: "amy-jcwCkr1grs", // Using D-ID presenter
   },
 ];
 
@@ -61,10 +61,16 @@ export const getAvatarImage = (id: string): string => {
 };
 
 /**
- * Obtenir l'URL publique pour l'API D-ID
- * Retourne une URL HTTP accessible publiquement
+ * Obtenir le presenter ID ou l'URL pour l'API D-ID
+ * Préfère le presenter ID si disponible, sinon utilise l'URL
  */
-export const getAvatarPublicUrl = (id: string): string => {
+export const getAvatarForDID = (id: string): { presenterId?: string; url?: string } => {
   const avatar = getAvatarById(id);
-  return avatar?.didApiUrl || PRESET_AVATARS[0].didApiUrl;
+  if (!avatar) {
+    return { presenterId: PRESET_AVATARS[0].didPresenterId };
+  }
+  return {
+    presenterId: avatar.didPresenterId,
+    url: avatar.didApiUrl,
+  };
 };

@@ -10,7 +10,7 @@ import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { DIDWebRTCManager } from "@/utils/didWebRTC";
-import { getAvatarImage, getAvatarPublicUrl } from "@/config/avatars";
+import { getAvatarImage, getAvatarForDID } from "@/config/avatars";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -48,7 +48,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [webRTCStatus, setWebRTCStatus] = useState<string>("");
   const webRTCManagerRef = useRef<any>(null);
 
-  const [sourceImageUrl, setSourceImageUrl] = useState<string>(getAvatarPublicUrl('amy'));
+  const [avatarForDID, setAvatarForDID] = useState<{ presenterId?: string; url?: string }>(getAvatarForDID('amy'));
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
   const [isVideoLoading, setIsVideoLoading] = useState(false);
 
@@ -84,21 +84,21 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     // Priorité à l'image personnalisée
     if (config.customAvatarImage) {
       console.log("📸 Chargement image personnalisée");
-      setSourceImageUrl(config.customAvatarImage);
+      setAvatarForDID({ url: config.customAvatarImage });
       setCurrentVideoUrl(config.customAvatarImage);
     } else if (config.selectedAvatar) {
-      // Utiliser l'URL publique pour D-ID API
-      const publicUrl = getAvatarPublicUrl(config.selectedAvatar);
+      // Utiliser presenter ID ou URL pour D-ID API
+      const didConfig = getAvatarForDID(config.selectedAvatar);
       const localUrl = getAvatarImage(config.selectedAvatar);
-      console.log("📸 Chargement avatar:", { publicUrl, localUrl });
-      setSourceImageUrl(publicUrl); // URL publique HTTP pour D-ID API
+      console.log("📸 Chargement avatar:", { didConfig, localUrl });
+      setAvatarForDID(didConfig);
       setCurrentVideoUrl(localUrl);  // URL locale pour affichage UI
     } else {
       console.log("⚠️ Aucun avatar configuré - utilisation avatar par défaut");
-      const defaultPublicUrl = getAvatarPublicUrl('amy');
+      const defaultDIDConfig = getAvatarForDID('amy');
       const defaultLocalUrl = getAvatarImage('amy');
-      console.log("📸 Avatar par défaut:", { defaultPublicUrl, defaultLocalUrl });
-      setSourceImageUrl(defaultPublicUrl);
+      console.log("📸 Avatar par défaut:", { defaultDIDConfig, defaultLocalUrl });
+      setAvatarForDID(defaultDIDConfig);
       setCurrentVideoUrl(defaultLocalUrl);
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
@@ -109,7 +109,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Démarrer une session WebRTC avec D-ID
   const startWebRTCSession = async () => {
-    if (!sourceImageUrl) {
+    if (!avatarForDID.presenterId && !avatarForDID.url) {
       toast({
         title: "Avatar manquant",
         description: "Sélectionnez d'abord un avatar",
@@ -132,7 +132,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
     try {
       console.log("🎬 Démarrage session WebRTC D-ID");
-      console.log("📸 Image source URL:", sourceImageUrl);
+      console.log("📸 Avatar config:", avatarForDID);
       
       // Créer le gestionnaire WebRTC
       webRTCManagerRef.current = new DIDWebRTCManager(
@@ -143,8 +143,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         }
       );
 
-      // Créer la session
-      await webRTCManagerRef.current.createSession(sourceImageUrl);
+      // Créer la session (use URL for now, WebRTC might need URL)
+      const imageUrl = avatarForDID.url || '';
+      await webRTCManagerRef.current.createSession(imageUrl);
       
       toast({
         title: "✅ Connexion établie",
@@ -423,8 +424,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       // Étape 3: Génération vidéo avec D-ID Talks API
       console.log("🎬 Étape 3: Génération vidéo D-ID...");
       
-      if (!sourceImageUrl) {
-        console.log("⚠️ Pas d'avatar configuré - sourceImageUrl vide");
+      if (!avatarForDID.presenterId && !avatarForDID.url) {
+        console.log("⚠️ Pas d'avatar configuré");
         toast({
           title: "Avatar manquant",
           description: "Veuillez sélectionner un avatar dans la configuration",
@@ -433,7 +434,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         return;
       }
       
-      console.log("📸 Avatar URL:", sourceImageUrl.substring(0, 100));
+      console.log("📸 Avatar config:", avatarForDID);
       
       // Validation de la longueur du texte
       let textForVideo = responseText;
@@ -450,28 +451,38 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       
       try {
         // Créer une vidéo avec l'edge function D-ID
+        const requestBody: any = {
+          action: 'create_talk',
+          data: {
+            script: {
+              type: 'text',
+              input: textForVideo,
+              provider: {
+                type: 'microsoft',
+                voice_id: 'fr-FR-DeniseNeural'
+              }
+            },
+            config: {
+              fluent: true,
+              pad_audio: 0,
+              stitch: true,
+              result_format: 'mp4'
+            }
+          }
+        };
+
+        // Ajouter soit presenter_id soit source_url
+        if (avatarForDID.presenterId) {
+          requestBody.data.presenter_id = avatarForDID.presenterId;
+          console.log("📸 Utilisation presenter ID:", avatarForDID.presenterId);
+        } else if (avatarForDID.url) {
+          requestBody.data.source_url = avatarForDID.url;
+          console.log("📸 Utilisation URL:", avatarForDID.url);
+        }
+
         const talkResponse = await authenticatedFetch('did-avatar', {
           method: 'POST',
-          body: JSON.stringify({
-            action: 'create_talk',
-            data: {
-              source_url: sourceImageUrl,
-              script: {
-                type: 'text',
-                input: textForVideo,
-                provider: {
-                  type: 'microsoft',
-                  voice_id: 'fr-FR-DeniseNeural'
-                }
-              },
-              config: {
-                fluent: true,
-                pad_audio: 0,
-                stitch: true,
-                result_format: 'mp4'
-              }
-            }
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!talkResponse.ok) {
@@ -647,7 +658,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         {!isStreaming ? (
           <Button
             onClick={startWebRTCSession}
-            disabled={isVideoLoading || !sourceImageUrl}
+            disabled={isVideoLoading || (!avatarForDID.presenterId && !avatarForDID.url)}
             className="gradient-primary"
           >
             {isVideoLoading ? (
