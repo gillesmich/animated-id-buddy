@@ -742,12 +742,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       <div className="aspect-video rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
         <div className="absolute inset-0 gradient-glow opacity-30"></div>
         
-        {currentVideoUrl ? (
+        {currentVideoUrl || isStreaming ? (
           <div className="relative w-full h-full">
-            {currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('cloudfront.net') || currentVideoUrl.includes('result') ? (
-              // Vidéo D-ID générée
+            {isStreaming ? (
+              // Stream WebRTC actif
               <video
                 ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay
+                playsInline
+                muted={false}
+              />
+            ) : currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('cloudfront.net') || currentVideoUrl.includes('result') ? (
+              // Vidéo D-ID générée
+              <video
                 className="w-full h-full object-cover"
                 loop
                 muted
