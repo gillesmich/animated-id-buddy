@@ -38,6 +38,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const streamIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const pendingStreamRef = useRef<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Avatar preview URLs - URLs officielles D-ID
@@ -135,21 +136,28 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       peerConnection.ontrack = (event) => {
         console.log("📹 Track reçu:", event.track.kind, "- Streams:", event.streams.length);
         
-        // Ne traiter que le track vidéo pour éviter les doublons
-        if (event.track.kind === 'video' && videoRef.current && event.streams[0]) {
-          console.log("🎬 Configuration du stream vidéo WebRTC");
+        // Stocker le stream vidéo
+        if (event.track.kind === 'video' && event.streams[0]) {
+          console.log("🎬 Stream vidéo WebRTC détecté");
+          const stream = event.streams[0];
+          pendingStreamRef.current = stream;
           
-          videoRef.current.srcObject = event.streams[0];
+          // Essayer d'assigner immédiatement
+          if (videoRef.current) {
+            console.log("✅ Assignment immédiat du stream à la vidéo");
+            videoRef.current.srcObject = stream;
+            videoRef.current.onloadedmetadata = () => {
+              console.log("✅ Métadonnées vidéo chargées");
+              videoRef.current?.play()
+                .then(() => console.log("✅ Lecture vidéo démarrée"))
+                .catch(err => console.error("❌ Erreur autoplay:", err));
+            };
+          } else {
+            console.log("⏳ Vidéo ref pas prête, stream en attente");
+          }
+          
           setIsStreaming(true);
           setIsVideoLoading(false);
-          
-          // Forcer la lecture dès que les métadonnées sont chargées
-          videoRef.current.onloadedmetadata = () => {
-            console.log("✅ Métadonnées vidéo chargées, lancement lecture");
-            videoRef.current?.play()
-              .then(() => console.log("✅ Lecture vidéo démarrée"))
-              .catch(err => console.error("❌ Erreur autoplay:", err));
-          };
         }
       };
 
@@ -758,7 +766,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             {isStreaming ? (
               // Stream WebRTC actif
               <video
-                ref={videoRef}
+                ref={(el) => {
+                  videoRef.current = el;
+                  // Assigner le stream en attente si disponible
+                  if (el && pendingStreamRef.current && !el.srcObject) {
+                    console.log("🔗 Assignment du stream en attente à la vidéo");
+                    el.srcObject = pendingStreamRef.current;
+                    el.onloadedmetadata = () => {
+                      console.log("✅ Métadonnées chargées (ref callback)");
+                      el.play()
+                        .then(() => console.log("✅ Lecture démarrée (ref callback)"))
+                        .catch(err => console.error("❌ Erreur autoplay:", err));
+                    };
+                  }
+                }}
                 className="w-full h-full object-cover"
                 autoPlay
                 playsInline
