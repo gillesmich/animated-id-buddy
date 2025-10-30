@@ -80,6 +80,15 @@ const VoiceControls = ({
             
             try {
               const audioBlob = await recorderRef.current.stop();
+              
+              // Filtrage: ignorer les audios trop courts (< 1 seconde)
+              if (audioBlob.size < 16000) { // ~1 seconde à 16kHz
+                console.log("⚠️ Audio trop court, ignoré");
+                setTimeout(() => startVADListening(), 500);
+                return;
+              }
+              
+              console.log("✅ Audio blob created:", audioBlob.size, "bytes");
               const base64Audio = await audioToBase64(audioBlob);
               console.log("📤 Envoi de l'audio au parent");
               await onVoiceMessage(base64Audio);

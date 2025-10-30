@@ -683,7 +683,23 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       const { text: transcription } = await transcriptionResponse.json();
       console.log("✅ Transcription:", transcription);
       
-      setConversation((prev) => [...prev, { role: "user", content: transcription, type: 'voice' }]);
+      // Filtrage: ignorer les transcriptions vides ou trop courtes
+      const cleanTranscription = transcription.trim();
+      if (!cleanTranscription || cleanTranscription.length < 5) {
+        console.log("⚠️ Transcription trop courte ou vide, ignorée:", cleanTranscription);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Filtrage: ignorer les phrases de remerciement génériques
+      const genericPhrases = ["merci à tous", "au revoir", "merci et"];
+      if (genericPhrases.some(phrase => cleanTranscription.toLowerCase().includes(phrase)) && cleanTranscription.length < 30) {
+        console.log("⚠️ Phrase générique détectée, ignorée:", cleanTranscription);
+        setIsLoading(false);
+        return;
+      }
+      
+      setConversation((prev) => [...prev, { role: "user", content: cleanTranscription, type: 'voice' }]);
 
       // Étape 2: Génération de réponse avec OpenAI
       console.log("🤖 Étape 2: Génération réponse OpenAI...");
@@ -702,7 +718,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           body: JSON.stringify({
             messages: [
               { role: 'system', content: 'Tu es un assistant virtuel intelligent et amical. Réponds de manière concise et naturelle.' },
-              { role: 'user', content: transcription }
+              { role: 'user', content: cleanTranscription }
             ],
             model: config.selectedModel || 'gpt-4o-mini',
           }),
