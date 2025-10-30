@@ -24,7 +24,6 @@ const VoiceControls = ({
   const [vadEnabled, setVadEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [volume, setVolume] = useState(0);
-  const [clickCount, setClickCount] = useState(0);
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -127,15 +126,10 @@ const VoiceControls = ({
   };
 
   const toggleVAD = async () => {
-    setClickCount(prev => prev + 1);
-    console.log("🔘 Bouton VAD cliqué - vadEnabled:", vadEnabled, "isListening:", isListening, "clickCount:", clickCount);
-    
     if (vadEnabled) {
-      console.log("⏹️ Arrêt du VAD");
       stopVADListening();
       setVadEnabled(false);
     } else {
-      console.log("▶️ Démarrage du VAD");
       setVadEnabled(true);
       await startVADListening();
     }
@@ -143,8 +137,6 @@ const VoiceControls = ({
 
 
   const toggleAudio = () => {
-    setClickCount(prev => prev + 1);
-    console.log("🔊 Audio toggled - clickCount:", clickCount);
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
       playerRef.current?.stop();
@@ -158,11 +150,6 @@ const VoiceControls = ({
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
-      {/* Debug overlay */}
-      <div className="fixed top-2 right-2 z-50 bg-destructive text-destructive-foreground px-3 py-1 rounded-md text-sm font-bold">
-        Clics: {clickCount}
-      </div>
-      
       <div className="flex items-center gap-3">
         {/* Toggle VAD Mode - DIV simple */}
         <div
@@ -170,14 +157,10 @@ const VoiceControls = ({
           tabIndex={0}
           onTouchStart={(e) => {
             e.preventDefault();
-            console.log("👆 Touch START sur bouton VAD");
-            setClickCount(prev => prev + 1);
             toggleVAD();
           }}
           onClick={(e) => {
             e.preventDefault();
-            console.log("👆 Click détecté sur bouton VAD");
-            setClickCount(prev => prev + 1);
             toggleVAD();
           }}
           className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
@@ -189,8 +172,7 @@ const VoiceControls = ({
             cursor: 'pointer', 
             touchAction: 'manipulation',
             userSelect: 'none',
-            WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-            border: '3px solid red'
+            WebkitTapHighlightColor: 'rgba(0,0,0,0)'
           }}
         >
           {vadEnabled ? (
@@ -212,14 +194,10 @@ const VoiceControls = ({
           tabIndex={0}
           onTouchStart={(e) => {
             e.preventDefault();
-            console.log("👆 Touch START sur bouton Audio");
-            setClickCount(prev => prev + 1);
             toggleAudio();
           }}
           onClick={(e) => {
             e.preventDefault();
-            console.log("👆 Click détecté sur bouton Audio");
-            setClickCount(prev => prev + 1);
             toggleAudio();
           }}
           className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
@@ -231,8 +209,7 @@ const VoiceControls = ({
             cursor: 'pointer', 
             touchAction: 'manipulation',
             userSelect: 'none',
-            WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-            border: '3px solid red'
+            WebkitTapHighlightColor: 'rgba(0,0,0,0)'
           }}
         >
           {audioEnabled ? (
