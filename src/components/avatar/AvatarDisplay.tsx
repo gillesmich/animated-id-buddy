@@ -549,36 +549,41 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
       
       try {
-        // Créer une vidéo avec l'API D-ID Talks
-        const talkResponse = await fetch('https://api.d-id.com/talks', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${config.didApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            source_url: sourceImageUrl,
-            script: {
-              type: 'text',
-              input: textForVideo,
-              provider: {
-                type: 'microsoft',
-                voice_id: 'fr-FR-DeniseNeural'
-              }
+        // Créer une vidéo avec l'edge function D-ID
+        const talkResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-            config: {
-              fluent: true,
-              pad_audio: 0,
-              stitch: true,
-              result_format: 'mp4'
-            }
-          }),
-        });
+            body: JSON.stringify({
+              action: 'create_talk',
+              data: {
+                source_url: sourceImageUrl,
+                script: {
+                  type: 'text',
+                  input: textForVideo,
+                  provider: {
+                    type: 'microsoft',
+                    voice_id: 'fr-FR-DeniseNeural'
+                  }
+                },
+                config: {
+                  fluent: true,
+                  pad_audio: 0,
+                  stitch: true,
+                  result_format: 'mp4'
+                }
+              }
+            }),
+          }
+        );
 
         if (!talkResponse.ok) {
           const errorData = await talkResponse.json().catch(() => ({}));
           console.error('❌ Erreur D-ID:', talkResponse.status, errorData);
-          throw new Error(`Erreur D-ID: ${talkResponse.status}`);
+          throw new Error(`Erreur D-ID: ${errorData.error || talkResponse.status}`);
         }
 
         const talkData = await talkResponse.json();
@@ -596,11 +601,19 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             throw new Error("Timeout génération vidéo");
           }
 
-          const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
-            headers: {
-              'Authorization': `Basic ${config.didApiKey}`,
-            },
-          });
+          const statusResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                action: 'get_talk',
+                data: { talkId }
+              }),
+            }
+          );
 
           if (!statusResponse.ok) {
             throw new Error("Erreur vérification statut");
