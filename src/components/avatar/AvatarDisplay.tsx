@@ -37,6 +37,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const streamIdRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
 
   // Avatar preview URLs - URLs officielles D-ID
@@ -119,11 +120,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       const streamData = await streamResponse.json();
       streamIdRef.current = streamData.id;
-      const sessionId = streamData.session_id;
+      sessionIdRef.current = streamData.session_id;
       const offer = streamData.offer;
       const iceServers = streamData.ice_servers || [{ urls: 'stun:stun.l.google.com:19302' }];
 
       console.log("✅ Stream créé:", streamIdRef.current);
+      console.log("✅ Session ID:", sessionIdRef.current);
 
       // Step 2: Setup WebRTC
       const peerConnection = new RTCPeerConnection({ iceServers });
@@ -167,7 +169,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         },
         body: JSON.stringify({
           answer: answer,
-          session_id: sessionId,
+          session_id: sessionIdRef.current,
         }),
       });
 
@@ -200,7 +202,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Send message via WebRTC stream
   const sendStreamMessage = async (text: string) => {
-    if (!streamIdRef.current || !config.didApiKey) {
+    if (!streamIdRef.current || !sessionIdRef.current || !config.didApiKey) {
       toast({
         title: "Stream non actif",
         description: "Initialisez d'abord le stream",
@@ -210,6 +212,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
 
     try {
+      console.log("📤 Envoi message au stream:", text.substring(0, 50) + "...");
+      
       const response = await fetch(`https://api.d-id.com/talks/streams/${streamIdRef.current}`, {
         method: 'POST',
         headers: {
@@ -227,12 +231,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           },
           config: {
             stitch: true,
-          }
+          },
+          session_id: sessionIdRef.current
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Erreur envoi message: ${response.status}`);
+        const errorData = await response.text();
+        console.error("❌ Erreur D-ID stream:", response.status, errorData);
+        throw new Error(`Erreur envoi message: ${response.status} - ${errorData}`);
       }
 
       console.log("✅ Message envoyé au stream");
@@ -264,6 +271,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       streamIdRef.current = null;
     }
 
+    sessionIdRef.current = null;
     setIsStreaming(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
