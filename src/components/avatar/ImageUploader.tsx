@@ -13,6 +13,50 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
 
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Limiter à 1920x1080 pour rester sous 10MB
+          const maxWidth = 1920;
+          const maxHeight = 1080;
+          
+          if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height);
+            width *= ratio;
+            height *= ratio;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compression JPEG qualité 0.8
+          canvas.toBlob(
+            (blob) => {
+              const compressedFile = new File([blob!], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            0.8 // 80% qualité
+          );
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -29,8 +73,20 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
     setIsUploading(true);
 
     try {
+      // Compresser l'image avant upload si nécessaire
+      let fileToUpload = file;
+      if (file.size > 5 * 1024 * 1024) { // Si > 5MB
+        console.log("🗜️ Compression de l'image...");
+        toast({
+          title: "Compression en cours...",
+          description: "L'image est trop volumineuse, compression automatique",
+        });
+        fileToUpload = await compressImage(file);
+        console.log(`✅ Compressé: ${file.size} → ${fileToUpload.size} bytes`);
+      }
+
       // Créer un nom de fichier unique
-      const fileExt = file.name.split('.').pop();
+      const fileExt = 'jpg'; // Toujours JPEG après compression
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
@@ -39,7 +95,7 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
       // Upload vers Supabase Storage
       const { data, error } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, {
+        .upload(filePath, fileToUpload, {
           cacheControl: '3600',
           upsert: false
         });

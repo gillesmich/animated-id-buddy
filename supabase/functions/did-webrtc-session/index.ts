@@ -61,8 +61,8 @@ serve(async (req) => {
         body = {
           candidate: data.candidate,
           sdpMid: data.sdpMid,
-          sdpMLineIndex: data.sdpMLineIndex,
-          session_id: sessionId
+          sdpMLineIndex: data.sdpMLineIndex
+          // ✅ session_id RETIRÉ (déjà dans l'URL)
         };
         break;
       

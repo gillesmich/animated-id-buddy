@@ -90,6 +90,11 @@ export class DIDWebRTCManager {
       }
 
       console.log("✅ SDP answer envoyé");
+      
+      // Attendre 500ms pour que D-ID valide la session
+      console.log("⏳ Attente validation session D-ID...");
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       this.onStatusChange("Connecté");
 
     } catch (error) {
@@ -105,13 +110,16 @@ export class DIDWebRTCManager {
   private setupPeerConnectionHandlers(): void {
     if (!this.peerConnection) return;
 
-    // Gérer les ICE candidates
+    // Gérer les ICE candidates avec délai
     this.peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
         console.log("🧊 ICE candidate:", event.candidate);
         
+        // Attendre 200ms pour que le SDP soit validé
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         try {
-          await authenticatedFetch('did-webrtc-session', {
+          const response = await authenticatedFetch('did-webrtc-session', {
             method: 'POST',
             body: JSON.stringify({
               action: 'submit_network',
@@ -123,9 +131,18 @@ export class DIDWebRTCManager {
               }
             }),
           });
-          console.log("✅ ICE candidate envoyé");
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ ICE candidate rejeté:", errorText);
+            // Ne pas throw pour permettre aux autres candidates de passer
+            return;
+          }
+          
+          console.log("✅ ICE candidate accepté");
         } catch (error) {
           console.error("❌ Erreur envoi ICE candidate:", error);
+          // Continue avec les autres candidates
         }
       }
     };
