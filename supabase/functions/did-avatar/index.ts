@@ -19,6 +19,7 @@ serve(async (req) => {
     }
 
     console.log('D-ID API call:', action);
+    console.log('Request data:', JSON.stringify(data, null, 2));
 
     let url: string;
     let method = 'POST';
@@ -45,6 +46,9 @@ serve(async (req) => {
         throw new Error('Invalid action');
     }
 
+    console.log('Calling D-ID API:', url);
+    console.log('Request body:', body ? JSON.stringify(body, null, 2) : 'none');
+    
     const response = await fetch(url, {
       method,
       headers: {
@@ -54,10 +58,23 @@ serve(async (req) => {
       ...(body && { body: JSON.stringify(body) }),
     });
 
+    console.log('D-ID Response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.text();
-      console.error('D-ID API error:', error);
-      throw new Error(`D-ID API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('D-ID API error response:', errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      
+      throw new Error(JSON.stringify({
+        status: response.status,
+        error: errorData
+      }));
     }
 
     const result = await response.json();
