@@ -79,7 +79,8 @@ export class DIDWebRTCManager {
           action: 'start_stream',
           sessionId: this.sessionId,
           data: {
-            sdp: answer.sdp
+            sdp: answer.sdp,
+            type: 'answer'
           }
         }),
       });

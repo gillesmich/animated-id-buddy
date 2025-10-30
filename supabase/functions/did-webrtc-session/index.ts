@@ -44,10 +44,13 @@ serve(async (req) => {
         break;
       
       case 'start_stream':
-        // Démarrer le stream avec SDP offer
+        // Démarrer le stream avec SDP answer
         url = `https://api.d-id.com/talks/streams/${sessionId}/sdp`;
         body = {
-          answer: data.sdp,
+          answer: {
+            type: 'answer',
+            sdp: data.sdp
+          },
           session_id: sessionId
         };
         break;
