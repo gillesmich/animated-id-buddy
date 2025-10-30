@@ -81,8 +81,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       customAvatarImage: config.customAvatarImage?.substring(0, 50)
     });
     
-    // Priorité à l'image personnalisée
-    if (config.customAvatarImage) {
+    // Priorité à l'image personnalisée (si elle existe vraiment)
+    if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
       console.log("📸 Chargement image personnalisée");
       setAvatarForDID({ url: config.customAvatarImage });
       setCurrentVideoUrl(config.customAvatarImage);

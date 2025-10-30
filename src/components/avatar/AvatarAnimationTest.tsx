@@ -122,7 +122,7 @@ const AvatarAnimationTest = ({ config }: AvatarAnimationTestProps) => {
         >
           <div className="w-32 h-32 rounded-full gradient-primary flex items-center justify-center shadow-elegant relative">
             <div className="w-28 h-28 rounded-full bg-background/90 flex items-center justify-center relative overflow-hidden">
-              {config.customAvatarImage ? (
+              {config.customAvatarImage && config.customAvatarImage.trim() !== '' ? (
                 <img 
                   src={config.customAvatarImage} 
                   alt="Avatar" 
@@ -239,7 +239,7 @@ const AvatarAnimationTest = ({ config }: AvatarAnimationTestProps) => {
         <h4 className="font-semibold mb-2">Détails techniques:</h4>
         <div className="text-xs text-muted-foreground space-y-1">
           <p>• Avatar: {config.selectedAvatar || 'Non sélectionné'}</p>
-          <p>• Image: {config.customAvatarImage ? 'Personnalisée' : 'Par défaut'}</p>
+          <p>• Image: {config.customAvatarImage && config.customAvatarImage.trim() !== '' ? 'Personnalisée' : 'Par défaut'}</p>
           <p>• État: {isAnimating ? `Animation ${animationType} active` : 'Inactif'}</p>
           <p>• FPS: ~20 (50ms par frame)</p>
           <p>• Durée: 5 secondes par animation</p>
