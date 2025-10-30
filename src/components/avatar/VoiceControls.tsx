@@ -25,16 +25,12 @@ const VoiceControls = ({
   
   const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
-  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
     return () => {
       if (recorderRef.current?.isRecording()) {
         recorderRef.current.stop();
-      }
-      if (autoStopTimeoutRef.current) {
-        clearTimeout(autoStopTimeoutRef.current);
       }
     };
   }, []);
@@ -48,7 +44,7 @@ const VoiceControls = ({
     if (isProcessing || isRecording) return;
 
     try {
-      console.log("🎤 Démarrage de l'enregistrement 5 secondes...");
+      console.log("🎤 Démarrage de l'enregistrement - maintenir enfoncé...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
@@ -59,40 +55,28 @@ const VoiceControls = ({
       await recorderRef.current.start();
       setIsRecording(true);
       
-      console.log("✅ Enregistrement démarré");
+      console.log("✅ Enregistrement démarré - maintenez le bouton");
       toast({
-        title: "Enregistrement 5s",
-        description: "Parlez maintenant...",
+        title: "Enregistrement actif",
+        description: "Maintenez le bouton et parlez...",
       });
-
-      // Arrêt automatique après 5 secondes
-      autoStopTimeoutRef.current = setTimeout(async () => {
-        if (recorderRef.current?.isRecording()) {
-          console.log("⏱️ 5 secondes écoulées, arrêt automatique");
-          await stopRecording();
-        }
-      }, 5000);
       
     } catch (error) {
       console.error('❌ Recording error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Impossible d'accéder au microphone";
       toast({
         title: "Erreur microphone",
-        description: error instanceof Error ? error.message : "Impossible d'accéder au microphone. Vérifiez les permissions.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
   };
 
   const stopRecording = async () => {
-    if (!recorderRef.current) return;
+    if (!recorderRef.current || !isRecording) return;
 
     try {
       console.log("🛑 Arrêt de l'enregistrement...");
-      
-      if (autoStopTimeoutRef.current) {
-        clearTimeout(autoStopTimeoutRef.current);
-        autoStopTimeoutRef.current = null;
-      }
       
       const audioBlob = await recorderRef.current.stop();
       setIsRecording(false);
@@ -141,13 +125,31 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Bouton enregistrement 5 secondes */}
+      {/* Bouton Push-to-Talk - maintenir enfoncé */}
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onClick={startRecording}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          startRecording();
+        }}
+        onMouseUp={(e) => {
+          e.preventDefault();
+          stopRecording();
+        }}
+        onMouseLeave={() => {
+          if (isRecording) stopRecording();
+        }}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          startRecording();
+        }}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          stopRecording();
+        }}
         disabled={isProcessing}
-        className={isRecording ? "animate-pulse" : ""}
+        className={isRecording ? "animate-pulse ring-2 ring-destructive" : ""}
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
@@ -159,7 +161,7 @@ const VoiceControls = ({
         ) : (
           <>
             <Mic className="w-5 h-5 mr-2" />
-            Parler (5s)
+            Maintenir pour parler
           </>
         )}
       </Button>
