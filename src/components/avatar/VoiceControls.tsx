@@ -25,6 +25,7 @@ const VoiceControls = ({
   const [vadEnabled, setVadEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [volume, setVolume] = useState(0);
+  const [clickCount, setClickCount] = useState(0);
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -127,7 +128,8 @@ const VoiceControls = ({
   };
 
   const toggleVAD = async () => {
-    console.log("🔘 Bouton VAD cliqué - vadEnabled:", vadEnabled, "isListening:", isListening);
+    setClickCount(prev => prev + 1);
+    console.log("🔘 Bouton VAD cliqué - vadEnabled:", vadEnabled, "isListening:", isListening, "clickCount:", clickCount);
     
     if (vadEnabled) {
       console.log("⏹️ Arrêt du VAD");
@@ -142,6 +144,8 @@ const VoiceControls = ({
 
 
   const toggleAudio = () => {
+    setClickCount(prev => prev + 1);
+    console.log("🔊 Audio toggled - clickCount:", clickCount);
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
       playerRef.current?.stop();
@@ -155,19 +159,30 @@ const VoiceControls = ({
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
+      {/* Debug overlay */}
+      <div className="fixed top-2 right-2 z-50 bg-destructive text-destructive-foreground px-3 py-1 rounded-md text-sm font-bold">
+        Clics: {clickCount}
+      </div>
+      
       <div className="flex items-center gap-3">
         {/* Toggle VAD Mode */}
         <Button
+          type="button"
           size="lg"
           variant={vadEnabled ? "default" : "outline"}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onClick={() => {
             console.log("👆 Click détecté sur bouton VAD");
             toggleVAD();
           }}
           className={isListening ? "ring-2 ring-primary" : ""}
-          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
+          style={{ 
+            pointerEvents: 'auto',
+            cursor: 'pointer', 
+            touchAction: 'manipulation',
+            userSelect: 'none',
+            WebkitTapHighlightColor: 'transparent',
+            border: '2px solid red'
+          }}
         >
           {vadEnabled ? (
             <>
@@ -184,15 +199,21 @@ const VoiceControls = ({
 
         {/* Toggle audio */}
         <Button
+          type="button"
           size="lg"
           variant={audioEnabled ? "default" : "outline"}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onClick={() => {
             console.log("👆 Click détecté sur bouton Audio");
             toggleAudio();
           }}
-          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
+          style={{ 
+            pointerEvents: 'auto',
+            cursor: 'pointer', 
+            touchAction: 'manipulation',
+            userSelect: 'none',
+            WebkitTapHighlightColor: 'transparent',
+            border: '2px solid red'
+          }}
         >
           {audioEnabled ? (
             <>
