@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { AudioRecorder, AudioPlayer, audioToBase64 } from "@/utils/audioUtils";
@@ -155,29 +156,11 @@ const VoiceControls = ({
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
       <div className="flex items-center gap-3">
-        {/* Toggle VAD Mode - DIV simple */}
-        <div
-          role="button"
-          tabIndex={0}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            toggleVAD();
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            toggleVAD();
-          }}
-          className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
-            vadEnabled 
-              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-              : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-          } ${isListening ? "ring-2 ring-primary" : ""}`}
-          style={{ 
-            cursor: 'pointer', 
-            touchAction: 'manipulation',
-            userSelect: 'none',
-            WebkitTapHighlightColor: 'rgba(0,0,0,0)'
-          }}
+        {/* Toggle VAD Mode */}
+        <Button
+          onClick={toggleVAD}
+          variant={vadEnabled ? "default" : "outline"}
+          className={`gap-2 ${isListening ? "ring-2 ring-primary" : ""}`}
         >
           {vadEnabled ? (
             <>
@@ -190,31 +173,13 @@ const VoiceControls = ({
               <span>VAD Off</span>
             </>
           )}
-        </div>
+        </Button>
 
-        {/* Toggle audio - DIV simple */}
-        <div
-          role="button"
-          tabIndex={0}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            toggleAudio();
-          }}
-          onClick={(e) => {
-            e.preventDefault();
-            toggleAudio();
-          }}
-          className={`inline-flex items-center justify-center gap-2 h-11 px-8 rounded-md text-sm font-medium transition-colors ${
-            audioEnabled 
-              ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-              : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-          }`}
-          style={{ 
-            cursor: 'pointer', 
-            touchAction: 'manipulation',
-            userSelect: 'none',
-            WebkitTapHighlightColor: 'rgba(0,0,0,0)'
-          }}
+        {/* Toggle audio */}
+        <Button
+          onClick={toggleAudio}
+          variant={audioEnabled ? "default" : "outline"}
+          className="gap-2"
         >
           {audioEnabled ? (
             <>
@@ -227,7 +192,7 @@ const VoiceControls = ({
               <span>Muet</span>
             </>
           )}
-        </div>
+        </Button>
 
         {/* Indicateurs de statut */}
         <div className="flex items-center gap-2 ml-auto">

@@ -57,27 +57,51 @@ serve(async (req) => {
     
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
+    
+    // 1. Patterns de sous-titres et crédits
     const subtitlePatterns = [
-      // Patterns pour "sous-titres réalisés"
       /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
       /subtítulos?\s+realizados?\s+(por|para)\s+(la\s+)?comunidad\s+de\s+amara\.org/gi,
       /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
-      // Patterns génériques pour toute mention d'Amara
       /.*amara\.org.*/gi,
       /.*communauté\s+(d'?|de\s+)?amara.*/gi,
       /.*community.*amara.*/gi,
-      // Patterns pour crédits vidéo courants
       /.*sous[-\s]?titr.*/gi,
       /.*subtítulo.*/gi,
       /.*subtitle.*/gi,
+      /merci\s+(à\s+tous|beaucoup)(\s+et\s+à\s+bientôt)?[\s!.]*$/gi,
+      /à\s+bientôt[\s!.]*$/gi,
     ];
     
     for (const pattern of subtitlePatterns) {
       cleanedText = cleanedText.replace(pattern, '').trim();
     }
     
-    // Nettoyer les espaces multiples et lignes vides
+    // 2. Détecter et éliminer les répétitions (phrases qui se répètent 2+ fois)
+    const sentences = cleanedText.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
+    const uniqueSentences: string[] = [];
+    const seenSentences = new Set<string>();
+    
+    for (const sentence of sentences) {
+      const normalized = sentence.trim().toLowerCase();
+      if (!seenSentences.has(normalized)) {
+        seenSentences.add(normalized);
+        uniqueSentences.push(sentence.trim());
+      }
+    }
+    
+    cleanedText = uniqueSentences.join('. ');
+    if (cleanedText && !cleanedText.endsWith('.') && !cleanedText.endsWith('!') && !cleanedText.endsWith('?')) {
+      cleanedText += '.';
+    }
+    
+    // 3. Nettoyer les espaces multiples
     cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    
+    // 4. Filtrer les transcriptions trop courtes ou vides
+    if (cleanedText.length < 3 || cleanedText === '.' || cleanedText === '!') {
+      cleanedText = '';
+    }
     
     console.log('✅ Whisper transcription success:', cleanedText);
 
