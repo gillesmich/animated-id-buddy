@@ -9,7 +9,15 @@ export interface AvatarConfig {
   name: string;
   description: string;
   image: string;
+  publicUrl?: string; // URL publique Supabase Storage (pour D-ID API)
 }
+
+// URLs publiques Supabase Storage (initialisées au runtime)
+let storageUrls: Record<string, string> = {};
+
+export const setStorageUrls = (urls: Record<string, string>) => {
+  storageUrls = urls;
+};
 
 export const PRESET_AVATARS: AvatarConfig[] = [
   {
@@ -51,4 +59,18 @@ export const getAvatarById = (id: string): AvatarConfig | undefined => {
 export const getAvatarImage = (id: string): string => {
   const avatar = getAvatarById(id);
   return avatar?.image || claraAvatar;
+};
+
+/**
+ * Obtenir l'URL publique pour l'API D-ID
+ * Utilise l'URL Supabase Storage si disponible, sinon l'image locale
+ */
+export const getAvatarPublicUrl = (id: string): string => {
+  // Priorité à l'URL Supabase Storage
+  if (storageUrls[id]) {
+    return storageUrls[id];
+  }
+  
+  // Fallback vers l'image locale
+  return getAvatarImage(id);
 };

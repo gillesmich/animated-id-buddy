@@ -10,7 +10,7 @@ import { debounce } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { DIDWebRTCManager } from "@/utils/didWebRTC";
-import { getAvatarImage, PRESET_AVATARS } from "@/config/avatars";
+import { getAvatarImage, getAvatarPublicUrl, PRESET_AVATARS } from "@/config/avatars";
 import "./avatar-transitions.css";
 
 interface AvatarDisplayProps {
@@ -48,12 +48,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [webRTCStatus, setWebRTCStatus] = useState<string>("");
   const webRTCManagerRef = useRef<any>(null);
 
-  // Avatar preview images - Images locales
+  // Avatar preview images - Images locales pour affichage UI
   const avatarPreviews: Record<string, string> = Object.fromEntries(
     PRESET_AVATARS.map(avatar => [avatar.id, avatar.image])
   );
 
-  const [sourceImageUrl, setSourceImageUrl] = useState<string>(getAvatarImage('amy'));
+  // URLs publiques pour API D-ID
+  const [sourceImageUrl, setSourceImageUrl] = useState<string>(getAvatarPublicUrl('amy'));
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const posterImages: Record<string, string> = Object.fromEntries(
@@ -95,18 +96,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       console.log("📸 Chargement image personnalisée");
       setSourceImageUrl(config.customAvatarImage);
       setCurrentVideoUrl(config.customAvatarImage);
-    } else if (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) {
-      const avatarUrl = avatarPreviews[config.selectedAvatar];
-      console.log("📸 Chargement avatar D-ID:", avatarUrl);
-      setSourceImageUrl(avatarUrl);
-      setCurrentVideoUrl(avatarUrl);
+    } else if (config.selectedAvatar) {
+      // Utiliser l'URL publique pour D-ID API
+      const publicUrl = getAvatarPublicUrl(config.selectedAvatar);
+      const localUrl = getAvatarImage(config.selectedAvatar);
+      console.log("📸 Chargement avatar:", { publicUrl, localUrl });
+      setSourceImageUrl(publicUrl); // URL publique pour D-ID API
+      setCurrentVideoUrl(localUrl);  // URL locale pour affichage
     } else {
       console.log("⚠️ Aucun avatar configuré - utilisation avatar par défaut");
-      // Fallback vers Amy (premier avatar) par défaut
-      const defaultAvatar = getAvatarImage('amy');
-      console.log("📸 Avatar par défaut:", defaultAvatar);
-      setSourceImageUrl(defaultAvatar);
-      setCurrentVideoUrl(defaultAvatar);
+      const defaultPublicUrl = getAvatarPublicUrl('amy');
+      const defaultLocalUrl = getAvatarImage('amy');
+      console.log("📸 Avatar par défaut:", { defaultPublicUrl, defaultLocalUrl });
+      setSourceImageUrl(defaultPublicUrl);
+      setCurrentVideoUrl(defaultLocalUrl);
     }
   }, [config.selectedAvatar, config.customAvatarImage]);
 

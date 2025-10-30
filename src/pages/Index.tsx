@@ -10,6 +10,8 @@ import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { initializePresetAvatars } from "@/utils/uploadAvatarToStorage";
+import { setStorageUrls } from "@/config/avatars";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -29,6 +31,24 @@ const Index = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Initialiser les avatars dans Supabase Storage
+  useEffect(() => {
+    const initAvatars = async () => {
+      try {
+        console.log("📤 Initialisation des avatars dans Supabase Storage...");
+        const urls = await initializePresetAvatars();
+        setStorageUrls(urls);
+        console.log("✅ Avatars initialisés:", urls);
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initialisation des avatars:", error);
+      }
+    };
+
+    if (user) {
+      initAvatars();
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
