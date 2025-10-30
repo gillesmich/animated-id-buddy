@@ -628,7 +628,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         
         {currentVideoUrl ? (
           <div className="relative w-full h-full">
-            {currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('result_url') || currentVideoUrl.includes('d-id.com/talks') ? (
+            {currentVideoUrl.endsWith('.mp4') || currentVideoUrl.includes('cloudfront.net') || currentVideoUrl.includes('result') ? (
               // Vidéo D-ID générée
               <video
                 ref={videoRef}
@@ -637,7 +637,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                 muted
                 playsInline
                 controls
-                poster={currentVideoUrl.replace('.mp4', '.jpg').replace('/talks/', '/images/')}
+                src={currentVideoUrl}
               >
                 <source src={currentVideoUrl} type="video/mp4" />
               </video>
