@@ -127,10 +127,14 @@ const VoiceControls = ({
   };
 
   const toggleVAD = async () => {
+    console.log("🔘 Bouton VAD cliqué - vadEnabled:", vadEnabled, "isListening:", isListening);
+    
     if (vadEnabled) {
+      console.log("⏹️ Arrêt du VAD");
       stopVADListening();
       setVadEnabled(false);
     } else {
+      console.log("▶️ Démarrage du VAD");
       setVadEnabled(true);
       await startVADListening();
     }
@@ -156,9 +160,14 @@ const VoiceControls = ({
         <Button
           size="lg"
           variant={vadEnabled ? "default" : "outline"}
-          onClick={toggleVAD}
-          disabled={isProcessing}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("👆 Click détecté sur bouton VAD");
+            toggleVAD();
+          }}
           className={isListening ? "ring-2 ring-primary" : ""}
+          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
         >
           {vadEnabled ? (
             <>
@@ -177,8 +186,13 @@ const VoiceControls = ({
         <Button
           size="lg"
           variant={audioEnabled ? "default" : "outline"}
-          onClick={toggleAudio}
-          disabled={isProcessing}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("👆 Click détecté sur bouton Audio");
+            toggleAudio();
+          }}
+          style={{ cursor: 'pointer', touchAction: 'manipulation' }}
         >
           {audioEnabled ? (
             <>
