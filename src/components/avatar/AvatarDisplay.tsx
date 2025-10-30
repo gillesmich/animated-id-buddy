@@ -30,9 +30,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [conversation, setConversation] = useState<Array<{ role: string; content: string; type?: 'text' | 'voice' }>>([]);
   const [streamingText, setStreamingText] = useState("");
-  const [sourceImageUrl, setSourceImageUrl] = useState<string>(""); // URL de l'image source (PNG)
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(""); // URL de la vidéo générée (MP4)
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const { toast } = useToast();
@@ -54,7 +51,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     marcus: "https://create-images-results.d-id.com/default_presenter_image/oliver/image.jpeg",
   };
 
-  // Images de poster pour les avatars (utilisées comme fallback)
+  const [sourceImageUrl, setSourceImageUrl] = useState<string>(avatarPreviews.amy);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(avatarPreviews.amy);
+  const [isVideoLoading, setIsVideoLoading] = useState(false);
   const posterImages: Record<string, string> = {
     amy: "https://create-images-results.d-id.com/default_presenter_image/amy/image.jpeg",
     john: "https://create-images-results.d-id.com/default_presenter_image/maya/image.jpeg",
