@@ -739,10 +739,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         return;
       }
       
-      if (!sourceImageUrl) {
-        console.log("⚠️ Pas d'avatar sélectionné");
+      // Déterminer l'URL de l'avatar à utiliser
+      const avatarUrl = config.customAvatarImage || 
+                       (config.selectedAvatar && avatarPreviews[config.selectedAvatar]) ||
+                       sourceImageUrl;
+      
+      if (!avatarUrl) {
+        console.log("⚠️ Pas d'avatar configuré");
         return;
       }
+      
+      console.log("📸 Avatar URL:", avatarUrl.substring(0, 100));
       
       // Validation de la longueur du texte
       let textForVideo = responseText;
@@ -766,7 +773,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            source_url: sourceImageUrl,
+            source_url: avatarUrl,
             script: {
               type: 'text',
               input: textForVideo,
