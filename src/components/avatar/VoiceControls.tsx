@@ -125,31 +125,38 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
+      {/* DEBUG OVERLAY */}
+      <div className="fixed top-4 right-4 bg-black/90 text-white p-4 rounded-lg text-xs z-50 font-mono">
+        <div>isProcessing: {isProcessing.toString()}</div>
+        <div>isRecording: {isRecording.toString()}</div>
+        <div>isAvatarSpeaking: {isAvatarSpeaking.toString()}</div>
+        <div>disabled: {isProcessing.toString()}</div>
+      </div>
+
       {/* Bouton Push-to-Talk - maintenir enfoncé */}
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onMouseDown={(e) => {
+        onPointerDown={(e) => {
           e.preventDefault();
-          startRecording();
+          console.log("🖱️ PointerDown - isProcessing:", isProcessing, "isRecording:", isRecording);
+          if (!isProcessing && !isRecording) {
+            startRecording();
+          }
         }}
-        onMouseUp={(e) => {
+        onPointerUp={(e) => {
           e.preventDefault();
-          stopRecording();
+          console.log("🖱️ PointerUp - isRecording:", isRecording);
+          if (isRecording) {
+            stopRecording();
+          }
         }}
-        onMouseLeave={() => {
+        onPointerLeave={() => {
+          console.log("🖱️ PointerLeave - isRecording:", isRecording);
           if (isRecording) stopRecording();
         }}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          startRecording();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          stopRecording();
-        }}
-        disabled={isProcessing}
         className={isRecording ? "animate-pulse ring-2 ring-destructive" : ""}
+        style={{ pointerEvents: isProcessing ? 'none' : 'auto' }}
       >
         {isProcessing ? (
           <Loader2 className="w-5 h-5 animate-spin" />
