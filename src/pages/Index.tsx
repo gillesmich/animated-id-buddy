@@ -59,6 +59,7 @@ const Index = () => {
       elevenlabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || "",
       selectedAvatar: "amy",
       customAvatarImage: "",
+      customAvatarVideo: "",
       selectedVoice: "EXAVITQu4vr4xnSDxMaL",
       selectedModel: "gpt-5-2025-08-07",
       workflows: [],

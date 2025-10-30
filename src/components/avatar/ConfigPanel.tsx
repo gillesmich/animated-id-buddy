@@ -12,6 +12,7 @@ import { Key, Mic, Bot, User, Image as ImageIcon, FileCode, MessageSquare } from
 import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
+import VideoUploader from "./VideoUploader";
 import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
 import { useState, useEffect } from "react";
@@ -36,6 +37,7 @@ interface ConfigPanelProps {
     elevenlabsApiKey: string;
     selectedAvatar: string;
     customAvatarImage?: string;
+    customAvatarVideo?: string;
     selectedVoice: string;
     selectedModel: string;
     workflows: WorkflowConfig[];
@@ -166,6 +168,13 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             <ImageUploader 
               currentImage={config.customAvatarImage}
               onImageSelected={(url) => setConfig({ ...config, customAvatarImage: url })}
+            />
+          </div>
+
+          <div className="space-y-2 pt-4 border-t border-border/50">
+            <VideoUploader 
+              currentVideo={config.customAvatarVideo}
+              onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
             />
           </div>
 
