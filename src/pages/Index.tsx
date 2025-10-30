@@ -1,14 +1,40 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
 import ConfigPanel from "@/components/avatar/ConfigPanel";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import EmbedGenerator from "@/components/avatar/EmbedGenerator";
 import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
   // Charger la config depuis localStorage au démarrage
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem("avatarAI_config");
@@ -54,6 +80,22 @@ const Index = () => {
     });
   }, [config]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    navigate("/auth");
+    return null;
+  }
+
   return (
     <div className="min-h-screen">
       {/* Mobile Debug Overlay */}
@@ -72,13 +114,23 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">Interactive Avatar Platform</p>
               </div>
             </div>
-            <Button 
-              onClick={() => setShowEmbed(!showEmbed)}
-              variant="outline"
-              className="glass border-primary/30 hover:border-primary/60"
-            >
-              {showEmbed ? "Close Embed" : "Get Embed Code"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setShowEmbed(!showEmbed)}
+                variant="outline"
+                className="glass border-primary/30 hover:border-primary/60"
+              >
+                {showEmbed ? "Close Embed" : "Get Embed Code"}
+              </Button>
+              <Button 
+                onClick={handleLogout}
+                variant="outline"
+                size="icon"
+                className="glass border-primary/30 hover:border-primary/60"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>

@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.whisper-transcribe]
 verify_jwt = false
+
+[functions.avatar-export]
+verify_jwt = false
