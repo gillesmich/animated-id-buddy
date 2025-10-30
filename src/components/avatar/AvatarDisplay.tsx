@@ -121,27 +121,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
 
 
-  // Generate preview animation with D-ID (fallback method)
+  // Generate preview animation with D-ID
   const generatePreviewAnimation = async () => {
-    // Mode démo si pas de clé API
-    if (!config.didApiKey) {
-      toast({
-        title: "Mode Démo",
-        description: "Ajoutez votre clé D-ID pour générer de vraies animations",
-      });
-      
-      // Simuler une animation de chargement
-      setIsVideoLoading(true);
-      setTimeout(() => {
-        setIsVideoLoading(false);
-        toast({
-          title: "Démo terminée",
-          description: "Ajoutez vos clés API pour des animations réelles",
-        });
-      }, 3000);
-      return;
-    }
-
     if (!sourceImageUrl) {
       toast({
         title: "Avatar manquant",
@@ -156,32 +137,36 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     try {
       console.log("🎬 Génération D-ID démarrée");
       console.log("📸 Image source URL:", sourceImageUrl);
-      console.log("🔑 Clé D-ID configurée:", config.didApiKey.substring(0, 10) + "...");
       
-      const response = await fetch('https://api.d-id.com/talks', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${config.didApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source_url: sourceImageUrl,
-          script: {
-            type: 'text',
-            input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
-            provider: {
-              type: 'microsoft',
-              voice_id: 'fr-FR-DeniseNeural'
-            }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          config: {
-            fluent: true,
-            pad_audio: 0,
-            stitch: true,
-            result_format: 'mp4'
-          }
-        }),
-      });
+          body: JSON.stringify({
+            action: 'create_talk',
+            data: {
+              source_url: sourceImageUrl,
+              script: {
+                type: 'text',
+                input: 'Bonjour! Je suis votre assistant virtuel intelligent. Comment puis-je vous aider aujourd\'hui?',
+                provider: {
+                  type: 'microsoft',
+                  voice_id: 'fr-FR-DeniseNeural'
+                }
+              },
+              config: {
+                fluent: true,
+                pad_audio: 0,
+                stitch: true,
+                result_format: 'mp4'
+              }
+            }
+          }),
+        }
+      );
 
       console.log("📡 Réponse D-ID:", response.status, response.statusText);
 
@@ -190,13 +175,11 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         console.error('❌ Erreur D-ID:', response.status, errorData);
         
         let errorTitle = "Erreur API D-ID";
-        let errorMessage = `Erreur D-ID (${response.status})`;
+        let errorMessage = `Erreur D-ID: ${errorData.error || response.status}`;
         
-        if (errorData.description) {
-          errorMessage = errorData.description;
-        } else if (response.status === 401) {
+        if (response.status === 401) {
           errorTitle = "Authentification échouée";
-          errorMessage = "Clé D-ID invalide. Vérifiez votre configuration.";
+          errorMessage = "Clé D-ID non configurée ou invalide.";
         } else if (response.status === 500) {
           errorTitle = "Internal Server Error";
           errorMessage = "Erreur serveur D-ID. Le service rencontre des difficultés. Veuillez réessayer dans quelques instants.";
@@ -220,74 +203,64 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       // Poll for video status
       let attempts = 0;
-      const maxAttempts = 60; // 2 minutes max
+      const maxAttempts = 60;
       
-      const checkStatus = setInterval(async () => {
+      const pollVideo = async (): Promise<string> => {
         attempts++;
         console.log(`Vérification statut ${attempts}/${maxAttempts}`);
         
         if (attempts > maxAttempts) {
-          clearInterval(checkStatus);
-          setIsVideoLoading(false);
-          toast({
-            title: "Timeout",
-            description: "La génération prend trop de temps. Réessayez.",
-            variant: "destructive",
-          });
-          return;
+          throw new Error("Timeout génération vidéo");
         }
 
-        try {
-          const statusResponse = await fetch(`https://api.d-id.com/talks/${talkId}`, {
+        const statusResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/did-avatar`,
+          {
+            method: 'POST',
             headers: {
-              'Authorization': `Basic ${config.didApiKey}`,
+              'Content-Type': 'application/json',
             },
-          });
-
-          const statusData = await statusResponse.json();
-          console.log(`Statut D-ID (tentative ${attempts}):`, statusData.status);
-
-          if (statusData.status === 'done' && statusData.result_url) {
-            clearInterval(checkStatus);
-            setCurrentVideoUrl(statusData.result_url);
-            setIsVideoLoading(false);
-            
-            // Auto-play video
-            if (videoRef.current) {
-              videoRef.current.srcObject = null; // Clear stream if any
-              videoRef.current.src = statusData.result_url;
-              videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
-            }
-
-            toast({
-              title: "Prévisualisation prête",
-              description: "Animation de l'avatar générée avec succès!",
-            });
-          } else if (statusData.status === 'error' || statusData.status === 'rejected') {
-            clearInterval(checkStatus);
-            setIsVideoLoading(false);
-            throw new Error(statusData.error?.description || 'Erreur de génération');
+            body: JSON.stringify({
+              action: 'get_talk',
+              data: { talkId }
+            }),
           }
-        } catch (error) {
-          clearInterval(checkStatus);
-          setIsVideoLoading(false);
-          console.error('Status check error:', error);
-          
-          const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-          
-          setApiError({
-            title: "Erreur de suivi",
-            message: errorMessage,
-            timestamp: new Date()
-          });
-          
-          toast({
-            title: "Erreur de suivi",
-            description: errorMessage,
-            variant: "destructive",
-          });
+        );
+
+        if (!statusResponse.ok) {
+          throw new Error("Erreur vérification statut");
         }
-      }, 2000);
+
+        const statusData = await statusResponse.json();
+        console.log(`Statut D-ID (tentative ${attempts}):`, statusData.status);
+
+        if (statusData.status === 'done' && statusData.result_url) {
+          return statusData.result_url;
+        } else if (statusData.status === 'error' || statusData.status === 'rejected') {
+          throw new Error(statusData.error?.description || 'Erreur de génération');
+        }
+
+        // Attendre 2 secondes avant de réessayer
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return pollVideo();
+      };
+
+      const videoUrl = await pollVideo();
+      
+      setCurrentVideoUrl(videoUrl);
+      setIsVideoLoading(false);
+      
+      // Auto-play video
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.src = videoUrl;
+        videoRef.current.play().catch(err => console.log("Autoplay bloqué:", err));
+      }
+
+      toast({
+        title: "Prévisualisation prête",
+        description: "Animation de l'avatar générée avec succès!",
+      });
 
     } catch (error) {
       setIsVideoLoading(false);
@@ -517,11 +490,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       // Étape 3: Génération vidéo avec D-ID Talks API
       console.log("🎬 Étape 3: Génération vidéo D-ID...");
-      
-      if (!config.didApiKey) {
-        console.log("⚠️ Pas de clé D-ID, affichage texte seul");
-        return;
-      }
       
       if (!sourceImageUrl) {
         console.log("⚠️ Pas d'avatar configuré - sourceImageUrl vide");
