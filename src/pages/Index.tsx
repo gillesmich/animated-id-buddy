@@ -6,6 +6,7 @@ import ConfigPanel from "@/components/avatar/ConfigPanel";
 import AvatarDisplay from "@/components/avatar/AvatarDisplay";
 import EmbedGenerator from "@/components/avatar/EmbedGenerator";
 import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
+import AvatarSelector from "@/components/avatar/AvatarSelector";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
@@ -159,8 +160,12 @@ const Index = () => {
                   <TabsTrigger value="animations">Tests d'Animation</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="preview" className="mt-6">
+                <TabsContent value="preview" className="mt-6 space-y-4">
                   <AvatarDisplay config={config} />
+                  <AvatarSelector 
+                    selectedAvatar={config.selectedAvatar}
+                    onSelectAvatar={(avatarId) => setConfig({...config, selectedAvatar: avatarId})}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="animations" className="mt-6">
