@@ -23,18 +23,18 @@ const VoiceControls = ({
   const [audioEnabled, setAudioEnabled] = useState(true);
   const { toast } = useToast();
   
-  const pushToTalkRecorderRef = useRef<AudioRecorder | null>(null);
+  const recorderRef = useRef<AudioRecorder | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
-  const pushToTalkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
     return () => {
-      if (pushToTalkRecorderRef.current?.isRecording()) {
-        pushToTalkRecorderRef.current.stop();
+      if (recorderRef.current?.isRecording()) {
+        recorderRef.current.stop();
       }
-      if (pushToTalkTimeoutRef.current) {
-        clearTimeout(pushToTalkTimeoutRef.current);
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
       }
     };
   }, []);
@@ -44,57 +44,49 @@ const VoiceControls = ({
     onUserSpeaking?.(isRecording);
   }, [isRecording, onUserSpeaking]);
 
-  // Push-to-talk: Maintenir le bouton pour enregistrer
-  const handlePushToTalkStart = async () => {
-    if (isProcessing) return;
+  const startRecording = async () => {
+    if (isProcessing || isRecording) return;
 
     try {
-      console.log("🎤 Push-to-talk: Début enregistrement");
+      console.log("🎤 Démarrage de l'enregistrement...");
       
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
         throw new Error("Permission microphone refusée");
       }
       
-      pushToTalkRecorderRef.current = new AudioRecorder();
-      await pushToTalkRecorderRef.current.start();
+      recorderRef.current = new AudioRecorder();
+      await recorderRef.current.start();
       setIsRecording(true);
       
+      console.log("✅ Enregistrement démarré");
       toast({
-        title: "Enregistrement",
-        description: "Maintenez le bouton et parlez...",
+        title: "Enregistrement actif",
+        description: "Parlez maintenant... Cliquez à nouveau pour arrêter",
       });
       
     } catch (error) {
-      console.error('❌ Push-to-talk error:', error);
+      console.error('❌ Recording error:', error);
       toast({
         title: "Erreur microphone",
-        description: error instanceof Error ? error.message : "Impossible d'accéder au microphone",
+        description: error instanceof Error ? error.message : "Impossible d'accéder au microphone. Vérifiez les permissions.",
         variant: "destructive",
       });
     }
   };
 
-  const handlePushToTalkEnd = async () => {
-    if (!isRecording) return;
-
-    console.log("🎤 Push-to-talk: Fin enregistrement");
-    
-    // Petit délai pour éviter les enregistrements trop courts
-    pushToTalkTimeoutRef.current = setTimeout(async () => {
-      if (pushToTalkRecorderRef.current?.isRecording()) {
-        await stopPushToTalkRecording();
-      }
-    }, 100);
-  };
-
-  const stopPushToTalkRecording = async () => {
-    if (!pushToTalkRecorderRef.current) return;
+  const stopRecording = async () => {
+    if (!recorderRef.current) return;
 
     try {
-      console.log("🛑 Arrêt push-to-talk...");
+      console.log("🛑 Arrêt de l'enregistrement...");
       
-      const audioBlob = await pushToTalkRecorderRef.current.stop();
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+      
+      const audioBlob = await recorderRef.current.stop();
       setIsRecording(false);
       
       if (audioBlob.size === 0) {
@@ -126,6 +118,14 @@ const VoiceControls = ({
     }
   };
 
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
@@ -140,22 +140,20 @@ const VoiceControls = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {/* Bouton Push-to-Talk (maintenir) */}
+      {/* Bouton Parlez et maintenez enfoncé */}
       <Button
         size="lg"
         variant={isRecording ? "destructive" : "default"}
-        onMouseDown={handlePushToTalkStart}
-        onMouseUp={handlePushToTalkEnd}
-        onMouseLeave={handlePushToTalkEnd}
-        onTouchStart={handlePushToTalkStart}
-        onTouchEnd={handlePushToTalkEnd}
+        onClick={toggleRecording}
         disabled={isProcessing}
-        className={isRecording ? "animate-pulse ring-2 ring-destructive" : ""}
+        className={isRecording ? "animate-pulse" : ""}
       >
-        {isRecording ? (
+        {isProcessing ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : isRecording ? (
           <>
             <MicOff className="w-5 h-5 mr-2" />
-            Enregistrement...
+            Arrêter
           </>
         ) : (
           <>
