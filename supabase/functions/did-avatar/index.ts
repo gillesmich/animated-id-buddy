@@ -75,9 +75,22 @@ serve(async (req) => {
         errorData = { message: errorText };
       }
       
+      // Provide helpful error messages based on status code
+      let userMessage = 'D-ID API error';
+      if (response.status === 401) {
+        userMessage = 'Invalid D-ID API key. Please check your API key in settings.';
+      } else if (response.status === 402) {
+        userMessage = 'D-ID account has insufficient credits. Please add credits to your D-ID account.';
+      } else if (response.status === 429) {
+        userMessage = 'D-ID rate limit exceeded. Please try again later.';
+      } else if (response.status === 500) {
+        userMessage = 'D-ID server error. This may indicate: invalid API key, insufficient credits, or temporary server issues. Please check your D-ID account status.';
+      }
+      
       throw new Error(JSON.stringify({
         status: response.status,
-        error: errorData
+        error: errorData,
+        message: userMessage
       }));
     }
 
