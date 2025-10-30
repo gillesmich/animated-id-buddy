@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -797,7 +797,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   }, 500);
 
   // Gérer quand l'utilisateur commence à parler - arrêter l'avatar
-  const handleUserSpeaking = (speaking: boolean) => {
+  const handleUserSpeaking = useCallback((speaking: boolean) => {
     console.log(speaking ? "🎤 Utilisateur commence à parler - arrêt avatar" : "🎤 Utilisateur a fini de parler");
     
     if (speaking) {
@@ -823,7 +823,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         console.log("▶️ Vidéo avatar reprise");
       }
     }
-  };
+  }, []); // Pas de dépendances - la fonction reste stable
 
   // Détecter quand l'avatar parle et gérer les transitions
   useEffect(() => {

@@ -42,15 +42,15 @@ const VoiceControls = ({
 
   // Arrêter l'avatar quand l'utilisateur commence à parler
   useEffect(() => {
-    if (isRecording && onUserSpeaking) {
-      onUserSpeaking(true);
+    if (isRecording) {
+      onUserSpeaking?.(true);
     }
     return () => {
-      if (onUserSpeaking) {
-        onUserSpeaking(false);
+      if (isRecording) {
+        onUserSpeaking?.(false);
       }
     };
-  }, [isRecording, onUserSpeaking]);
+  }, [isRecording]); // Seulement isRecording comme dépendance
 
   const startRecording = async () => {
     if (isProcessing || isRecording) return;
