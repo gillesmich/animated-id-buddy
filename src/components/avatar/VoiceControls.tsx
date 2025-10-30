@@ -21,7 +21,7 @@ const VoiceControls = ({
 }: VoiceControlsProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
-  const [vadEnabled, setVadEnabled] = useState(false);
+  const [vadEnabled, setVadEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [volume, setVolume] = useState(0);
   const { toast } = useToast();
@@ -32,6 +32,10 @@ const VoiceControls = ({
 
   useEffect(() => {
     playerRef.current = new AudioPlayer();
+    
+    // Démarrer le VAD automatiquement
+    startVADListening();
+    
     return () => {
       if (vadEnabled) {
         stopVADListening();
