@@ -3,10 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import N8nWorkflowGenerator from "./N8nWorkflowGenerator";
 import WorkflowDesigner from "./WorkflowDesigner";
 import PythonBackendGenerator from "./PythonBackendGenerator";
-import { Key, Mic, Bot, User, Image as ImageIcon, Workflow } from "lucide-react";
+import EmbedGenerator from "./EmbedGenerator";
+import { Key, Mic, Bot, User, Image as ImageIcon, FileCode, MessageSquare } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
 import ImageUploader from "./ImageUploader";
@@ -39,6 +41,7 @@ interface ConfigPanelProps {
     workflows: WorkflowConfig[];
     selectedWorkflow: string;
     useN8n?: boolean;
+    systemPrompt?: string;
   };
   setConfig: (config: any) => void;
 }
@@ -88,11 +91,13 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
       </div>
 
       <Tabs defaultValue="api" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="api">API Keys</TabsTrigger>
           <TabsTrigger value="avatar">Avatar</TabsTrigger>
           <TabsTrigger value="options">Options</TabsTrigger>
-          <TabsTrigger value="workflow">Backend</TabsTrigger>
+          <TabsTrigger value="prompt">Prompt</TabsTrigger>
+          <TabsTrigger value="workflow">Workflow</TabsTrigger>
+          <TabsTrigger value="export">Export</TabsTrigger>
         </TabsList>
 
         <TabsContent value="api" className="space-y-4 mt-4">
@@ -230,6 +235,25 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
           </div>
         </TabsContent>
 
+        <TabsContent value="prompt" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="system-prompt" className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              System Prompt (ChatGPT)
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Définissez le comportement et la personnalité de votre avatar
+            </p>
+            <Textarea
+              id="system-prompt"
+              placeholder="Vous êtes un assistant virtuel sympathique et professionnel..."
+              value={config.systemPrompt || "Vous êtes un assistant virtuel nommé Clara. Vous êtes sympathique, professionnelle et vous aidez les utilisateurs avec leurs questions."}
+              onChange={(e) => setConfig({ ...config, systemPrompt: e.target.value })}
+              className="glass min-h-[200px]"
+            />
+          </div>
+        </TabsContent>
+
         <TabsContent value="workflow" className="mt-4">
           <div className="glass rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between">
@@ -286,6 +310,19 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
               }}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="export" className="mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <FileCode className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Code d'intégration</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Copiez ce code pour intégrer votre avatar dans n'importe quelle page HTML
+            </p>
+            <EmbedGenerator config={config} />
+          </div>
         </TabsContent>
       </Tabs>
     </Card>
