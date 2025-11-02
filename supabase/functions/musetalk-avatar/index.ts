@@ -24,6 +24,16 @@ serve(async (req) => {
     let body = null;
 
     switch (action) {
+      case 'health':
+        endpoint = '/health';
+        method = 'GET';
+        break;
+      
+      case 'initialize':
+        endpoint = '/initialize';
+        method = 'POST';
+        break;
+
       case 'create_talk':
         console.log('Request data:', JSON.stringify(data, null, 2));
         endpoint = '/generate';
@@ -37,6 +47,11 @@ serve(async (req) => {
       case 'get_talk':
         console.log('Request data:', JSON.stringify(data, null, 2));
         endpoint = `/status/${data.talkId}`;
+        method = 'GET';
+        break;
+
+      case 'download':
+        endpoint = `/download/${data.taskId}`;
         method = 'GET';
         break;
 

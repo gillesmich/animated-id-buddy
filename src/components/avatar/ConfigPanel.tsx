@@ -15,6 +15,7 @@ import ImageUploader from "./ImageUploader";
 import VideoUploader from "./VideoUploader";
 import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
+import MuseTalkControls from "./MuseTalkControls";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -262,6 +263,12 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
               </SelectContent>
             </Select>
           </div>
+
+          {config.avatarProvider === 'musetalk' && (
+            <div className="pt-4 border-t border-border/50">
+              <MuseTalkControls />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="voice" className="flex items-center gap-2">
