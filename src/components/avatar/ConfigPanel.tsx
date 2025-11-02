@@ -148,20 +148,22 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
           }} />
 
           <div className="space-y-4 pt-4 border-t border-border/50">
-            <div className="space-y-2">
-              <Label htmlFor="did-key" className="flex items-center gap-2">
-                <Key className="w-4 h-4" />
-                D-ID API Key
-              </Label>
-              <Input
-                id="did-key"
-                type="password"
-                placeholder="Enter your D-ID API key"
-                value={config.didApiKey}
-                onChange={(e) => setConfig({ ...config, didApiKey: e.target.value })}
-                className="glass"
-              />
-            </div>
+            {config.avatarProvider !== 'musetalk' && (
+              <div className="space-y-2">
+                <Label htmlFor="did-key" className="flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  D-ID API Key
+                </Label>
+                <Input
+                  id="did-key"
+                  type="password"
+                  placeholder="Enter your D-ID API key"
+                  value={config.didApiKey}
+                  onChange={(e) => setConfig({ ...config, didApiKey: e.target.value })}
+                  className="glass"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="openai-key" className="flex items-center gap-2">
@@ -214,34 +216,36 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             />
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-border/50">
-            <Label htmlFor="avatar" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Avatar pré-configuré
-            </Label>
-            <Select
-              value={config.selectedAvatar}
-              onValueChange={(value) => setConfig({ ...config, selectedAvatar: value })}
-            >
-              <SelectTrigger className="glass">
-                <SelectValue placeholder="Select an avatar" />
-              </SelectTrigger>
-              <SelectContent>
-                {PRESET_AVATARS.map((avatar) => (
-                  <SelectItem key={avatar.id} value={avatar.id}>
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={avatar.image} 
-                        alt={avatar.name}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                      <span>{avatar.name} - {avatar.description}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {config.avatarProvider !== 'musetalk' && (
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <Label htmlFor="avatar" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Avatar pré-configuré
+              </Label>
+              <Select
+                value={config.selectedAvatar}
+                onValueChange={(value) => setConfig({ ...config, selectedAvatar: value })}
+              >
+                <SelectTrigger className="glass">
+                  <SelectValue placeholder="Select an avatar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRESET_AVATARS.map((avatar) => (
+                    <SelectItem key={avatar.id} value={avatar.id}>
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src={avatar.image} 
+                          alt={avatar.name}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                        <span>{avatar.name} - {avatar.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="options" className="space-y-4 mt-4">
