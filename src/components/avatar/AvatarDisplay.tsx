@@ -455,12 +455,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         let videoUrl: string;
 
         if (provider === 'musetalk') {
-          // Appel à MuseTalk
+          // Préparer l'URL de l'image (convertir le chemin local en URL complète)
+          const imageUrl = (avatarForDID.url || currentVideoUrl).startsWith('http') 
+            ? (avatarForDID.url || currentVideoUrl)
+            : `${window.location.origin}${avatarForDID.url || currentVideoUrl}`;
+
+          console.log("📸 Image URL:", imageUrl);
+
+          // Appel à MuseTalk (l'edge function générera l'audio)
           const requestBody = {
             action: 'create_talk',
             data: {
-              source_url: avatarForDID.url || currentVideoUrl,
-              audio_url: textForVideo, // À adapter selon votre backend
+              source_url: imageUrl,
+              text: textForVideo,
+              voice_id: config.selectedVoice,
               config: {
                 result_format: 'mp4'
               }
