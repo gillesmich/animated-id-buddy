@@ -129,11 +129,15 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
       </div>
 
       <Tabs defaultValue="api" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className={config.avatarProvider === 'musetalk' ? "grid w-full grid-cols-4" : "grid w-full grid-cols-6"}>
           <TabsTrigger value="api">API Keys</TabsTrigger>
-          <TabsTrigger value="avatar">Avatar</TabsTrigger>
-          <TabsTrigger value="options">Options</TabsTrigger>
-          <TabsTrigger value="prompt">Prompt</TabsTrigger>
+          <TabsTrigger value="avatar">Upload</TabsTrigger>
+          {config.avatarProvider !== 'musetalk' && (
+            <>
+              <TabsTrigger value="options">Options</TabsTrigger>
+              <TabsTrigger value="prompt">Prompt</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="workflow">Workflow</TabsTrigger>
           <TabsTrigger value="export">Export</TabsTrigger>
         </TabsList>
@@ -209,143 +213,156 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             />
           </div>
 
-          <div className="space-y-2 pt-4 border-t border-border/50">
-            <VideoUploader 
-              currentVideo={config.customAvatarVideo}
-              onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
-            />
-          </div>
+          {config.avatarProvider === 'musetalk' ? (
+            <>
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <VideoUploader 
+                  currentVideo={config.customAvatarVideo}
+                  onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
+                />
+              </div>
+              
+              <div className="pt-4 border-t border-border/50">
+                <MuseTalkControls />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <VideoUploader 
+                  currentVideo={config.customAvatarVideo}
+                  onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
+                />
+              </div>
 
-          {config.avatarProvider !== 'musetalk' && (
-            <div className="space-y-2 pt-4 border-t border-border/50">
-              <Label htmlFor="avatar" className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Avatar pré-configuré
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <Label htmlFor="avatar" className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Avatar pré-configuré
+                </Label>
+                <Select
+                  value={config.selectedAvatar}
+                  onValueChange={(value) => setConfig({ ...config, selectedAvatar: value })}
+                >
+                  <SelectTrigger className="glass">
+                    <SelectValue placeholder="Select an avatar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESET_AVATARS.map((avatar) => (
+                      <SelectItem key={avatar.id} value={avatar.id}>
+                        <div className="flex items-center gap-2">
+                          <img 
+                            src={avatar.image} 
+                            alt={avatar.name}
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                          <span>{avatar.name} - {avatar.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {config.avatarProvider !== 'musetalk' && (
+          <TabsContent value="options" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="avatar-provider" className="flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                Avatar Provider
               </Label>
               <Select
-                value={config.selectedAvatar}
-                onValueChange={(value) => setConfig({ ...config, selectedAvatar: value })}
+                value={config.avatarProvider || 'did'}
+                onValueChange={(value: 'did' | 'musetalk') => setConfig({ ...config, avatarProvider: value })}
               >
                 <SelectTrigger className="glass">
-                  <SelectValue placeholder="Select an avatar" />
+                  <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PRESET_AVATARS.map((avatar) => (
-                    <SelectItem key={avatar.id} value={avatar.id}>
-                      <div className="flex items-center gap-2">
-                        <img 
-                          src={avatar.image} 
-                          alt={avatar.name}
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
-                        <span>{avatar.name} - {avatar.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="did">D-ID</SelectItem>
+                  <SelectItem value="musetalk">MuseTalk</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="options" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="avatar-provider" className="flex items-center gap-2">
-              <Video className="w-4 h-4" />
-              Avatar Provider
-            </Label>
-            <Select
-              value={config.avatarProvider || 'did'}
-              onValueChange={(value: 'did' | 'musetalk') => setConfig({ ...config, avatarProvider: value })}
-            >
-              <SelectTrigger className="glass">
-                <SelectValue placeholder="Select provider" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="did">D-ID</SelectItem>
-                <SelectItem value="musetalk">MuseTalk</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {config.avatarProvider === 'musetalk' && (
-            <div className="pt-4 border-t border-border/50">
-              <MuseTalkControls />
+            <div className="space-y-2">
+              <Label htmlFor="voice" className="flex items-center gap-2">
+                <Mic className="w-4 h-4" />
+                Voice (ElevenLabs)
+              </Label>
+              <Select
+                value={config.selectedVoice}
+                onValueChange={(value) => setConfig({ ...config, selectedVoice: value })}
+                disabled={loadingVoices}
+              >
+                <SelectTrigger className="glass">
+                  <SelectValue placeholder={loadingVoices ? "Chargement..." : "Sélectionner une voix"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {voices.length > 0 ? (
+                    voices.map((voice) => (
+                      <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                        {voice.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="EXAVITQu4vr4xnSDxMaL">Sarah - Warm & Friendly</SelectItem>
+                      <SelectItem value="TX3LPaxmHKxFdv7VOQHJ">Liam - Professional</SelectItem>
+                      <SelectItem value="pNInz6obpgDQGcFmaJgB">Charlotte - Energetic</SelectItem>
+                      <SelectItem value="nPczCjzI2devNBz1zQrb">Brian - Clear & Concise</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="voice" className="flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              Voice (ElevenLabs)
-            </Label>
-            <Select
-              value={config.selectedVoice}
-              onValueChange={(value) => setConfig({ ...config, selectedVoice: value })}
-              disabled={loadingVoices}
-            >
-              <SelectTrigger className="glass">
-                <SelectValue placeholder={loadingVoices ? "Chargement..." : "Sélectionner une voix"} />
-              </SelectTrigger>
-              <SelectContent>
-                {voices.length > 0 ? (
-                  voices.map((voice) => (
-                    <SelectItem key={voice.voice_id} value={voice.voice_id}>
-                      {voice.name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <>
-                    <SelectItem value="EXAVITQu4vr4xnSDxMaL">Sarah - Warm & Friendly</SelectItem>
-                    <SelectItem value="TX3LPaxmHKxFdv7VOQHJ">Liam - Professional</SelectItem>
-                    <SelectItem value="pNInz6obpgDQGcFmaJgB">Charlotte - Energetic</SelectItem>
-                    <SelectItem value="nPczCjzI2devNBz1zQrb">Brian - Clear & Concise</SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="model" className="flex items-center gap-2">
+                <Bot className="w-4 h-4" />
+                LLM Model
+              </Label>
+              <Select
+                value={config.selectedModel}
+                onValueChange={(value) => setConfig({ ...config, selectedModel: value })}
+              >
+                <SelectTrigger className="glass">
+                  <SelectValue placeholder="Select a model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gpt-5-2025-08-07">GPT-5 - Most Capable</SelectItem>
+                  <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini - Fast & Efficient</SelectItem>
+                  <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 - Reliable</SelectItem>
+                  <SelectItem value="o3-2025-04-16">O3 - Advanced Reasoning</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="model" className="flex items-center gap-2">
-              <Bot className="w-4 h-4" />
-              LLM Model
-            </Label>
-            <Select
-              value={config.selectedModel}
-              onValueChange={(value) => setConfig({ ...config, selectedModel: value })}
-            >
-              <SelectTrigger className="glass">
-                <SelectValue placeholder="Select a model" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gpt-5-2025-08-07">GPT-5 - Most Capable</SelectItem>
-                <SelectItem value="gpt-5-mini-2025-08-07">GPT-5 Mini - Fast & Efficient</SelectItem>
-                <SelectItem value="gpt-4.1-2025-04-14">GPT-4.1 - Reliable</SelectItem>
-                <SelectItem value="o3-2025-04-16">O3 - Advanced Reasoning</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="prompt" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label htmlFor="system-prompt" className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              System Prompt (ChatGPT)
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              Définissez le comportement et la personnalité de votre avatar
-            </p>
-            <Textarea
-              id="system-prompt"
-              placeholder="Vous êtes un assistant virtuel sympathique et professionnel..."
-              value={config.systemPrompt || "Vous êtes un assistant virtuel nommé Clara. Vous êtes sympathique, professionnelle et vous aidez les utilisateurs avec leurs questions."}
-              onChange={(e) => setConfig({ ...config, systemPrompt: e.target.value })}
-              className="glass min-h-[200px]"
-            />
-          </div>
-        </TabsContent>
+        {config.avatarProvider !== 'musetalk' && (
+          <TabsContent value="prompt" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="system-prompt" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                System Prompt (ChatGPT)
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Définissez le comportement et la personnalité de votre avatar
+              </p>
+              <Textarea
+                id="system-prompt"
+                placeholder="Vous êtes un assistant virtuel sympathique et professionnel..."
+                value={config.systemPrompt || "Vous êtes un assistant virtuel nommé Clara. Vous êtes sympathique, professionnelle et vous aidez les utilisateurs avec leurs questions."}
+                onChange={(e) => setConfig({ ...config, systemPrompt: e.target.value })}
+                className="glass min-h-[200px]"
+              />
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="workflow" className="mt-4">
           <div className="glass rounded-lg p-6 mb-6">
