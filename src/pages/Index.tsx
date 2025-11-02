@@ -8,6 +8,7 @@ import EmbedGenerator from "@/components/avatar/EmbedGenerator";
 import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
 import AvatarSelector from "@/components/avatar/AvatarSelector";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
+import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +17,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProvider, setSelectedProvider] = useState<'did' | 'musetalk' | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -92,6 +94,13 @@ const Index = () => {
   if (!user) {
     navigate("/auth");
     return null;
+  }
+
+  if (!selectedProvider) {
+    return <ProviderSelection onProviderSelect={(provider) => {
+      setSelectedProvider(provider);
+      setConfig(prev => ({ ...prev, avatarProvider: provider }));
+    }} />;
   }
 
   return (
