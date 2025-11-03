@@ -487,8 +487,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           }
 
           const talkData = await talkResponse.json();
-          const talkId = talkData.id;
-          console.log("✅ MuseTalk généré:", talkId);
+          const talkId = talkData.task_id;
+          console.log("✅ MuseTalk task créée:", talkId);
 
           // Polling pour attendre la vidéo MuseTalk
           let attempts = 0;
@@ -516,10 +516,26 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             const statusData = await statusResponse.json();
             console.log(`📊 Statut MuseTalk (${attempts}/${maxAttempts}):`, statusData.status);
 
-            if (statusData.status === 'done' && statusData.result_url) {
-              return statusData.result_url;
+            if (statusData.status === 'done') {
+              // Construct the download URL using the task_id
+              const downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/musetalk-avatar`;
+              const downloadResponse = await authenticatedFetch('musetalk-avatar', {
+                method: 'POST',
+                body: JSON.stringify({
+                  action: 'download',
+                  data: { taskId: talkId }
+                }),
+              });
+              
+              if (!downloadResponse.ok) {
+                throw new Error("Erreur téléchargement vidéo MuseTalk");
+              }
+              
+              // Get the video blob and create a URL
+              const videoBlob = await downloadResponse.blob();
+              return URL.createObjectURL(videoBlob);
             } else if (statusData.status === 'error') {
-              throw new Error(`Erreur MuseTalk: ${statusData.error || 'Inconnue'}`);
+              throw new Error(`Erreur MuseTalk: ${statusData.message || 'Inconnue'}`);
             }
 
             await new Promise(resolve => setTimeout(resolve, 2000));

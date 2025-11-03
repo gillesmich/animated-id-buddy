@@ -118,6 +118,19 @@ serve(async (req) => {
       throw new Error(`MuseTalk API error: ${response.status} - ${errorText}`);
     }
 
+    // For download action, return the video blob directly
+    if (action === 'download') {
+      const videoBlob = await response.blob();
+      return new Response(videoBlob, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'video/mp4',
+          'Content-Disposition': `attachment; filename="${data.taskId}.mp4"`
+        },
+      });
+    }
+
+    // For other actions, return JSON
     const result = await response.json();
     console.log('MuseTalk API success');
 
