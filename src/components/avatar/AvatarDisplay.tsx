@@ -483,6 +483,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           if (!talkResponse.ok) {
             const errorData = await talkResponse.json().catch(() => ({}));
             console.error('❌ Erreur MuseTalk:', talkResponse.status, errorData);
+            if (errorData.code === 'NOT_CONFIGURED') {
+              throw new Error("Serveur MuseTalk non configuré");
+            }
             throw new Error(`Erreur MuseTalk: ${errorData.error || talkResponse.status}`);
           }
 

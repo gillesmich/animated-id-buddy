@@ -16,7 +16,16 @@ serve(async (req) => {
     
     let musetalkUrl = Deno.env.get('MUSETALK_API_URL');
     if (!musetalkUrl) {
-      throw new Error('MUSETALK_API_URL not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'MuseTalk server not configured',
+          code: 'NOT_CONFIGURED'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
     
     // Remove trailing slash to avoid double slashes
