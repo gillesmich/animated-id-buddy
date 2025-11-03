@@ -103,8 +103,7 @@ serve(async (req) => {
         const possibleEndpoints = [
           '/api/generate',    // Most common with nginx
           '/generate',        // Direct Flask route
-          '/api/generate-video',
-          ':5000/generate',   // Direct port access
+          'http://51.75.125.105:5000/generate',   // Direct HTTP access (bypass nginx)
         ];
         
         const requestBody = JSON.stringify({
@@ -118,9 +117,9 @@ serve(async (req) => {
 
         // Try each endpoint until one works
         for (const testEndpoint of possibleEndpoints) {
-          const testUrl = testEndpoint.startsWith(':') 
-            ? `${musetalkUrl.replace(/:\d+$/, '')}${testEndpoint}`
-            : `${musetalkUrl}${testEndpoint}`;
+          const testUrl = testEndpoint.startsWith('http') 
+            ? testEndpoint  // Full URL provided
+            : `${musetalkUrl}${testEndpoint}`;  // Relative path
           
           console.log(`🔍 Testing endpoint: ${testUrl}`);
           
