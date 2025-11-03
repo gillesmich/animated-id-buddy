@@ -127,10 +127,21 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in musetalk-avatar function:', error);
+    
+    let userFriendlyMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Provide clearer error messages for connection issues
+    if (error instanceof Error && error.message.includes('Connection refused')) {
+      userFriendlyMessage = 'Cannot connect to MuseTalk server. Please ensure your MuseTalk server is running and accessible at the configured URL. Check that the MUSETALK_API_URL environment variable is correct and that the server is not blocked by a firewall.';
+    } else if (error instanceof Error && error.message.includes('MUSETALK_API_URL not configured')) {
+      userFriendlyMessage = 'MuseTalk server URL is not configured. Please set the MUSETALK_API_URL environment variable in your backend settings.';
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined
+        error: userFriendlyMessage,
+        details: error instanceof Error ? error.stack : undefined,
+        troubleshooting: 'Verify that: 1) MuseTalk server is running, 2) Server URL is correct in backend settings, 3) Server is accessible from the internet, 4) No firewall is blocking the connection'
       }),
       {
         status: 500,
