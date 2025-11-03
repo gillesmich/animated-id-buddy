@@ -78,9 +78,19 @@ serve(async (req) => {
             throw new Error(`ElevenLabs TTS error: ${ttsResponse.status}`);
           }
 
-          // Convert audio to base64 for MuseTalk
+          // Convert audio to base64 for MuseTalk (process in chunks to avoid stack overflow)
           const audioBuffer = await ttsResponse.arrayBuffer();
-          const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+          const uint8Array = new Uint8Array(audioBuffer);
+          
+          // Process in chunks to avoid "Maximum call stack size exceeded"
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < uint8Array.length; i += chunkSize) {
+            const chunk = uint8Array.slice(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          }
+          
+          const base64Audio = btoa(binary);
           audioData = `data:audio/mpeg;base64,${base64Audio}`;
           console.log('✅ Audio generated');
         }

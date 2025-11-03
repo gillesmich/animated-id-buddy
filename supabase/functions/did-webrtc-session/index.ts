@@ -55,8 +55,8 @@ serve(async (req) => {
           answer: {
             type: 'answer',
             sdp: data.sdp
-          }
-          // ✅ FIX: session_id RETIRÉ - déjà dans l'URL
+          },
+          session_id: sessionId  // ✅ Include session_id in body as well
         };
         break;
       
@@ -71,8 +71,8 @@ serve(async (req) => {
         body = {
           candidate: data.candidate,
           sdpMid: data.sdpMid,
-          sdpMLineIndex: data.sdpMLineIndex
-          // ✅ session_id RETIRÉ (déjà dans l'URL)
+          sdpMLineIndex: data.sdpMLineIndex,
+          session_id: sessionId  // ✅ Include session_id in body
         };
         break;
       
