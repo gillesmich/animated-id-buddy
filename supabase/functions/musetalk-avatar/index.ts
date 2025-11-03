@@ -99,48 +99,84 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
-        // 2. Create generation task
-        endpoint = '/generate';
-        body = JSON.stringify({
+        // 2. Try multiple possible endpoints
+        const possibleEndpoints = [
+          '/api/generate',    // Most common with nginx
+          '/generate',        // Direct Flask route
+          '/api/generate-video',
+          ':5000/generate',   // Direct port access
+        ];
+        
+        const requestBody = JSON.stringify({
           image_url: data.source_url,
           audio_url: audioData,
           bbox_shift: data.config?.bbox_shift || 0
         });
-        
-        const generateResponse = await fetch(`${musetalkUrl}${endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body,
-        });
 
-        if (!generateResponse.ok) {
-          const errorText = await generateResponse.text();
-          throw new Error(`Generate API error: ${generateResponse.status} - ${errorText}`);
+        let generateResponse = null;
+        let successfulEndpoint = null;
+
+        // Try each endpoint until one works
+        for (const testEndpoint of possibleEndpoints) {
+          const testUrl = testEndpoint.startsWith(':') 
+            ? `${musetalkUrl.replace(/:\d+$/, '')}${testEndpoint}`
+            : `${musetalkUrl}${testEndpoint}`;
+          
+          console.log(`🔍 Testing endpoint: ${testUrl}`);
+          
+          try {
+            const response = await fetch(testUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody,
+            });
+
+            if (response.ok || response.status === 202) {
+              generateResponse = response;
+              successfulEndpoint = testUrl;
+              console.log(`✅ Endpoint works: ${testUrl}`);
+              break;
+            } else {
+              console.log(`❌ ${testUrl} returned ${response.status}`);
+            }
+          } catch (e) {
+            const errorMsg = e instanceof Error ? e.message : String(e);
+            console.log(`❌ ${testUrl} failed: ${errorMsg}`);
+          }
+        }
+
+        if (!generateResponse) {
+          throw new Error(
+            `All endpoints failed. Tried: ${possibleEndpoints.join(', ')}. ` +
+            `Please verify your MuseTalk server is running and nginx is configured correctly. ` +
+            `Common fix: Add 'proxy_pass http://127.0.0.1:5000;' to nginx config for location /api/`
+          );
         }
 
         const generateResult = await generateResponse.json();
         const taskId = generateResult.task_id;
-        console.log(`✅ Task created: ${taskId}`);
+        console.log(`✅ Task created: ${taskId} via ${successfulEndpoint}`);
 
         // 3. Poll status until completed (max 2 minutes)
-        const maxAttempts = 60; // 60 * 2s = 2min
+        const baseUrl = successfulEndpoint!.replace(/\/[^\/]+$/, ''); // Remove endpoint from URL
+        const maxAttempts = 60;
         let attempts = 0;
         let videoUrl = null;
 
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          const statusResponse = await fetch(`${musetalkUrl}/status/${taskId}`, {
+          const statusResponse = await fetch(`${baseUrl}/status/${taskId}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
           });
 
           if (statusResponse.ok) {
             const status = await statusResponse.json();
-            console.log(`Status attempt ${attempts + 1}: ${status.status}`);
+            console.log(`Status ${attempts + 1}: ${status.status}`);
 
             if (status.status === 'completed') {
-              videoUrl = `${musetalkUrl}/download/${taskId}`;
+              videoUrl = `${baseUrl}/download/${taskId}`;
               break;
             } else if (status.status === 'failed') {
               throw new Error(`Task failed: ${status.error || 'Unknown error'}`);
