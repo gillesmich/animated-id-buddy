@@ -83,11 +83,10 @@ serve(async (req) => {
             throw new Error(`ElevenLabs TTS error: ${ttsResponse.status}`);
           }
 
-          // Convert audio to base64 for MuseTalk (process in chunks to avoid stack overflow)
+          // Convert audio to base64
           const audioBuffer = await ttsResponse.arrayBuffer();
           const uint8Array = new Uint8Array(audioBuffer);
           
-          // Process in chunks to avoid "Maximum call stack size exceeded"
           let binary = '';
           const chunkSize = 8192;
           for (let i = 0; i < uint8Array.length; i += chunkSize) {
@@ -100,13 +99,68 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
+        // 2. Create generation task
         endpoint = '/generate';
         body = JSON.stringify({
           image_url: data.source_url,
           audio_url: audioData,
-          ...data.config
+          bbox_shift: data.config?.bbox_shift || 0
         });
-        break;
+        
+        const generateResponse = await fetch(`${musetalkUrl}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        });
+
+        if (!generateResponse.ok) {
+          const errorText = await generateResponse.text();
+          throw new Error(`Generate API error: ${generateResponse.status} - ${errorText}`);
+        }
+
+        const generateResult = await generateResponse.json();
+        const taskId = generateResult.task_id;
+        console.log(`✅ Task created: ${taskId}`);
+
+        // 3. Poll status until completed (max 2 minutes)
+        const maxAttempts = 60; // 60 * 2s = 2min
+        let attempts = 0;
+        let videoUrl = null;
+
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+          
+          const statusResponse = await fetch(`${musetalkUrl}/status/${taskId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (statusResponse.ok) {
+            const status = await statusResponse.json();
+            console.log(`Status attempt ${attempts + 1}: ${status.status}`);
+
+            if (status.status === 'completed') {
+              videoUrl = `${musetalkUrl}/download/${taskId}`;
+              break;
+            } else if (status.status === 'failed') {
+              throw new Error(`Task failed: ${status.error || 'Unknown error'}`);
+            }
+          }
+
+          attempts++;
+        }
+
+        if (!videoUrl) {
+          throw new Error('Video generation timeout after 2 minutes');
+        }
+
+        return new Response(JSON.stringify({ 
+          id: taskId,
+          result_url: videoUrl,
+          status: 'completed'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
 
       case 'get_talk':
         console.log('Request data:', JSON.stringify(data, null, 2));
