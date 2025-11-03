@@ -106,9 +106,13 @@ serve(async (req) => {
           bbox_shift: data.config?.bbox_shift || 0
         });
 
+        // Try both HTTP and HTTPS endpoints
+        const httpUrl = musetalkUrl.replace('https://', 'http://');
         const endpoints = [
-          `${musetalkUrl}/api/generate`,     // Nginx proxied (preferred)
-          `${musetalkUrl}/generate`,         // Direct Flask route
+          `${musetalkUrl}/api/generate`,     // HTTPS Nginx proxied (preferred)
+          `${httpUrl}/api/generate`,         // HTTP Nginx proxied
+          `${httpUrl}/generate`,             // HTTP Direct Flask route
+          `${musetalkUrl}/generate`,         // HTTPS Direct Flask route
           `http://51.75.125.105:5000/generate`, // Bypass nginx entirely
         ];
 
