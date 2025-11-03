@@ -99,25 +99,53 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
-        // 2. Call the MuseTalk API
+        // 2. Try endpoints in order of preference
         const requestBody = JSON.stringify({
           image_url: data.source_url,
           audio_url: audioData,
           bbox_shift: data.config?.bbox_shift || 0
         });
 
-        const generateUrl = `${musetalkUrl}/generate`;
-        console.log(`🎬 Calling: ${generateUrl}`);
-        
-        const generateResponse = await fetch(generateUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: requestBody,
-        });
+        const endpoints = [
+          `${musetalkUrl}/api/generate`,     // Nginx proxied (preferred)
+          `${musetalkUrl}/generate`,         // Direct Flask route
+          `http://51.75.125.105:5000/generate`, // Bypass nginx entirely
+        ];
 
-        if (!generateResponse.ok && generateResponse.status !== 202) {
-          const errorText = await generateResponse.text();
-          throw new Error(`MuseTalk API error: ${generateResponse.status} - ${errorText}`);
+        let generateResponse = null;
+        let successUrl = null;
+
+        for (const url of endpoints) {
+          console.log(`🔍 Trying: ${url}`);
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: requestBody,
+            });
+
+            if (response.ok || response.status === 202) {
+              generateResponse = response;
+              successUrl = url;
+              console.log(`✅ Success: ${url}`);
+              break;
+            } else {
+              console.log(`❌ ${url} → ${response.status}`);
+            }
+          } catch (e) {
+            console.log(`❌ ${url} → ${e instanceof Error ? e.message : 'failed'}`);
+          }
+        }
+
+        if (!generateResponse) {
+          throw new Error(
+            'All endpoints failed. Nginx configuration needed:\n' +
+            'Add to nginx config:\n' +
+            'location /api/ {\n' +
+            '  proxy_pass http://127.0.0.1:5000/;\n' +
+            '  proxy_set_header Host $host;\n' +
+            '}'
+          );
         }
 
         const generateResult = await generateResponse.json();
@@ -125,7 +153,7 @@ serve(async (req) => {
         console.log(`✅ Task created: ${taskId}`);
 
         // 3. Poll status until completed (max 2 minutes)
-        const baseUrl = musetalkUrl;
+        const baseUrl = successUrl!.replace(/\/generate$/, ''); // Remove /generate from URL
         const maxAttempts = 60;
         let attempts = 0;
         let videoUrl = null;
