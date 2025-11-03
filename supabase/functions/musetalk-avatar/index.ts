@@ -28,6 +28,11 @@ serve(async (req) => {
       );
     }
     
+    // Add https:// if no protocol specified
+    if (!musetalkUrl.startsWith('http://') && !musetalkUrl.startsWith('https://')) {
+      musetalkUrl = `https://${musetalkUrl}`;
+    }
+    
     // Remove trailing slash to avoid double slashes
     musetalkUrl = musetalkUrl.replace(/\/+$/, '');
 
