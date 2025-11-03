@@ -149,7 +149,10 @@ const Index = () => {
             Create <span className="text-gradient">Animated Avatars</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Powered by D-ID, OpenAI, and ElevenLabs. Configure, test, and deploy interactive AI avatars on any website.
+            {selectedProvider === 'musetalk' 
+              ? "Powered by MuseTalk, OpenAI, and ElevenLabs. Configure, test, and deploy interactive AI avatars on any website."
+              : "Powered by D-ID, OpenAI, and ElevenLabs. Configure, test, and deploy interactive AI avatars on any website."
+            }
           </p>
         </div>
 
@@ -193,7 +196,12 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t border-border/50 mt-20">
         <div className="container mx-auto px-6 py-8 text-center text-sm text-muted-foreground">
-          <p>Powered by D-ID, OpenAI, and ElevenLabs • Built with ❤️</p>
+          <p>
+            {selectedProvider === 'musetalk' 
+              ? "Powered by MuseTalk, OpenAI, and ElevenLabs • Built with ❤️"
+              : "Powered by D-ID, OpenAI, and ElevenLabs • Built with ❤️"
+            }
+          </p>
         </div>
       </footer>
     </div>

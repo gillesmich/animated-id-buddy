@@ -10,6 +10,7 @@ interface ApiKeyValidatorProps {
     openaiApiKey: string;
     elevenlabsApiKey: string;
   };
+  avatarProvider?: 'did' | 'musetalk';
 }
 
 interface ValidationResult {
@@ -18,7 +19,7 @@ interface ValidationResult {
   elevenlabs: boolean | null;
 }
 
-const ApiKeyValidator = ({ config }: ApiKeyValidatorProps) => {
+const ApiKeyValidator = ({ config, avatarProvider }: ApiKeyValidatorProps) => {
   const [isValidating, setIsValidating] = useState(false);
   const [results, setResults] = useState<ValidationResult>({
     did: null,
@@ -76,8 +77,8 @@ const ApiKeyValidator = ({ config }: ApiKeyValidatorProps) => {
       elevenlabs: null,
     };
 
-    // Validate D-ID
-    if (config.didApiKey) {
+    // Validate D-ID only if not using MuseTalk
+    if (avatarProvider !== 'musetalk' && config.didApiKey) {
       newResults.did = await validateDidKey();
     }
 
@@ -94,9 +95,10 @@ const ApiKeyValidator = ({ config }: ApiKeyValidatorProps) => {
     setResults(newResults);
     setIsValidating(false);
 
-    const allValid = Object.values(newResults).every(v => v === true);
+    const allValid = Object.values(newResults).every(v => v === true || v === null);
+    const validatedKeys = Object.entries(newResults).filter(([_, v]) => v !== null);
     
-    if (allValid) {
+    if (allValid && validatedKeys.length > 0) {
       toast({
         title: "✅ Validation réussie",
         description: "Toutes les clés API sont valides",
@@ -106,11 +108,13 @@ const ApiKeyValidator = ({ config }: ApiKeyValidatorProps) => {
         .filter(([_, valid]) => valid === false)
         .map(([key]) => key.toUpperCase());
       
-      toast({
-        title: "❌ Échec de validation",
-        description: `Clés invalides: ${invalidKeys.join(', ')}`,
-        variant: "destructive",
-      });
+      if (invalidKeys.length > 0) {
+        toast({
+          title: "❌ Échec de validation",
+          description: `Clés invalides: ${invalidKeys.join(', ')}`,
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -138,23 +142,25 @@ const ApiKeyValidator = ({ config }: ApiKeyValidatorProps) => {
       </div>
 
       <div className="space-y-3">
-        <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">D-ID API</span>
-            {results.did !== null && (
-              <span className="text-xs text-muted-foreground">
-                {results.did ? "Connecté" : "Invalide"}
-              </span>
-            )}
+        {avatarProvider !== 'musetalk' && (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">D-ID API</span>
+              {results.did !== null && (
+                <span className="text-xs text-muted-foreground">
+                  {results.did ? "Connecté" : "Invalide"}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isValidating ? (
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              ) : (
+                getStatusIcon(results.did)
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {isValidating ? (
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            ) : (
-              getStatusIcon(results.did)
-            )}
-          </div>
-        </div>
+        )}
 
         <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
           <div className="flex items-center gap-3">

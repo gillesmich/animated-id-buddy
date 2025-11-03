@@ -145,11 +145,14 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
         <TabsContent value="api" className="space-y-4 mt-4">
           <EnvUploader onEnvParsed={handleEnvParsed} />
 
-          <ApiKeyValidator config={{
-            didApiKey: config.didApiKey,
-            openaiApiKey: config.openaiApiKey,
-            elevenlabsApiKey: config.elevenlabsApiKey
-          }} />
+          <ApiKeyValidator 
+            config={{
+              didApiKey: config.didApiKey,
+              openaiApiKey: config.openaiApiKey,
+              elevenlabsApiKey: config.elevenlabsApiKey
+            }}
+            avatarProvider={config.avatarProvider}
+          />
 
           <div className="space-y-4 pt-4 border-t border-border/50">
             {config.avatarProvider !== 'musetalk' && (
