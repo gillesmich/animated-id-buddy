@@ -99,65 +99,33 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
-        // 2. Try multiple possible endpoints
-        const possibleEndpoints = [
-          '/api/generate',    // Most common with nginx
-          '/generate',        // Direct Flask route
-          'http://51.75.125.105:5000/generate',   // Direct HTTP access (bypass nginx)
-        ];
-        
+        // 2. Call the MuseTalk API
         const requestBody = JSON.stringify({
           image_url: data.source_url,
           audio_url: audioData,
           bbox_shift: data.config?.bbox_shift || 0
         });
 
-        let generateResponse = null;
-        let successfulEndpoint = null;
+        const generateUrl = `${musetalkUrl}/generate`;
+        console.log(`🎬 Calling: ${generateUrl}`);
+        
+        const generateResponse = await fetch(generateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        });
 
-        // Try each endpoint until one works
-        for (const testEndpoint of possibleEndpoints) {
-          const testUrl = testEndpoint.startsWith('http') 
-            ? testEndpoint  // Full URL provided
-            : `${musetalkUrl}${testEndpoint}`;  // Relative path
-          
-          console.log(`🔍 Testing endpoint: ${testUrl}`);
-          
-          try {
-            const response = await fetch(testUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: requestBody,
-            });
-
-            if (response.ok || response.status === 202) {
-              generateResponse = response;
-              successfulEndpoint = testUrl;
-              console.log(`✅ Endpoint works: ${testUrl}`);
-              break;
-            } else {
-              console.log(`❌ ${testUrl} returned ${response.status}`);
-            }
-          } catch (e) {
-            const errorMsg = e instanceof Error ? e.message : String(e);
-            console.log(`❌ ${testUrl} failed: ${errorMsg}`);
-          }
-        }
-
-        if (!generateResponse) {
-          throw new Error(
-            `All endpoints failed. Tried: ${possibleEndpoints.join(', ')}. ` +
-            `Please verify your MuseTalk server is running and nginx is configured correctly. ` +
-            `Common fix: Add 'proxy_pass http://127.0.0.1:5000;' to nginx config for location /api/`
-          );
+        if (!generateResponse.ok && generateResponse.status !== 202) {
+          const errorText = await generateResponse.text();
+          throw new Error(`MuseTalk API error: ${generateResponse.status} - ${errorText}`);
         }
 
         const generateResult = await generateResponse.json();
         const taskId = generateResult.task_id;
-        console.log(`✅ Task created: ${taskId} via ${successfulEndpoint}`);
+        console.log(`✅ Task created: ${taskId}`);
 
         // 3. Poll status until completed (max 2 minutes)
-        const baseUrl = successfulEndpoint!.replace(/\/[^\/]+$/, ''); // Remove endpoint from URL
+        const baseUrl = musetalkUrl;
         const maxAttempts = 60;
         let attempts = 0;
         let videoUrl = null;
