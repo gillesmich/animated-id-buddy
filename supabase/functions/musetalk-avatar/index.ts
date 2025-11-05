@@ -157,13 +157,31 @@ serve(async (req) => {
 
               if (statusData.status === 'COMPLETED') {
                 console.log('✅ Request completed');
-                console.log('📦 Stream data:', JSON.stringify(statusData, null, 2));
                 
-                // The video might be in data or output field
-                videoUrl = statusData.data?.video?.url || statusData.output?.video?.url;
+                // Fetch the actual result from the response_url
+                const responseUrl = statusData.response_url;
+                if (!responseUrl) {
+                  throw new Error('No response_url in completed status');
+                }
+                
+                console.log('📥 Fetching result from:', responseUrl);
+                const resultResponse = await fetch(responseUrl, {
+                  headers: {
+                    'Authorization': `Key ${falApiKey}`,
+                  },
+                });
+                
+                if (!resultResponse.ok) {
+                  throw new Error(`Failed to fetch result: ${resultResponse.status}`);
+                }
+                
+                const resultData = await resultResponse.json();
+                console.log('📦 Result data:', JSON.stringify(resultData, null, 2));
+                
+                videoUrl = resultData.video?.url;
                 
                 if (videoUrl) {
-                  console.log('✅ Video URL from stream:', videoUrl);
+                  console.log('✅ Video URL from result:', videoUrl);
                   break;
                 }
               } else if (statusData.status === 'FAILED') {
