@@ -170,7 +170,7 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({ 
           id: requestId,
-          result_url: videoUrl,
+          result_url: videoUrl,  // Return the actual video URL, not the request endpoint
           status: 'completed'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
