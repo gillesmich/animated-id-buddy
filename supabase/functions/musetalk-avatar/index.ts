@@ -83,7 +83,7 @@ serve(async (req) => {
         const falResponse = await fetch('https://queue.fal.run/fal-ai/musetalk', {
           method: 'POST',
           headers: {
-            'Authorization': `Key ${falApiKey}`,
+            'Authorization': `Bearer ${falApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -125,7 +125,7 @@ serve(async (req) => {
             
             const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status`, {
               headers: {
-                'Authorization': `Key ${falApiKey}`,
+                'Authorization': `Bearer ${falApiKey}`,
               },
             });
             
