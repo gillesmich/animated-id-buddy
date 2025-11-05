@@ -137,27 +137,24 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // FAL AI queue API includes result data directly in status when completed
+            // FAL AI returns the result in the "response" field when COMPLETED
             console.log('✅ Request completed');
             console.log('📦 Full status data:', JSON.stringify(statusData, null, 2));
             
-            // Check if result is embedded in the status response
-            videoUrl = statusData.data?.video?.url || 
-                      statusData.output?.video?.url ||
-                      statusData.video?.url;
+            // The result is in statusData.response
+            if (!statusData.response) {
+              console.error('❌ No response field in status data');
+              console.error('Available keys:', Object.keys(statusData));
+              throw new Error('No response data in completed status');
+            }
+            
+            // Extract video URL from response
+            videoUrl = statusData.response.video?.url;
             
             if (!videoUrl) {
-              console.error('❌ No video URL found');
-              console.error('Status data keys:', Object.keys(statusData));
-              console.error('Trying alternative: checking if data is elsewhere...');
-              
-              // Sometimes the result might be in a different structure
-              // Let's log everything to debug
-              for (const [key, value] of Object.entries(statusData)) {
-                console.log(`  ${key}:`, typeof value === 'object' ? JSON.stringify(value) : value);
-              }
-              
-              throw new Error('Video URL not found in status response');
+              console.error('❌ No video URL in response');
+              console.error('Response structure:', JSON.stringify(statusData.response, null, 2));
+              throw new Error('Video URL not found in response');
             }
             
             console.log('✅ Video URL:', videoUrl);
