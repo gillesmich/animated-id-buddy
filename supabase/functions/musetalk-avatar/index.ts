@@ -100,24 +100,32 @@ serve(async (req) => {
           );
         }
         
-        // 3. Use fal.subscribe() for MuseTalk
+        // 3. Use fal.subscribe() for MuseTalk with timeout
         console.log('🎬 Submitting to FAL AI MuseTalk...');
         console.log('📋 Source URL:', sourceUrl);
         console.log('📋 Audio URL length:', audioData?.substring(0, 100));
         
-        const result = await fal.subscribe("fal-ai/musetalk", {
-          input: {
-            source_video_url: sourceUrl,
-            audio_url: audioData
-          },
-          logs: true,
-          onQueueUpdate: (update) => {
-            if (update.status === "IN_PROGRESS") {
-              console.log('📊 MuseTalk progress:', update.status);
-              update.logs?.map((log) => log.message).forEach(console.log);
-            }
-          },
+        // Add a timeout of 60 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('FAL AI timeout après 60s')), 60000);
         });
+
+        const result = await Promise.race([
+          fal.subscribe("fal-ai/musetalk", {
+            input: {
+              source_video_url: sourceUrl,
+              audio_url: audioData
+            },
+            logs: true,
+            onQueueUpdate: (update) => {
+              if (update.status === "IN_PROGRESS") {
+                console.log('📊 MuseTalk progress:', update.status);
+                update.logs?.map((log) => log.message).forEach(console.log);
+              }
+            },
+          }),
+          timeoutPromise
+        ]) as any;
 
         console.log('✅ Result received:', JSON.stringify(result.data, null, 2));
         

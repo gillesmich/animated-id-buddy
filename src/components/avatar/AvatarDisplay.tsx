@@ -550,6 +550,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             }
           };
 
+          toast({
+            title: "⏳ Génération en cours...",
+            description: "L'animation peut prendre 30-60 secondes",
+            duration: 5000,
+          });
+
           const talkResponse = await authenticatedFetch('musetalk-avatar', {
             method: 'POST',
             body: JSON.stringify(requestBody),
@@ -576,7 +582,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           }
 
           const talkData = await talkResponse.json();
-          videoUrl = talkData.result_url;  // Direct result from FAL AI - no polling needed!
+          videoUrl = talkData.videoUrl;  // Corrected property name from edge function
+          
+          if (!videoUrl) {
+            console.error("❌ Pas de videoUrl dans la réponse:", talkData);
+            throw new Error("Aucune vidéo générée par MuseTalk");
+          }
+          
           console.log("✅ FAL MuseTalk vidéo générée:", videoUrl);
         } else {
           // Appel à D-ID (code existant)
