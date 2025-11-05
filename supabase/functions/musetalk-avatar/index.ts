@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -136,30 +137,27 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // When FAL AI completes, we need to fetch the actual result
-            // The response_url contains the request ID, we need to GET it to get the video
-            console.log('✅ Request completed, fetching result...');
+            // FAL AI queue API includes result data directly in status when completed
+            console.log('✅ Request completed');
+            console.log('📦 Full status data:', JSON.stringify(statusData, null, 2));
             
-            const resultResponse = await fetch(statusData.response_url, {
-              headers: {
-                'Authorization': `Key ${falApiKey}`,
-              },
-            });
-            
-            if (!resultResponse.ok) {
-              throw new Error(`Failed to fetch result: ${resultResponse.status}`);
-            }
-            
-            const resultData = await resultResponse.json();
-            console.log('📦 Result data:', JSON.stringify(resultData, null, 2));
-            
-            // Extract the video URL from the result
-            videoUrl = resultData.video?.url;
+            // Check if result is embedded in the status response
+            videoUrl = statusData.data?.video?.url || 
+                      statusData.output?.video?.url ||
+                      statusData.video?.url;
             
             if (!videoUrl) {
-              console.error('❌ No video URL in result');
-              console.error('Result keys:', Object.keys(resultData));
-              throw new Error('Video URL missing from result');
+              console.error('❌ No video URL found');
+              console.error('Status data keys:', Object.keys(statusData));
+              console.error('Trying alternative: checking if data is elsewhere...');
+              
+              // Sometimes the result might be in a different structure
+              // Let's log everything to debug
+              for (const [key, value] of Object.entries(statusData)) {
+                console.log(`  ${key}:`, typeof value === 'object' ? JSON.stringify(value) : value);
+              }
+              
+              throw new Error('Video URL not found in status response');
             }
             
             console.log('✅ Video URL:', videoUrl);
