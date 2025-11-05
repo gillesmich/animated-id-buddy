@@ -37,7 +37,24 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [streamingText, setStreamingText] = useState("");
   const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
-  const [generatedVideos, setGeneratedVideos] = useState<Array<{ url: string; text: string; timestamp: Date }>>([]);
+  
+  // Charger les vidéos depuis localStorage au démarrage
+  const [generatedVideos, setGeneratedVideos] = useState<Array<{ url: string; text: string; timestamp: Date }>>(() => {
+    try {
+      const saved = localStorage.getItem('generatedVideos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Convertir les timestamps string en Date
+        return parsed.map((v: any) => ({
+          ...v,
+          timestamp: new Date(v.timestamp)
+        }));
+      }
+    } catch (error) {
+      console.error("Erreur chargement vidéos:", error);
+    }
+    return [];
+  });
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -634,11 +651,22 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         }
 
         // Sauvegarder la vidéo générée
-        setGeneratedVideos(prev => [...prev, {
+        const newVideo = {
           url: videoUrl,
           text: responseText,
           timestamp: new Date()
-        }]);
+        };
+        
+        setGeneratedVideos(prev => {
+          const updated = [...prev, newVideo];
+          // Persister dans localStorage
+          try {
+            localStorage.setItem('generatedVideos', JSON.stringify(updated));
+          } catch (error) {
+            console.error("Erreur sauvegarde vidéos:", error);
+          }
+          return updated;
+        });
 
         setIsVideoLoading(false);
         toast({
@@ -792,10 +820,26 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       {/* Generated Videos Gallery - Remplace la prévisualisation */}
       {generatedVideos.length > 0 ? (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold flex items-center gap-2">
-            <Video className="w-4 h-4 text-primary" />
-            Vidéos de Réponse ({generatedVideos.length})
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Video className="w-4 h-4 text-primary" />
+              Vidéos de Réponse ({generatedVideos.length})
+            </h4>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setGeneratedVideos([]);
+                localStorage.removeItem('generatedVideos');
+                toast({
+                  title: "Galerie vidée",
+                  description: "Toutes les vidéos ont été supprimées",
+                });
+              }}
+            >
+              Vider la galerie
+            </Button>
+          </div>
           <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
             {generatedVideos.map((video, idx) => (
               <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
