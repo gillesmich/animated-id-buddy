@@ -8,6 +8,7 @@ import EmbedGenerator from "@/components/avatar/EmbedGenerator";
 import AvatarAnimationTest from "@/components/avatar/AvatarAnimationTest";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import ProviderSelection from "@/components/avatar/ProviderSelection";
+import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -167,9 +168,10 @@ const Index = () => {
             {/* Avatar Display & Tests */}
             <div className="space-y-6">
               <Tabs defaultValue="preview" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="preview">Prévisualisation</TabsTrigger>
                   <TabsTrigger value="animations">Tests d'Animation</TabsTrigger>
+                  <TabsTrigger value="gif">GIF Animé</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="preview" className="mt-6">
@@ -181,6 +183,10 @@ const Index = () => {
                     customAvatarImage: config.customAvatarImage,
                     selectedAvatar: config.selectedAvatar
                   }} />
+                </TabsContent>
+
+                <TabsContent value="gif" className="mt-6">
+                  <GifGenerator />
                 </TabsContent>
               </Tabs>
             </div>
