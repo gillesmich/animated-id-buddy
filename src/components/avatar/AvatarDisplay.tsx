@@ -461,12 +461,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         let videoUrl: string;
 
         if (provider === 'musetalk') {
-          // Préparer l'URL de l'image (convertir le chemin local en URL complète)
-          const imageUrl = (avatarForDID.url || currentVideoUrl).startsWith('http') 
-            ? (avatarForDID.url || currentVideoUrl)
-            : `${window.location.origin}${avatarForDID.url || currentVideoUrl}`;
+          // Upload local image to Supabase Storage to get a publicly accessible URL
+          const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
+          const imageUrl = await uploadLocalImageToStorage(
+            (avatarForDID.url || currentVideoUrl).startsWith('http') 
+              ? (avatarForDID.url || currentVideoUrl)
+              : `${window.location.origin}${avatarForDID.url || currentVideoUrl}`
+          );
 
-          console.log("📸 Image URL:", imageUrl);
+          console.log("📸 Public image URL:", imageUrl);
 
           // Appel à FAL AI MuseTalk via edge function
           const requestBody = {
