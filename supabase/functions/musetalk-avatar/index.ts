@@ -137,24 +137,35 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // FAL AI returns the result in the "response" field when COMPLETED
-            console.log('✅ Request completed');
-            console.log('📦 Full status data:', JSON.stringify(statusData, null, 2));
+            // When COMPLETED, fetch the result using the result endpoint (without /status)
+            // The response_url from submit already points to the result endpoint
+            console.log('✅ Request completed, fetching result from result endpoint...');
             
-            // The result is in statusData.response
-            if (!statusData.response) {
-              console.error('❌ No response field in status data');
-              console.error('Available keys:', Object.keys(statusData));
-              throw new Error('No response data in completed status');
+            const resultUrl = `https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`;
+            console.log('Result URL:', resultUrl);
+            
+            const resultResponse = await fetch(resultUrl, {
+              headers: {
+                'Authorization': `Key ${falApiKey}`,
+              },
+            });
+            
+            if (!resultResponse.ok) {
+              const errorText = await resultResponse.text();
+              console.error('Result fetch error:', resultResponse.status, errorText);
+              throw new Error(`Failed to get result: ${resultResponse.status}`);
             }
             
-            // Extract video URL from response
-            videoUrl = statusData.response.video?.url;
+            const resultData = await resultResponse.json();
+            console.log('📦 Result data:', JSON.stringify(resultData, null, 2));
+            
+            // Extract video URL from the result
+            videoUrl = resultData.video?.url;
             
             if (!videoUrl) {
-              console.error('❌ No video URL in response');
-              console.error('Response structure:', JSON.stringify(statusData.response, null, 2));
-              throw new Error('Video URL not found in response');
+              console.error('❌ No video URL in result data');
+              console.error('Result structure:', JSON.stringify(resultData, null, 2));
+              throw new Error('Video URL not found in result');
             }
             
             console.log('✅ Video URL:', videoUrl);
