@@ -83,12 +83,27 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
+        
         // 2. Use fal.subscribe() for automatic queue handling
         console.log('🎬 Submitting to FAL AI with fal.subscribe()...');
+        console.log('📋 Source URL:', data.source_url);
+        console.log('📋 Audio URL length:', audioData?.substring(0, 100));
+        
+        // Important: FAL AI MuseTalk requires a VIDEO, not an image
+        // If the source is an image (.jpg, .png), we need to convert it or use a different approach
+        const sourceUrl = data.source_url;
+        
+        if (sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
+          throw new Error(
+            'FAL AI MuseTalk requires a VIDEO source, not an image. ' +
+            'Please upload a short video (MP4, WebM) of the avatar instead of an image. ' +
+            'The video should be a few seconds long showing the face to animate.'
+          );
+        }
         
         const result = await fal.subscribe("fal-ai/musetalk", {
           input: {
-            source_video_url: data.source_url,
+            source_video_url: sourceUrl,
             audio_url: audioData
           },
           logs: true,
