@@ -140,7 +140,7 @@ serve(async (req) => {
           
           console.log('✅ Result received:', JSON.stringify(result, null, 2));
           
-          const videoUrl = result.video?.url;
+          const videoUrl = result.data?.video?.url;
           
           if (!videoUrl) {
             throw new Error('No video URL in result');
