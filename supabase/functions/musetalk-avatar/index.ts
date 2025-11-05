@@ -136,22 +136,17 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // Log the full status data to see what's available
-            console.log('Full status data:', JSON.stringify(statusData, null, 2));
-            
-            // Try different possible paths for the video URL
-            videoUrl = statusData.video?.url || 
-                      statusData.data?.video?.url || 
-                      statusData.output?.video?.url ||
-                      statusData.result?.video?.url;
+            // FAL AI returns the result directly in the status response when completed
+            // The video URL is at statusData.video.url according to FAL AI documentation
+            videoUrl = statusData.video?.url;
             
             if (!videoUrl) {
-              console.error('❌ No video URL found in status response');
-              console.error('Available keys in statusData:', Object.keys(statusData));
-              throw new Error('No video URL found in completed status');
+              console.error('❌ No video URL in completed response');
+              console.error('Status data structure:', JSON.stringify(statusData, null, 2));
+              throw new Error('Video URL missing from FAL AI response');
             }
             
-            console.log('✅ Found video URL:', videoUrl);
+            console.log('✅ Video URL:', videoUrl);
           } else if (statusData.status === 'FAILED') {
             throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
           }
