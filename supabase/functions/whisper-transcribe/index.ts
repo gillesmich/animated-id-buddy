@@ -46,13 +46,30 @@ serve(async (req) => {
     formData.append('model', 'whisper-1');
     formData.append('language', 'fr');
 
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: formData,
-    });
+    // Créer un AbortController avec timeout de 30 secondes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let response;
+    try {
+      response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: formData,
+        signal: controller.signal,
+      });
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('⏱️ Whisper API timeout après 30 secondes');
+        throw new Error('La transcription a pris trop de temps (timeout 30s). Essayez avec un audio plus court.');
+      }
+      throw fetchError;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       // Essayer de lire la réponse comme JSON, sinon comme texte
