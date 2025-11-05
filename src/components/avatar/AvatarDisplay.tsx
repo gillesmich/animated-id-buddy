@@ -425,6 +425,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       // Étape 3: Génération vidéo avec provider sélectionné
       const provider = config.avatarProvider || 'did';
       console.log(`🎬 Étape 3: Génération vidéo ${provider.toUpperCase()}...`);
+      console.log('📋 Config complète:', { 
+        avatarProvider: config.avatarProvider,
+        provider,
+        avatarForDID,
+        currentVideoUrl 
+      });
       
       if (!avatarForDID.presenterId && !avatarForDID.url) {
         console.log("⚠️ Pas d'avatar configuré");
