@@ -15,6 +15,8 @@ serve(async (req) => {
     console.log(`MuseTalk FAL AI call: ${action}`);
     
     const falApiKey = Deno.env.get('FAL_API_KEY');
+    console.log('FAL_API_KEY present:', !!falApiKey, 'Length:', falApiKey?.length);
+    
     if (!falApiKey) {
       return new Response(
         JSON.stringify({ 
