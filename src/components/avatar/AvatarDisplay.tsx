@@ -96,21 +96,30 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
   // Load avatar preview when selection changes
   useEffect(() => {
-    console.log("🔄 Avatar config:", { 
+    console.log("🔄 Avatar config complet:", { 
       selectedAvatar: config.selectedAvatar, 
-      customAvatarImage: config.customAvatarImage?.substring(0, 50),
-      customAvatarVideo: config.customAvatarVideo?.substring(0, 50),
-      provider: config.avatarProvider
+      customAvatarImage: config.customAvatarImage,
+      customAvatarVideo: config.customAvatarVideo,
+      provider: config.avatarProvider,
+      hasVideo: !!config.customAvatarVideo,
+      videoLength: config.customAvatarVideo?.length
     });
     
-    // Pour MuseTalk, priorité à la vidéo personnalisée
-    if (config.avatarProvider === 'musetalk' && config.customAvatarVideo && config.customAvatarVideo.trim() !== '') {
-      console.log("📹 Chargement vidéo personnalisée pour MuseTalk");
-      setAvatarForDID({ url: config.customAvatarVideo });
-      setCurrentVideoUrl(config.customAvatarVideo);
+    // Pour MuseTalk, priorité ABSOLUE à la vidéo personnalisée
+    if (config.avatarProvider === 'musetalk') {
+      if (config.customAvatarVideo && config.customAvatarVideo.trim() !== '') {
+        console.log("📹 ✅ Chargement vidéo personnalisée pour MuseTalk:", config.customAvatarVideo);
+        setAvatarForDID({ url: config.customAvatarVideo });
+        setCurrentVideoUrl(config.customAvatarVideo);
+        return;
+      } else {
+        console.warn("⚠️ MuseTalk activé mais AUCUNE vidéo uploadée!");
+        console.warn("⚠️ Uploadez une vidéo dans l'onglet Upload pour utiliser MuseTalk");
+      }
     }
+    
     // Priorité à l'image personnalisée (si elle existe vraiment)
-    else if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
+    if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
       console.log("📸 Chargement image personnalisée");
       setAvatarForDID({ url: config.customAvatarImage });
       setCurrentVideoUrl(config.customAvatarImage);
@@ -490,14 +499,24 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         if (provider === 'musetalk') {
           // Vérifier que la source est bien une vidéo, pas une image
           const sourceUrl = (avatarForDID.url || currentVideoUrl);
+          console.log("🔍 MuseTalk - Vérification source:", {
+            sourceUrl,
+            avatarForDIDUrl: avatarForDID.url,
+            currentVideoUrl,
+            customAvatarVideo: config.customAvatarVideo
+          });
+          
           const isImage = sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i);
           
           if (isImage) {
             console.error("❌ MuseTalk nécessite une vidéo, pas une image");
+            console.error("❌ Source détectée comme image:", sourceUrl);
+            console.error("💡 Veuillez uploader une vidéo dans l'onglet Upload > Télécharger une vidéo d'avatar");
             toast({
               title: "📹 Vidéo requise pour MuseTalk",
-              description: "MuseTalk nécessite une courte vidéo de votre avatar (MP4, WebM, MOV). Veuillez uploader une vidéo dans la configuration au lieu d'une image.",
+              description: "Allez dans l'onglet Upload et téléchargez une vidéo d'avatar (MP4, WebM, MOV). MuseTalk ne fonctionne pas avec des images.",
               variant: "destructive",
+              duration: 8000,
             });
             setIsVideoLoading(false);
             setIsLoading(false);
@@ -905,7 +924,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               autoPlay
               playsInline
               muted={false}
-              poster={config.customAvatarImage || getAvatarImage(config.selectedAvatar) || ""}
+              loop
+              src={currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? currentVideoUrl : undefined}
+              poster={currentVideoUrl?.match(/\.(jpg|jpeg|png|gif)$/i) ? currentVideoUrl : undefined}
               style={{ opacity: 1 }}
             />
             

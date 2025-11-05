@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,13 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>(currentVideo || "");
+
+  // Mettre à jour la preview quand currentVideo change
+  useEffect(() => {
+    if (currentVideo) {
+      setPreviewUrl(currentVideo);
+    }
+  }, [currentVideo]);
 
   const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
