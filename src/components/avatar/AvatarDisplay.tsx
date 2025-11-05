@@ -1015,7 +1015,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               autoPlay
               playsInline
               muted={false}
-              loop
               src={currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? currentVideoUrl : undefined}
               poster={currentVideoUrl?.match(/\.(jpg|jpeg|png|gif)$/i) ? currentVideoUrl : undefined}
               style={{ opacity: 1 }}
