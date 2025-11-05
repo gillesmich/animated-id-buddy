@@ -12,13 +12,13 @@ serve(async (req) => {
 
   try {
     const { action, data } = await req.json();
-    console.log(`MuseTalk API call: ${action}`);
+    console.log(`MuseTalk FAL AI call: ${action}`);
     
-    let musetalkUrl = Deno.env.get('MUSETALK_API_URL');
-    if (!musetalkUrl) {
+    const falApiKey = Deno.env.get('FAL_API_KEY');
+    if (!falApiKey) {
       return new Response(
         JSON.stringify({ 
-          error: 'MuseTalk server not configured',
+          error: 'FAL API key not configured',
           code: 'NOT_CONFIGURED'
         }),
         { 
@@ -27,30 +27,8 @@ serve(async (req) => {
         }
       );
     }
-    
-    // Add https:// if no protocol specified
-    if (!musetalkUrl.startsWith('http://') && !musetalkUrl.startsWith('https://')) {
-      musetalkUrl = `https://${musetalkUrl}`;
-    }
-    
-    // Remove trailing slash to avoid double slashes
-    musetalkUrl = musetalkUrl.replace(/\/+$/, '');
-
-    let endpoint = '';
-    let method = 'POST';
-    let body = null;
 
     switch (action) {
-      case 'health':
-        endpoint = '/health';
-        method = 'GET';
-        break;
-      
-      case 'initialize':
-        endpoint = '/initialize';
-        method = 'POST';
-        break;
-
       case 'create_talk':
         console.log('Request data:', JSON.stringify(data, null, 2));
         
@@ -99,189 +77,98 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
-        // 2. Try endpoints in order of preference
-        const requestBody = JSON.stringify({
-          image_url: data.source_url,
-          audio_url: audioData,
-          bbox_shift: data.config?.bbox_shift || 0
+        // 2. Call FAL AI MuseTalk
+        console.log('🎬 Calling FAL AI MuseTalk...');
+        
+        const falResponse = await fetch('https://queue.fal.run/fal-ai/musetalk', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Key ${falApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image_url: data.source_url,
+            audio_url: audioData,
+            bbox_shift: data.config?.bbox_shift || 0
+          }),
         });
 
-        // Try both HTTP and HTTPS endpoints
-        const httpUrl = musetalkUrl.replace('https://', 'http://');
-        const endpoints = [
-          `${musetalkUrl}/api/generate`,     // HTTPS Nginx proxied (preferred)
-          `${httpUrl}/api/generate`,         // HTTP Nginx proxied
-          `${httpUrl}/generate`,             // HTTP Direct Flask route
-          `${musetalkUrl}/generate`,         // HTTPS Direct Flask route
-          `http://51.75.125.105:5000/generate`, // Bypass nginx entirely
-        ];
-
-        let generateResponse = null;
-        let successUrl = null;
-
-        for (const url of endpoints) {
-          console.log(`🔍 Trying: ${url}`);
-          try {
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: requestBody,
-            });
-
-            if (response.ok || response.status === 202) {
-              generateResponse = response;
-              successUrl = url;
-              console.log(`✅ Success: ${url}`);
-              break;
-            } else {
-              console.log(`❌ ${url} → ${response.status}`);
-            }
-          } catch (e) {
-            console.log(`❌ ${url} → ${e instanceof Error ? e.message : 'failed'}`);
-          }
-        }
-
-        if (!generateResponse) {
-          throw new Error(
-            'All endpoints failed. Nginx configuration needed:\n' +
-            'Add to nginx config:\n' +
-            'location /api/ {\n' +
-            '  proxy_pass http://127.0.0.1:5000/;\n' +
-            '  proxy_set_header Host $host;\n' +
-            '}'
-          );
-        }
-
-        // Check if response is JSON before parsing
-        const contentType = generateResponse.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const responseText = await generateResponse.text();
-          console.error('Non-JSON response:', responseText.substring(0, 500));
-          throw new Error(
-            'MuseTalk server returned HTML instead of JSON. This usually means:\n' +
-            '1. The server route is not configured correctly\n' +
-            '2. The Flask app is not running\n' +
-            '3. Nginx is serving a default error page\n' +
-            'Response: ' + responseText.substring(0, 200)
-          );
-        }
-
-        const generateResult = await generateResponse.json();
-        const taskId = generateResult.task_id;
-        console.log(`✅ Task created: ${taskId}`);
-
-        // 3. Poll status until completed (max 2 minutes)
-        const baseUrl = successUrl!.replace(/\/generate$/, ''); // Remove /generate from URL
-        const maxAttempts = 60;
-        let attempts = 0;
-        let videoUrl = null;
-
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+        if (!falResponse.ok) {
+          const errorText = await falResponse.text();
+          console.error('FAL API error:', errorText);
           
-          const statusResponse = await fetch(`${baseUrl}/status/${taskId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-
-          if (statusResponse.ok) {
-            const status = await statusResponse.json();
-            console.log(`Status ${attempts + 1}: ${status.status}`);
-
-            if (status.status === 'completed') {
-              videoUrl = `${baseUrl}/download/${taskId}`;
-              break;
-            } else if (status.status === 'failed') {
-              throw new Error(`Task failed: ${status.error || 'Unknown error'}`);
-            }
+          if (falResponse.status === 429) {
+            throw new Error('Rate limit exceeded. Please try again later.');
+          } else if (falResponse.status === 402) {
+            throw new Error('Insufficient FAL AI credits. Please top up your account.');
           }
-
-          attempts++;
+          
+          throw new Error(`FAL API error: ${falResponse.status} - ${errorText}`);
         }
 
-        if (!videoUrl) {
-          throw new Error('Video generation timeout after 2 minutes');
+        const falData = await falResponse.json();
+        console.log('✅ FAL AI result:', falData);
+
+        // FAL AI returns the result directly or provides a request_id for polling
+        let videoUrl = falData.video?.url;
+        
+        if (!videoUrl && falData.request_id) {
+          // Poll for result
+          console.log('📊 Polling FAL AI for result...');
+          const requestId = falData.request_id;
+          let attempts = 0;
+          const maxAttempts = 60;
+          
+          while (attempts < maxAttempts && !videoUrl) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts++;
+            
+            const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status`, {
+              headers: {
+                'Authorization': `Key ${falApiKey}`,
+              },
+            });
+            
+            if (!statusResponse.ok) {
+              throw new Error(`Failed to check status: ${statusResponse.status}`);
+            }
+            
+            const statusData = await statusResponse.json();
+            console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
+            
+            if (statusData.status === 'COMPLETED' && statusData.video?.url) {
+              videoUrl = statusData.video.url;
+            } else if (statusData.status === 'FAILED') {
+              throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
+            }
+          }
+          
+          if (!videoUrl) {
+            throw new Error('Timeout waiting for FAL AI video generation');
+          }
         }
 
         return new Response(JSON.stringify({ 
-          id: taskId,
+          id: falData.request_id || 'completed',
           result_url: videoUrl,
           status: 'completed'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
 
-      case 'get_talk':
-        console.log('Request data:', JSON.stringify(data, null, 2));
-        endpoint = `/status/${data.talkId}`;
-        method = 'GET';
-        break;
-
-      case 'download':
-        endpoint = `/download/${data.taskId}`;
-        method = 'GET';
-        break;
-
       default:
         throw new Error(`Unknown action: ${action}`);
     }
-
-    console.log(`Calling MuseTalk API: ${musetalkUrl}${endpoint}`);
-    console.log(`Request body: ${body || 'none'}`);
-
-    const response = await fetch(`${musetalkUrl}${endpoint}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body,
-    });
-
-    console.log(`MuseTalk Response status: ${response.status}`);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('MuseTalk API error:', errorText);
-      throw new Error(`MuseTalk API error: ${response.status} - ${errorText}`);
-    }
-
-    // For download action, return the video blob directly
-    if (action === 'download') {
-      const videoBlob = await response.blob();
-      return new Response(videoBlob, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'video/mp4',
-          'Content-Disposition': `attachment; filename="${data.taskId}.mp4"`
-        },
-      });
-    }
-
-    // For other actions, return JSON
-    const result = await response.json();
-    console.log('MuseTalk API success');
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
 
   } catch (error) {
     console.error('Error in musetalk-avatar function:', error);
     
     let userFriendlyMessage = error instanceof Error ? error.message : 'Unknown error';
     
-    // Provide clearer error messages for connection issues
-    if (error instanceof Error && error.message.includes('Connection refused')) {
-      userFriendlyMessage = 'Cannot connect to MuseTalk server. Please ensure your MuseTalk server is running and accessible at the configured URL. Check that the MUSETALK_API_URL environment variable is correct and that the server is not blocked by a firewall.';
-    } else if (error instanceof Error && error.message.includes('MUSETALK_API_URL not configured')) {
-      userFriendlyMessage = 'MuseTalk server URL is not configured. Please set the MUSETALK_API_URL environment variable in your backend settings.';
-    }
-    
     return new Response(
       JSON.stringify({ 
         error: userFriendlyMessage,
         details: error instanceof Error ? error.stack : undefined,
-        troubleshooting: 'Verify that: 1) MuseTalk server is running, 2) Server URL is correct in backend settings, 3) Server is accessible from the internet, 4) No firewall is blocking the connection'
       }),
       {
         status: 500,

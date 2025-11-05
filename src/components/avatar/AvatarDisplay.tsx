@@ -462,7 +462,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
           console.log("📸 Image URL:", imageUrl);
 
-          // Appel à MuseTalk (l'edge function générera l'audio)
+          // Appel à FAL AI MuseTalk via edge function
           const requestBody = {
             action: 'create_talk',
             data: {
@@ -470,7 +470,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               text: textForVideo,
               voice_id: config.selectedVoice,
               config: {
-                result_format: 'mp4'
+                bbox_shift: 0
               }
             }
           };
@@ -482,71 +482,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
           if (!talkResponse.ok) {
             const errorData = await talkResponse.json().catch(() => ({}));
-            console.error('❌ Erreur MuseTalk:', talkResponse.status, errorData);
+            console.error('❌ Erreur FAL MuseTalk:', talkResponse.status, errorData);
             if (errorData.code === 'NOT_CONFIGURED') {
-              throw new Error("Serveur MuseTalk non configuré");
+              throw new Error("FAL API key non configurée");
             }
-            throw new Error(`Erreur MuseTalk: ${errorData.error || talkResponse.status}`);
+            throw new Error(`Erreur FAL MuseTalk: ${errorData.error || talkResponse.status}`);
           }
 
           const talkData = await talkResponse.json();
-          const talkId = talkData.task_id;
-          console.log("✅ MuseTalk task créée:", talkId);
-
-          // Polling pour attendre la vidéo MuseTalk
-          let attempts = 0;
-          const maxAttempts = 60;
-          
-          const pollMuseTalkVideo = async (): Promise<string> => {
-            attempts++;
-            
-            if (attempts > maxAttempts) {
-              throw new Error("Timeout génération vidéo MuseTalk");
-            }
-
-            const statusResponse = await authenticatedFetch('musetalk-avatar', {
-              method: 'POST',
-              body: JSON.stringify({
-                action: 'get_talk',
-                data: { talkId }
-              }),
-            });
-
-            if (!statusResponse.ok) {
-              throw new Error("Erreur vérification statut MuseTalk");
-            }
-
-            const statusData = await statusResponse.json();
-            console.log(`📊 Statut MuseTalk (${attempts}/${maxAttempts}):`, statusData.status);
-
-            if (statusData.status === 'done') {
-              // Construct the download URL using the task_id
-              const downloadUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/musetalk-avatar`;
-              const downloadResponse = await authenticatedFetch('musetalk-avatar', {
-                method: 'POST',
-                body: JSON.stringify({
-                  action: 'download',
-                  data: { taskId: talkId }
-                }),
-              });
-              
-              if (!downloadResponse.ok) {
-                throw new Error("Erreur téléchargement vidéo MuseTalk");
-              }
-              
-              // Get the video blob and create a URL
-              const videoBlob = await downloadResponse.blob();
-              return URL.createObjectURL(videoBlob);
-            } else if (statusData.status === 'error') {
-              throw new Error(`Erreur MuseTalk: ${statusData.message || 'Inconnue'}`);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return pollMuseTalkVideo();
-          };
-
-          videoUrl = await pollMuseTalkVideo();
-          console.log("✅ Vidéo MuseTalk générée:", videoUrl);
+          videoUrl = talkData.result_url;  // Direct result from FAL AI - no polling needed!
+          console.log("✅ FAL MuseTalk vidéo générée:", videoUrl);
         } else {
           // Appel à D-ID (code existant)
           const requestBody: any = {
