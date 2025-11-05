@@ -497,8 +497,27 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         let videoUrl: string;
 
         if (provider === 'musetalk') {
-          const sourceUrl = (avatarForDID.url || currentVideoUrl);
-          console.log("🔍 MuseTalk - Source vidéo:", sourceUrl);
+          // PRIORITÉ À config.customAvatarVideo pour éviter les problèmes de timing
+          console.log("🎯 DEBUG MuseTalk:");
+          console.log("  - config.customAvatarVideo:", config.customAvatarVideo);
+          console.log("  - avatarForDID.url:", avatarForDID.url);
+          console.log("  - currentVideoUrl:", currentVideoUrl);
+          
+          const sourceUrl = config.customAvatarVideo || avatarForDID.url || currentVideoUrl;
+          
+          if (!sourceUrl || sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
+            console.error("❌ MuseTalk: Pas de vidéo ou source est une image");
+            toast({
+              title: "📹 Vidéo requise",
+              description: "Uploadez une vidéo dans Configuration → Onglet 'Upload vidéo' pour utiliser MuseTalk",
+              variant: "destructive",
+              duration: 8000,
+            });
+            setIsVideoLoading(false);
+            return;
+          }
+          
+          console.log("✅ MuseTalk - Source vidéo validée:", sourceUrl);
 
           // Upload local video to Supabase Storage to get a publicly accessible URL
           const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
