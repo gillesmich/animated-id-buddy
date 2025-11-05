@@ -37,6 +37,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [streamingText, setStreamingText] = useState("");
   const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [generatedVideos, setGeneratedVideos] = useState<Array<{ url: string; text: string; timestamp: Date }>>([]);
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -632,6 +633,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           setIsAvatarSpeaking(true);
         }
 
+        // Sauvegarder la vidéo générée
+        setGeneratedVideos(prev => [...prev, {
+          url: videoUrl,
+          text: responseText,
+          timestamp: new Date()
+        }]);
+
         setIsVideoLoading(false);
         toast({
           title: "✅ Vidéo prête",
@@ -913,6 +921,55 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           </Button>
         </div>
       </div>
+
+      {/* Generated Videos Gallery */}
+      {generatedVideos.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <Video className="w-4 h-4 text-primary" />
+            Vidéos Générées ({generatedVideos.length})
+          </h4>
+          <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+            {generatedVideos.map((video, idx) => (
+              <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
+                <video
+                  src={video.url}
+                  className="w-full aspect-video object-cover"
+                  controls
+                  preload="metadata"
+                />
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = video.url;
+                      a.download = `avatar-response-${idx + 1}.mp4`;
+                      a.click();
+                      toast({
+                        title: "📥 Téléchargement",
+                        description: "La vidéo va être téléchargée",
+                      });
+                    }}
+                  >
+                    Télécharger
+                  </Button>
+                </div>
+                <div className="p-2 bg-background/80 backdrop-blur-sm">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {video.text}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {video.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Error Overlay */}
       <ErrorOverlay 
