@@ -21,11 +21,14 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
       const file = event.target.files?.[0];
       if (!file) return;
 
-      // Vérifier le type de fichier
-      if (!file.type.startsWith('video/')) {
+      // Vérifier le type de fichier (vidéo ou GIF)
+      const isVideo = file.type.startsWith('video/');
+      const isGif = file.type === 'image/gif';
+      
+      if (!isVideo && !isGif) {
         toast({
           title: "Erreur",
-          description: "Veuillez sélectionner un fichier vidéo valide",
+          description: "Veuillez sélectionner une vidéo courte ou un GIF",
           variant: "destructive",
         });
         return;
@@ -93,13 +96,13 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
           Télécharger une vidéo d'avatar
         </Label>
         <p className="text-xs text-muted-foreground">
-          Formats supportés: MP4, WebM, MOV (max 20MB)
+          Formats supportés: MP4, WebM, MOV, GIF (max 20MB)
         </p>
         <div className="flex gap-2">
           <Input
             id="video-upload"
             type="file"
-            accept="video/mp4,video/webm,video/quicktime"
+            accept="video/mp4,video/webm,video/quicktime,image/gif"
             onChange={handleVideoUpload}
             disabled={uploading}
             className="glass"
@@ -122,16 +125,24 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
 
       {previewUrl && (
         <div className="space-y-2">
-          <Label>Aperçu de la vidéo</Label>
+          <Label>Aperçu</Label>
           <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-muted">
-            <video
-              src={previewUrl}
-              controls
-              className="w-full h-full object-cover"
-              preload="metadata"
-            >
-              Votre navigateur ne supporte pas la lecture de vidéos.
-            </video>
+            {previewUrl.endsWith('.gif') ? (
+              <img
+                src={previewUrl}
+                alt="GIF preview"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <video
+                src={previewUrl}
+                controls
+                className="w-full h-full object-cover"
+                preload="metadata"
+              >
+                Votre navigateur ne supporte pas la lecture de vidéos.
+              </video>
+            )}
           </div>
           <p className="text-xs text-muted-foreground break-all">
             {previewUrl}

@@ -61,10 +61,14 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    // Support des images et GIF
+    const isImage = file.type.startsWith('image/');
+    const isGif = file.type === 'image/gif';
+    
+    if (!isImage) {
       toast({
         title: "Erreur",
-        description: "Veuillez sélectionner une image",
+        description: "Veuillez sélectionner une image ou un GIF",
         variant: "destructive",
       });
       return;
@@ -73,9 +77,9 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
     setIsUploading(true);
 
     try {
-      // Compresser l'image avant upload si nécessaire
+      // Compresser l'image avant upload si nécessaire (sauf pour les GIF)
       let fileToUpload = file;
-      if (file.size > 5 * 1024 * 1024) { // Si > 5MB
+      if (!isGif && file.size > 5 * 1024 * 1024) { // Si > 5MB et pas un GIF
         console.log("🗜️ Compression de l'image...");
         toast({
           title: "Compression en cours...",
@@ -86,7 +90,7 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
       }
 
       // Créer un nom de fichier unique
-      const fileExt = 'jpg'; // Toujours JPEG après compression
+      const fileExt = isGif ? 'gif' : 'jpg'; // Garder .gif pour les GIF, sinon JPEG
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
@@ -165,9 +169,9 @@ const ImageUploader = ({ currentImage, onImageSelected }: ImageUploaderProps) =>
             ) : (
               <>
                 <ImagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm font-medium">Sélectionner une image</p>
+                <p className="text-sm font-medium">Sélectionner une image ou GIF</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  JPG, PNG ou WEBP (URL publique pour D-ID)
+                  JPG, PNG, WEBP ou GIF animé
                 </p>
               </>
             )}
