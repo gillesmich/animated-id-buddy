@@ -113,60 +113,73 @@ serve(async (req) => {
         const requestId = submitData.request_id;
         console.log('✅ Request submitted:', requestId);
 
-        // 3. Poll for result
-        console.log('📊 Polling for result...');
+        // 3. Use streaming status endpoint to get result when completed
+        console.log('📊 Waiting for completion via streaming...');
         let videoUrl = null;
-        let attempts = 0;
-        const maxAttempts = 60;
         
-        while (attempts < maxAttempts && !videoUrl) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-          
-          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status?logs=1`, {
+        // Use streaming endpoint for real-time status
+        const streamResponse = await fetch(
+          `https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status/stream`,
+          {
             headers: {
               'Authorization': `Key ${falApiKey}`,
             },
-          });
-          
-          if (!statusResponse.ok) {
-            throw new Error(`Failed to check status: ${statusResponse.status}`);
           }
-          
-          const statusData = await statusResponse.json();
-          console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
-          
-          if (statusData.status === 'COMPLETED') {
-            console.log('✅ Request completed');
-            console.log('📦 Full status response:', JSON.stringify(statusData, null, 2));
-            
-            // With logs=1, FAL AI might include the result data directly in status
-            // Check if video is in the status data itself
-            if (statusData.data) {
-              videoUrl = statusData.data.video?.url;
-              console.log('Found data field, video URL:', videoUrl);
-            } else if (statusData.output) {
-              videoUrl = statusData.output.video?.url;
-              console.log('Found output field, video URL:', videoUrl);
-            } else {
-              console.log('No data/output in status, checking other fields...');
-              console.log('Available status fields:', Object.keys(statusData));
+        );
+
+        if (!streamResponse.ok) {
+          throw new Error(`Failed to stream status: ${streamResponse.status}`);
+        }
+
+        // Read the stream line by line
+        const reader = streamResponse.body?.getReader();
+        const decoder = new TextDecoder();
+        
+        if (!reader) {
+          throw new Error('No stream reader available');
+        }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (!line.trim() || line.startsWith(':')) continue;
+            if (!line.startsWith('data: ')) continue;
+
+            const jsonStr = line.slice(6);
+            try {
+              const statusData = JSON.parse(jsonStr);
+              console.log('Stream status:', statusData.status);
+
+              if (statusData.status === 'COMPLETED') {
+                console.log('✅ Request completed');
+                console.log('📦 Stream data:', JSON.stringify(statusData, null, 2));
+                
+                // The video might be in data or output field
+                videoUrl = statusData.data?.video?.url || statusData.output?.video?.url;
+                
+                if (videoUrl) {
+                  console.log('✅ Video URL from stream:', videoUrl);
+                  break;
+                }
+              } else if (statusData.status === 'FAILED') {
+                throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
+              }
+            } catch (parseError) {
+              // Ignore parse errors for incomplete JSON
+              console.log('Parse error (ignoring):', parseError);
             }
-            
-            if (!videoUrl) {
-              console.error('❌ No video URL found in COMPLETED status');
-              console.error('This might mean we need to use a different API approach');
-              throw new Error('Video URL not found - check FAL AI API documentation');
-            }
-            
-            console.log('✅ Video URL:', videoUrl);
-          } else if (statusData.status === 'FAILED') {
-            throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
           }
+
+          if (videoUrl) break;
         }
         
         if (!videoUrl) {
-          throw new Error('Timeout waiting for FAL AI video generation');
+          throw new Error('Timeout or no video URL received from stream');
         }
 
         console.log('✅ Video generated:', videoUrl);
