@@ -136,23 +136,33 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // Log the entire response to see the structure
-            console.log('📦 Complete status response:', JSON.stringify(statusData, null, 2));
+            // When FAL AI completes, we need to fetch the actual result
+            // The response_url contains the request ID, we need to GET it to get the video
+            console.log('✅ Request completed, fetching result...');
             
-            // FAL AI might return the video URL in different places
-            videoUrl = statusData.video?.url ||           // Direct video object
-                      statusData.data?.video?.url ||      // Nested in data
-                      statusData.output?.video?.url ||    // Nested in output  
-                      statusData.response_url;            // Or as response_url
+            const resultResponse = await fetch(statusData.response_url, {
+              headers: {
+                'Authorization': `Key ${falApiKey}`,
+              },
+            });
             
-            if (!videoUrl) {
-              console.error('❌ Could not find video URL in response');
-              console.error('Available keys:', Object.keys(statusData));
-              console.error('Full response:', JSON.stringify(statusData, null, 2));
-              throw new Error('Video URL missing from FAL AI response');
+            if (!resultResponse.ok) {
+              throw new Error(`Failed to fetch result: ${resultResponse.status}`);
             }
             
-            console.log('✅ Video URL found:', videoUrl);
+            const resultData = await resultResponse.json();
+            console.log('📦 Result data:', JSON.stringify(resultData, null, 2));
+            
+            // Extract the video URL from the result
+            videoUrl = resultData.video?.url;
+            
+            if (!videoUrl) {
+              console.error('❌ No video URL in result');
+              console.error('Result keys:', Object.keys(resultData));
+              throw new Error('Video URL missing from result');
+            }
+            
+            console.log('✅ Video URL:', videoUrl);
           } else if (statusData.status === 'FAILED') {
             throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
           }
