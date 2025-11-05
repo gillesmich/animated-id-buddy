@@ -136,27 +136,22 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // Fetch the complete result to get the video URL
-            const resultResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`, {
-              headers: {
-                'Authorization': `Key ${falApiKey}`,
-              },
-            });
+            // Log the full status data to see what's available
+            console.log('Full status data:', JSON.stringify(statusData, null, 2));
             
-            if (!resultResponse.ok) {
-              throw new Error(`Failed to get result: ${resultResponse.status}`);
-            }
-            
-            const resultData = await resultResponse.json();
-            console.log('Result data:', JSON.stringify(resultData, null, 2));
-            
-            // Extract video URL from the result
-            videoUrl = resultData.video?.url || resultData.data?.video?.url;
+            // Try different possible paths for the video URL
+            videoUrl = statusData.video?.url || 
+                      statusData.data?.video?.url || 
+                      statusData.output?.video?.url ||
+                      statusData.result?.video?.url;
             
             if (!videoUrl) {
-              console.error('Full result data:', JSON.stringify(resultData, null, 2));
-              throw new Error('No video URL found in result');
+              console.error('❌ No video URL found in status response');
+              console.error('Available keys in statusData:', Object.keys(statusData));
+              throw new Error('No video URL found in completed status');
             }
+            
+            console.log('✅ Found video URL:', videoUrl);
           } else if (statusData.status === 'FAILED') {
             throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
           }
