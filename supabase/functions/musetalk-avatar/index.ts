@@ -123,7 +123,7 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 2000));
           attempts++;
           
-          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status`, {
+          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status?logs=1`, {
             headers: {
               'Authorization': `Key ${falApiKey}`,
             },
@@ -137,35 +137,26 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // When COMPLETED, fetch the result using the result endpoint (without /status)
-            // The response_url from submit already points to the result endpoint
-            console.log('✅ Request completed, fetching result from result endpoint...');
+            console.log('✅ Request completed');
+            console.log('📦 Full status response:', JSON.stringify(statusData, null, 2));
             
-            const resultUrl = `https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`;
-            console.log('Result URL:', resultUrl);
-            
-            const resultResponse = await fetch(resultUrl, {
-              headers: {
-                'Authorization': `Key ${falApiKey}`,
-              },
-            });
-            
-            if (!resultResponse.ok) {
-              const errorText = await resultResponse.text();
-              console.error('Result fetch error:', resultResponse.status, errorText);
-              throw new Error(`Failed to get result: ${resultResponse.status}`);
+            // With logs=1, FAL AI might include the result data directly in status
+            // Check if video is in the status data itself
+            if (statusData.data) {
+              videoUrl = statusData.data.video?.url;
+              console.log('Found data field, video URL:', videoUrl);
+            } else if (statusData.output) {
+              videoUrl = statusData.output.video?.url;
+              console.log('Found output field, video URL:', videoUrl);
+            } else {
+              console.log('No data/output in status, checking other fields...');
+              console.log('Available status fields:', Object.keys(statusData));
             }
             
-            const resultData = await resultResponse.json();
-            console.log('📦 Result data:', JSON.stringify(resultData, null, 2));
-            
-            // Extract video URL from the result
-            videoUrl = resultData.video?.url;
-            
             if (!videoUrl) {
-              console.error('❌ No video URL in result data');
-              console.error('Result structure:', JSON.stringify(resultData, null, 2));
-              throw new Error('Video URL not found in result');
+              console.error('❌ No video URL found in COMPLETED status');
+              console.error('This might mean we need to use a different API approach');
+              throw new Error('Video URL not found - check FAL AI API documentation');
             }
             
             console.log('✅ Video URL:', videoUrl);
