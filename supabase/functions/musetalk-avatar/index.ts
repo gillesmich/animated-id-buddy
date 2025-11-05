@@ -90,12 +90,27 @@ serve(async (req) => {
         if (sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
           console.log('🖼️ Image detected, converting to video...');
           
+          // Download the image and convert to base64 data URL
+          let imageDataUrl = sourceUrl;
+          if (!sourceUrl.startsWith('data:')) {
+            console.log('📥 Downloading image from:', sourceUrl);
+            const imageResponse = await fetch(sourceUrl);
+            if (!imageResponse.ok) {
+              throw new Error(`Failed to download image: ${imageResponse.status}`);
+            }
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+            const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+            imageDataUrl = `data:${contentType};base64,${base64Image}`;
+            console.log('✅ Image converted to base64');
+          }
+          
           // Use FAL AI to create a short video from the image
           const imageToVideoResult = await fal.subscribe("fal-ai/fast-svd", {
             input: {
-              image_url: sourceUrl,
-              motion_bucket_id: 20, // Low motion for subtle animation
-              fps: 6, // Low fps for short output
+              image_url: imageDataUrl,
+              motion_bucket_id: 20,
+              fps: 6,
               cond_aug: 0.02
             },
             logs: true,
