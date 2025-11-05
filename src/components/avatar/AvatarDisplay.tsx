@@ -556,14 +556,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             duration: 5000,
           });
 
-          const talkResponse = await authenticatedFetch('musetalk-avatar', {
+          // Step 1: Submit the job
+          const submitResponse = await authenticatedFetch('musetalk-avatar', {
             method: 'POST',
             body: JSON.stringify(requestBody),
           });
 
-          if (!talkResponse.ok) {
-            const errorData = await talkResponse.json().catch(() => ({}));
-            console.error('❌ Erreur FAL MuseTalk:', talkResponse.status, errorData);
+          if (!submitResponse.ok) {
+            const errorData = await submitResponse.json().catch(() => ({}));
+            console.error('❌ Erreur FAL MuseTalk:', submitResponse.status, errorData);
             
             if (errorData.code === 'INVALID_SOURCE_TYPE') {
               toast({
@@ -578,18 +579,55 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             if (errorData.code === 'NOT_CONFIGURED') {
               throw new Error("FAL API key non configurée");
             }
-            throw new Error(`Erreur FAL MuseTalk: ${errorData.error || talkResponse.status}`);
+            throw new Error(`Erreur FAL MuseTalk: ${errorData.error || submitResponse.status}`);
           }
 
-          const talkData = await talkResponse.json();
-          videoUrl = talkData.videoUrl;  // Corrected property name from edge function
+          const { request_id } = await submitResponse.json();
+          console.log("✅ Job submitted with request_id:", request_id);
+
+          // Step 2: Poll for completion
+          let attempts = 0;
+          const maxAttempts = 40; // 40 * 3s = 2 minutes max
           
-          if (!videoUrl) {
-            console.error("❌ Pas de videoUrl dans la réponse:", talkData);
-            throw new Error("Aucune vidéo générée par MuseTalk");
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s between checks
+            attempts++;
+            
+            const statusResponse = await authenticatedFetch('musetalk-avatar', {
+              method: 'POST',
+              body: JSON.stringify({
+                action: 'check_status',
+                data: { request_id }
+              }),
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error(`Status check error: ${statusResponse.status}`);
+            }
+
+            const statusData = await statusResponse.json();
+            console.log(`📊 Attempt ${attempts}/${maxAttempts} - Status:`, statusData.status);
+
+            if (statusData.status === 'COMPLETED') {
+              videoUrl = statusData.videoUrl;
+              
+              if (!videoUrl) {
+                console.error("❌ Pas de videoUrl dans la réponse:", statusData);
+                throw new Error("Aucune vidéo générée par MuseTalk");
+              }
+              
+              console.log("✅ FAL MuseTalk vidéo générée:", videoUrl);
+              break;
+            }
+
+            if (statusData.status === 'FAILED') {
+              throw new Error("La génération MuseTalk a échoué");
+            }
           }
-          
-          console.log("✅ FAL MuseTalk vidéo générée:", videoUrl);
+
+          if (!videoUrl) {
+            throw new Error("Timeout: La génération a pris trop de temps");
+          }
         } else {
           // Appel à D-ID (code existant)
           const requestBody: any = {

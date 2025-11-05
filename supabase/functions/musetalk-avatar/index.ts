@@ -100,43 +100,69 @@ serve(async (req) => {
           );
         }
         
-        // 3. Use fal.subscribe() for MuseTalk with timeout
-        console.log('🎬 Submitting to FAL AI MuseTalk...');
+        // 3. Submit job to FAL AI asynchronously (non-blocking)
+        console.log('🎬 Submitting async job to FAL AI MuseTalk...');
         console.log('📋 Source URL:', sourceUrl);
         console.log('📋 Audio URL length:', audioData?.substring(0, 100));
         
-        // Add a timeout of 60 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('FAL AI timeout après 60s')), 60000);
-        });
+        const { request_id } = await fal.queue.submit("fal-ai/musetalk", {
+          input: {
+            source_video_url: sourceUrl,
+            audio_url: audioData
+          }
+        }) as any;
 
-        const result = await Promise.race([
-          fal.subscribe("fal-ai/musetalk", {
-            input: {
-              source_video_url: sourceUrl,
-              audio_url: audioData
-            },
-            logs: true,
-            onQueueUpdate: (update) => {
-              if (update.status === "IN_PROGRESS") {
-                console.log('📊 MuseTalk progress:', update.status);
-                update.logs?.map((log) => log.message).forEach(console.log);
-              }
-            },
-          }),
-          timeoutPromise
-        ]) as any;
+        console.log('✅ Job submitted with request_id:', request_id);
 
-        console.log('✅ Result received:', JSON.stringify(result.data, null, 2));
+        return new Response(
+          JSON.stringify({ request_id }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+
+      case 'check_status':
+        const { request_id: checkId } = data;
+        console.log('🔍 Checking status for request_id:', checkId);
         
-        const videoUrl = result.data?.video?.url;
+        const status = await fal.queue.status("fal-ai/musetalk", {
+          requestId: checkId,
+          logs: true
+        }) as any;
+
+        console.log('📊 Status:', status.status);
         
-        if (!videoUrl) {
-          throw new Error('No video URL in result');
+        if (status.status === 'COMPLETED') {
+          const result = await fal.queue.result("fal-ai/musetalk", {
+            requestId: checkId
+          }) as any;
+          
+          console.log('✅ Result received:', JSON.stringify(result.data, null, 2));
+          
+          const videoUrl = result.data?.video?.url;
+          
+          if (!videoUrl) {
+            throw new Error('No video URL in result');
+          }
+
+          return new Response(
+            JSON.stringify({ 
+              status: 'COMPLETED',
+              videoUrl 
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
         }
 
         return new Response(
-          JSON.stringify({ videoUrl }),
+          JSON.stringify({ 
+            status: status.status,
+            logs: status.logs
+          }),
           { 
             status: 200, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
