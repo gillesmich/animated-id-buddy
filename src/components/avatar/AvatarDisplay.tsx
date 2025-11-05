@@ -701,40 +701,42 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         </p>
       </div>
 
-      {/* WebRTC Controls */}
-      <div className="flex gap-2 items-center">
-        {!isStreaming ? (
-          <Button
-            onClick={startWebRTCSession}
-            disabled={isVideoLoading || (!avatarForDID.presenterId && !avatarForDID.url)}
-            className="gradient-primary"
-          >
-            {isVideoLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Connexion WebRTC...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Démarrer WebRTC
-              </>
-            )}
-          </Button>
-        ) : (
-          <Button
-            onClick={stopWebRTCSession}
-            variant="destructive"
-          >
-            Arrêter WebRTC
-          </Button>
-        )}
-        {webRTCStatus && (
-          <span className="text-sm text-muted-foreground">
-            Statut: {webRTCStatus}
-          </span>
-        )}
-      </div>
+      {/* WebRTC Controls - Only shown for DID provider */}
+      {config.avatarProvider === 'did' && (
+        <div className="flex gap-2 items-center">
+          {!isStreaming ? (
+            <Button
+              onClick={startWebRTCSession}
+              disabled={isVideoLoading || (!avatarForDID.presenterId && !avatarForDID.url)}
+              className="gradient-primary"
+            >
+              {isVideoLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Connexion WebRTC...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 mr-2" />
+                  Démarrer WebRTC
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={stopWebRTCSession}
+              variant="destructive"
+            >
+              Arrêter WebRTC
+            </Button>
+          )}
+          {webRTCStatus && (
+            <span className="text-sm text-muted-foreground">
+              Statut: {webRTCStatus}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Avatar Video Area */}
       <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
