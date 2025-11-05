@@ -67,15 +67,14 @@ serve(async (req) => {
             throw new Error(`ElevenLabs TTS error: ${ttsResponse.status}`);
           }
 
-          // Convert audio to base64
+          // Convert audio to base64 using binary string approach
           const audioBuffer = await ttsResponse.arrayBuffer();
-          const uint8Array = new Uint8Array(audioBuffer);
+          const bytes = new Uint8Array(audioBuffer);
           
+          // Build binary string character by character for safety
           let binary = '';
-          const chunkSize = 8192;
-          for (let i = 0; i < uint8Array.length; i += chunkSize) {
-            const chunk = uint8Array.slice(i, i + chunkSize);
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
           }
           
           const base64Audio = btoa(binary);
@@ -99,14 +98,12 @@ serve(async (req) => {
               throw new Error(`Failed to download image: ${imageResponse.status}`);
             }
             const imageBuffer = await imageResponse.arrayBuffer();
-            const uint8Array = new Uint8Array(imageBuffer);
+            const bytes = new Uint8Array(imageBuffer);
             
-            // Convert to base64 in chunks to avoid stack overflow
+            // Build binary string character by character for safety
             let binary = '';
-            const chunkSize = 8192;
-            for (let i = 0; i < uint8Array.length; i += chunkSize) {
-              const chunk = uint8Array.slice(i, i + chunkSize);
-              binary += String.fromCharCode.apply(null, Array.from(chunk));
+            for (let i = 0; i < bytes.length; i++) {
+              binary += String.fromCharCode(bytes[i]);
             }
             
             const base64Image = btoa(binary);
