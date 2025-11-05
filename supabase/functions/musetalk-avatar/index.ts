@@ -138,9 +138,9 @@ serve(async (req) => {
             requestId: checkId
           }) as any;
           
-          console.log('✅ Result received:', JSON.stringify(result.data, null, 2));
+          console.log('✅ Result received:', JSON.stringify(result, null, 2));
           
-          const videoUrl = result.data?.video?.url;
+          const videoUrl = result.video?.url;
           
           if (!videoUrl) {
             throw new Error('No video URL in result');
