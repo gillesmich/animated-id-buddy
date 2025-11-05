@@ -721,12 +721,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
           const { audioContent } = await ttsResponse.json();
           
-          // Décoder et jouer l'audio
-          const audioData = Uint8Array.from(atob(audioContent), c => c.charCodeAt(0));
-          await audioPlayerRef.current?.playBase64(audioContent);
+          // Décoder et jouer l'audio avec callback de fin
+          setIsAvatarSpeaking(true);
+          await audioPlayerRef.current?.playBase64(audioContent, () => {
+            console.log("🔇 Audio fallback terminé");
+            setIsAvatarSpeaking(false);
+          });
           
           console.log("✅ Audio fallback joué");
-          setIsAvatarSpeaking(true);
           
           toast({
             title: "🔊 Audio uniquement",

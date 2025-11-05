@@ -230,22 +230,34 @@ export class AudioRecorder {
 export class AudioPlayer {
   private audioContext: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
+  private onEndedCallback: (() => void) | null = null;
 
   constructor() {
     this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
 
-  async play(audioData: ArrayBuffer): Promise<void> {
+  async play(audioData: ArrayBuffer, onEnded?: () => void): Promise<void> {
     if (!this.audioContext) return;
 
     try {
       // Stop any currently playing audio
       this.stop();
 
+      this.onEndedCallback = onEnded || null;
+
       const audioBuffer = await this.audioContext.decodeAudioData(audioData);
       this.currentSource = this.audioContext.createBufferSource();
       this.currentSource.buffer = audioBuffer;
       this.currentSource.connect(this.audioContext.destination);
+      
+      // Add onended callback
+      this.currentSource.onended = () => {
+        console.log("🔇 Audio terminé");
+        if (this.onEndedCallback) {
+          this.onEndedCallback();
+        }
+      };
+      
       this.currentSource.start(0);
     } catch (error) {
       console.error('Error playing audio:', error);
@@ -264,13 +276,13 @@ export class AudioPlayer {
     }
   }
 
-  async playBase64(base64Audio: string): Promise<void> {
+  async playBase64(base64Audio: string, onEnded?: () => void): Promise<void> {
     const binaryString = atob(base64Audio);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    await this.play(bytes.buffer);
+    await this.play(bytes.buffer, onEnded);
   }
 }
 
