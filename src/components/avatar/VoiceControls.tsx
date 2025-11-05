@@ -68,37 +68,55 @@ const VoiceControls = ({
       await recorderRef.current.start({
         enableVAD: true,
         onSpeechStart: () => {
+          // Ignorer si l'avatar parle ou si déjà en cours d'enregistrement
+          if (isAvatarSpeaking) {
+            console.log("⏸️ Parole détectée mais avatar parle - ignoré");
+            return;
+          }
+          
+          if (vadRecordingRef.current) {
+            console.log("⏸️ Enregistrement déjà en cours - ignoré");
+            return;
+          }
+          
           console.log("🎤 Début de parole détecté - Démarrage enregistrement");
           vadRecordingRef.current = true;
           setIsRecording(true);
+          onUserSpeaking?.(true);
         },
         onSpeechEnd: async () => {
+          console.log("🔇 Fin de parole détectée");
+          
+          if (!vadRecordingRef.current || !recorderRef.current) {
+            console.log("⏸️ Pas d'enregistrement actif - ignoré");
+            return;
+          }
+          
           console.log("🔇 Fin de parole - Arrêt enregistrement");
-          if (vadRecordingRef.current && recorderRef.current) {
-            vadRecordingRef.current = false;
-            setIsRecording(false);
+          vadRecordingRef.current = false;
+          setIsRecording(false);
+          onUserSpeaking?.(false);
+          
+          try {
+            const audioBlob = await recorderRef.current.stop();
             
-            try {
-              const audioBlob = await recorderRef.current.stop();
-              
-              // Filtrage: ignorer les audios trop courts (< 1 seconde)
-              if (audioBlob.size < 16000) { // ~1 seconde à 16kHz
-                console.log("⚠️ Audio trop court, ignoré");
-                setTimeout(() => startVADListening(), 500);
-                return;
-              }
-              
-              console.log("✅ Audio blob created:", audioBlob.size, "bytes");
-              const base64Audio = await audioToBase64(audioBlob);
-              console.log("📤 Envoi de l'audio au parent");
-              await onVoiceMessage(base64Audio);
-              
-              // Redémarrer l'écoute
+            // Filtrage: ignorer les audios trop courts (< 1 seconde)
+            if (audioBlob.size < 16000) { // ~1 seconde à 16kHz
+              console.log("⚠️ Audio trop court, ignoré");
               setTimeout(() => startVADListening(), 500);
-            } catch (error) {
-              console.error("❌ Erreur lors du traitement audio:", error);
-              setTimeout(() => startVADListening(), 500);
+              return;
             }
+            
+            console.log("✅ Audio blob created:", audioBlob.size, "bytes");
+            const base64Audio = await audioToBase64(audioBlob);
+            console.log("📤 Envoi de l'audio au parent");
+            await onVoiceMessage(base64Audio);
+            
+            // Redémarrer l'écoute
+            setTimeout(() => startVADListening(), 500);
+          } catch (error) {
+            console.error("❌ Erreur lors du traitement audio:", error);
+            setTimeout(() => startVADListening(), 500);
           }
         },
         onVolumeChange: (vol) => {
