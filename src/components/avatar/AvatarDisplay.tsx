@@ -74,7 +74,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     return () => {
       transitionManagerRef.current?.cleanup();
     };
-  }, [config.customAvatarImage, config.selectedAvatar, isStreaming]);
+  }, [config.customAvatarImage, config.customAvatarVideo, config.selectedAvatar, config.avatarProvider, isStreaming]);
 
   // Load avatar preview when selection changes
   useEffect(() => {
@@ -111,7 +111,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setAvatarForDID(defaultDIDConfig);
       setCurrentVideoUrl(defaultLocalUrl);
     }
-  }, [config.selectedAvatar, config.customAvatarImage]);
+  }, [config.selectedAvatar, config.customAvatarImage, config.customAvatarVideo, config.avatarProvider]);
 
 
 
