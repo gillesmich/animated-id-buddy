@@ -459,7 +459,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setStreamingText("");
 
       // Étape 3: Génération vidéo avec provider sélectionné
-      const provider = config.avatarProvider || 'did';
+      let provider = config.avatarProvider || 'did';
       console.log(`🎬 Étape 3: Génération vidéo ${provider.toUpperCase()}...`);
       console.log('📋 Config complète:', { 
         avatarProvider: config.avatarProvider,
@@ -480,6 +480,24 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       
       console.log("📸 Avatar config:", avatarForDID);
       
+      // Vérifier si c'est une image et basculer sur D-ID si nécessaire
+      if (provider === 'musetalk') {
+        const sourceUrl = (avatarForDID.url || currentVideoUrl);
+        const isImage = sourceUrl && sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i);
+        
+        if (isImage) {
+          console.log("⚠️ Image détectée avec MuseTalk, bascule automatique sur D-ID");
+          console.log("📸 Source:", sourceUrl);
+          provider = 'did';
+          
+          toast({
+            title: "🔄 Bascule sur D-ID",
+            description: "Image détectée, utilisation de D-ID pour l'animation",
+            duration: 3000,
+          });
+        }
+      }
+      
       // Validation de la longueur du texte
       let textForVideo = responseText;
       if (textForVideo.length > 1000) {
@@ -497,31 +515,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         let videoUrl: string;
 
         if (provider === 'musetalk') {
-          // Vérifier que la source est bien une vidéo, pas une image
           const sourceUrl = (avatarForDID.url || currentVideoUrl);
-          console.log("🔍 MuseTalk - Vérification source:", {
-            sourceUrl,
-            avatarForDIDUrl: avatarForDID.url,
-            currentVideoUrl,
-            customAvatarVideo: config.customAvatarVideo
-          });
-          
-          const isImage = sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i);
-          
-          if (isImage) {
-            console.error("❌ MuseTalk nécessite une vidéo, pas une image");
-            console.error("❌ Source détectée comme image:", sourceUrl);
-            console.error("💡 Veuillez uploader une vidéo dans l'onglet Upload > Télécharger une vidéo d'avatar");
-            toast({
-              title: "📹 Vidéo requise pour MuseTalk",
-              description: "Allez dans l'onglet Upload et téléchargez une vidéo d'avatar (MP4, WebM, MOV). MuseTalk ne fonctionne pas avec des images.",
-              variant: "destructive",
-              duration: 8000,
-            });
-            setIsVideoLoading(false);
-            setIsLoading(false);
-            return;
-          }
+          console.log("🔍 MuseTalk - Source vidéo:", sourceUrl);
 
           // Upload local video to Supabase Storage to get a publicly accessible URL
           const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
