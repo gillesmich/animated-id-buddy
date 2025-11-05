@@ -136,26 +136,26 @@ serve(async (req) => {
           console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
           
           if (statusData.status === 'COMPLETED') {
-            // The result is already in the status response
-            videoUrl = statusData.response_url;
+            // Fetch the complete result to get the video URL
+            const resultResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`, {
+              headers: {
+                'Authorization': `Key ${falApiKey}`,
+              },
+            });
             
-            if (!videoUrl) {
-              // If not in status, try fetching the result
-              const resultResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`, {
-                headers: {
-                  'Authorization': `Key ${falApiKey}`,
-                },
-              });
-              
-              if (resultResponse.ok) {
-                const resultData = await resultResponse.json();
-                videoUrl = resultData.video?.url || resultData.response_url;
-              }
+            if (!resultResponse.ok) {
+              throw new Error(`Failed to get result: ${resultResponse.status}`);
             }
             
+            const resultData = await resultResponse.json();
+            console.log('Result data:', JSON.stringify(resultData, null, 2));
+            
+            // Extract video URL from the result
+            videoUrl = resultData.video?.url || resultData.data?.video?.url;
+            
             if (!videoUrl) {
-              console.error('Status data:', JSON.stringify(statusData, null, 2));
-              throw new Error('No video URL in result');
+              console.error('Full result data:', JSON.stringify(resultData, null, 2));
+              throw new Error('No video URL found in result');
             }
           } else if (statusData.status === 'FAILED') {
             throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
