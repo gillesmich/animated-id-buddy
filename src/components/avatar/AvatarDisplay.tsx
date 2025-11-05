@@ -20,6 +20,7 @@ interface AvatarDisplayProps {
     elevenlabsApiKey: string;
     selectedAvatar: string;
     customAvatarImage: string;
+    customAvatarVideo?: string;
     selectedVoice: string;
     selectedModel: string;
     selectedWorkflow: string;
@@ -79,11 +80,19 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   useEffect(() => {
     console.log("🔄 Avatar config:", { 
       selectedAvatar: config.selectedAvatar, 
-      customAvatarImage: config.customAvatarImage?.substring(0, 50)
+      customAvatarImage: config.customAvatarImage?.substring(0, 50),
+      customAvatarVideo: config.customAvatarVideo?.substring(0, 50),
+      provider: config.avatarProvider
     });
     
+    // Pour MuseTalk, priorité à la vidéo personnalisée
+    if (config.avatarProvider === 'musetalk' && config.customAvatarVideo && config.customAvatarVideo.trim() !== '') {
+      console.log("📹 Chargement vidéo personnalisée pour MuseTalk");
+      setAvatarForDID({ url: config.customAvatarVideo });
+      setCurrentVideoUrl(config.customAvatarVideo);
+    }
     // Priorité à l'image personnalisée (si elle existe vraiment)
-    if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
+    else if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
       console.log("📸 Chargement image personnalisée");
       setAvatarForDID({ url: config.customAvatarImage });
       setCurrentVideoUrl(config.customAvatarImage);
