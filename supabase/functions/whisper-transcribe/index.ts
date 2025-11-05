@@ -55,12 +55,29 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('Whisper API error:', error);
-      throw new Error(`Whisper API error: ${response.status}`);
+      // Essayer de lire la réponse comme JSON, sinon comme texte
+      let errorMessage = `Whisper API error: ${response.status}`;
+      try {
+        const error = await response.json();
+        console.error('Whisper API error (JSON):', error);
+        errorMessage = error.error?.message || JSON.stringify(error);
+      } catch (jsonError) {
+        const textError = await response.text();
+        console.error('Whisper API error (text):', textError);
+        errorMessage = textError || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error('Failed to parse Whisper response as JSON:', jsonError);
+      const textResponse = await response.text();
+      console.error('Raw response:', textResponse);
+      throw new Error(`Invalid JSON response from Whisper API: ${textResponse.substring(0, 100)}`);
+    }
     
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
