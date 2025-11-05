@@ -152,6 +152,20 @@ serve(async (req) => {
           );
         }
 
+        // Check if response is JSON before parsing
+        const contentType = generateResponse.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const responseText = await generateResponse.text();
+          console.error('Non-JSON response:', responseText.substring(0, 500));
+          throw new Error(
+            'MuseTalk server returned HTML instead of JSON. This usually means:\n' +
+            '1. The server route is not configured correctly\n' +
+            '2. The Flask app is not running\n' +
+            '3. Nginx is serving a default error page\n' +
+            'Response: ' + responseText.substring(0, 200)
+          );
+        }
+
         const generateResult = await generateResponse.json();
         const taskId = generateResult.task_id;
         console.log(`✅ Task created: ${taskId}`);
