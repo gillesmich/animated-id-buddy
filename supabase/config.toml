@@ -20,3 +20,6 @@ verify_jwt = false
 
 ["musetalk-avatar"]
 verify_jwt = false
+
+["musetalk-realtime"]
+verify_jwt = false

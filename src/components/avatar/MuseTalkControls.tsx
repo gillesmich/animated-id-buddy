@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Loader2, Play, Video } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Play, Video, Radio } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
+import { useMuseTalkRealtime } from "@/hooks/useMuseTalkRealtime";
 
 interface MuseTalkControlsProps {
   onConnectionStatusChange?: (connected: boolean) => void;
@@ -17,6 +18,15 @@ const MuseTalkControls = ({ onConnectionStatusChange }: MuseTalkControlsProps) =
   const [isInitialized, setIsInitialized] = useState(false);
   const [serverStatus, setServerStatus] = useState<any>(null);
   const { toast } = useToast();
+  
+  const {
+    connect: connectRealtime,
+    disconnect: disconnectRealtime,
+    sendMessage: sendRealtimeMessage,
+    isConnected: isRealtimeConnected,
+    currentVideo,
+    status: realtimeStatus
+  } = useMuseTalkRealtime();
 
   const checkConnection = async () => {
     setIsConnecting(true);
@@ -75,6 +85,19 @@ const MuseTalkControls = ({ onConnectionStatusChange }: MuseTalkControlsProps) =
       title: "✅ Déjà prêt",
       description: "FAL AI MuseTalk est toujours prêt à l'emploi",
     });
+  };
+
+  const handleTestRealtime = async () => {
+    if (!isRealtimeConnected) {
+      await connectRealtime();
+    } else {
+      // Send a test message
+      sendRealtimeMessage({
+        source_url: "https://raw.githubusercontent.com/TMElyralab/MuseTalk/main/data/video/sun.mp4",
+        audio_url: "https://raw.githubusercontent.com/TMElyralab/MuseTalk/main/data/audio/sun.wav",
+        bbox_shift: 0
+      });
+    }
   };
 
   return (
@@ -182,6 +205,59 @@ const MuseTalkControls = ({ onConnectionStatusChange }: MuseTalkControlsProps) =
                 </span>
               </p>
             </div>
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-border/50">
+          <div className="flex items-center justify-between mb-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Radio className="w-4 h-4 text-primary" />
+                Mode Temps Réel WebSocket
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {realtimeStatus}
+              </p>
+            </div>
+            {isRealtimeConnected && (
+              <Badge variant="default" className="bg-green-500">
+                Actif
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={handleTestRealtime}
+              disabled={realtimeStatus === 'Connecting...'}
+              variant={isRealtimeConnected ? "default" : "outline"}
+            >
+              {realtimeStatus === 'Connecting...' && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              <Radio className="w-4 h-4 mr-2" />
+              {isRealtimeConnected ? 'Tester' : 'Connecter'}
+            </Button>
+
+            {isRealtimeConnected && (
+              <Button
+                onClick={disconnectRealtime}
+                variant="destructive"
+              >
+                Déconnecter
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {currentVideo && (
+          <div className="pt-4 border-t border-border/50">
+            <p className="text-sm font-medium mb-2">Vidéo générée (WebSocket)</p>
+            <video 
+              src={currentVideo} 
+              controls 
+              className="w-full rounded-lg"
+            />
           </div>
         )}
       </CardContent>
