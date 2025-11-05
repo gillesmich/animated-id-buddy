@@ -492,6 +492,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           if (!talkResponse.ok) {
             const errorData = await talkResponse.json().catch(() => ({}));
             console.error('❌ Erreur FAL MuseTalk:', talkResponse.status, errorData);
+            
+            if (errorData.code === 'INVALID_SOURCE_TYPE') {
+              toast({
+                title: "📹 Vidéo requise",
+                description: errorData.message,
+                variant: "destructive",
+                duration: 8000,
+              });
+              throw new Error(errorData.message);
+            }
+            
             if (errorData.code === 'NOT_CONFIGURED') {
               throw new Error("FAL API key non configurée");
             }

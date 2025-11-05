@@ -83,57 +83,21 @@ serve(async (req) => {
         }
         
         
-        // 2. Convert image to video if needed
-        let sourceUrl = data.source_url;
+        // 2. Validate that source is a video (MuseTalk only accepts videos)
+        const sourceUrl = data.source_url;
         
         if (sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
-          console.log('🖼️ Image detected, converting to video...');
-          
-          // Download the image and convert to base64 data URL
-          let imageDataUrl = sourceUrl;
-          if (!sourceUrl.startsWith('data:')) {
-            console.log('📥 Downloading image from:', sourceUrl);
-            const imageResponse = await fetch(sourceUrl);
-            if (!imageResponse.ok) {
-              throw new Error(`Failed to download image: ${imageResponse.status}`);
+          return new Response(
+            JSON.stringify({ 
+              error: 'MuseTalk nécessite une VIDEO, pas une image',
+              code: 'INVALID_SOURCE_TYPE',
+              message: 'Veuillez uploader une courte vidéo (MP4, WebM, MOV) de votre avatar au lieu d\'une image. La vidéo peut faire seulement quelques secondes - elle sera utilisée comme base pour l\'animation.'
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
             }
-            const imageBuffer = await imageResponse.arrayBuffer();
-            const bytes = new Uint8Array(imageBuffer);
-            
-            // Build binary string character by character for safety
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            
-            const base64Image = btoa(binary);
-            const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-            imageDataUrl = `data:${contentType};base64,${base64Image}`;
-            console.log('✅ Image converted to base64');
-          }
-          
-          // Use FAL AI to create a short video from the image
-          const imageToVideoResult = await fal.subscribe("fal-ai/fast-svd", {
-            input: {
-              image_url: imageDataUrl,
-              motion_bucket_id: 20,
-              fps: 6,
-              cond_aug: 0.02
-            },
-            logs: true,
-            onQueueUpdate: (update) => {
-              if (update.status === "IN_PROGRESS") {
-                console.log('📹 Image-to-video progress:', update.status);
-              }
-            },
-          });
-          
-          if (!imageToVideoResult.data?.video?.url) {
-            throw new Error('Failed to convert image to video');
-          }
-          
-          sourceUrl = imageToVideoResult.data.video.url;
-          console.log('✅ Video created from image:', sourceUrl);
+          );
         }
         
         // 3. Use fal.subscribe() for MuseTalk
