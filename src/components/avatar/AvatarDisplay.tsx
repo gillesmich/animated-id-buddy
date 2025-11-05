@@ -789,66 +789,124 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         </div>
       )}
 
-      {/* Avatar Video Area */}
-      <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
-        <div className="absolute inset-0 gradient-glow opacity-30"></div>
-        
-        {/* Deux éléments vidéo pour les transitions fluides */}
-        <div className="relative w-full aspect-video">
-          {/* Vidéo principale */}
-          <video
-            ref={videoRef}
-            className={`absolute inset-0 w-full h-full object-cover avatar-video-transition ${
-              isAvatarSpeaking ? 'avatar-speaking' : 'avatar-idle'
-            }`}
-            autoPlay
-            playsInline
-            muted={false}
-            poster={config.customAvatarImage || getAvatarImage(config.selectedAvatar) || ""}
-            style={{ opacity: 1 }}
+      {/* Generated Videos Gallery - Remplace la prévisualisation */}
+      {generatedVideos.length > 0 ? (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold flex items-center gap-2">
+            <Video className="w-4 h-4 text-primary" />
+            Vidéos de Réponse ({generatedVideos.length})
+          </h4>
+          <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+            {generatedVideos.map((video, idx) => (
+              <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
+                <video
+                  src={video.url}
+                  className="w-full aspect-video object-cover"
+                  controls
+                  preload="metadata"
+                />
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const a = document.createElement('a');
+                      a.href = video.url;
+                      a.download = `avatar-response-${idx + 1}.mp4`;
+                      a.click();
+                      toast({
+                        title: "📥 Téléchargement",
+                        description: "La vidéo va être téléchargée",
+                      });
+                    }}
+                  >
+                    Télécharger
+                  </Button>
+                </div>
+                <div className="p-2 bg-background/80 backdrop-blur-sm">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {video.text}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {video.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Voice Controls */}
+          <VoiceControls
+            onVoiceMessage={handleVoiceMessage}
+            isProcessing={isLoading}
+            className="justify-center mt-3"
+            onUserSpeaking={handleUserSpeaking}
+            isAvatarSpeaking={isAvatarSpeaking}
           />
-          
-          {/* Vidéo secondaire pour transitions */}
-          <video
-            ref={secondaryVideoRef}
-            className="absolute inset-0 w-full h-full object-cover avatar-video-transition"
-            playsInline
-            muted={false}
-            style={{ opacity: 0, display: 'none' }}
-          />
-          
-          {/* Indicateur d'état */}
-          {isAvatarSpeaking && (
-            <div className="absolute top-4 right-4 px-3 py-2 bg-primary/90 text-primary-foreground text-sm rounded-full flex items-center gap-2 animate-pulse">
-              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              Parle...
-            </div>
-          )}
-          
-          {isStreaming && !isAvatarSpeaking && (
-            <div className="absolute top-4 right-4 px-3 py-2 bg-green-500/90 text-white text-sm rounded-full flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-white" />
-              Prêt
-            </div>
-          )}
-          
-          {!isStreaming && !isAvatarSpeaking && (
-            <div className="absolute top-4 right-4 px-3 py-2 bg-yellow-500/90 text-white text-sm rounded-full animate-pulse">
-              Connexion...
-            </div>
-          )}
         </div>
+      ) : (
+        /* Avatar Video Area - Affiché seulement si aucune vidéo générée */
+        <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
+          <div className="absolute inset-0 gradient-glow opacity-30"></div>
+          
+          {/* Deux éléments vidéo pour les transitions fluides */}
+          <div className="relative w-full aspect-video">
+            {/* Vidéo principale */}
+            <video
+              ref={videoRef}
+              className={`absolute inset-0 w-full h-full object-cover avatar-video-transition ${
+                isAvatarSpeaking ? 'avatar-speaking' : 'avatar-idle'
+              }`}
+              autoPlay
+              playsInline
+              muted={false}
+              poster={config.customAvatarImage || getAvatarImage(config.selectedAvatar) || ""}
+              style={{ opacity: 1 }}
+            />
             
-        
-        {/* Voice Controls - Positionnés directement sous la vidéo */}
-        <VoiceControls
-          onVoiceMessage={handleVoiceMessage}
-          isProcessing={isLoading}
-          className="justify-center mt-3"
-          onUserSpeaking={handleUserSpeaking}
-          isAvatarSpeaking={isAvatarSpeaking}
-        />
-      </div>
+            {/* Vidéo secondaire pour transitions */}
+            <video
+              ref={secondaryVideoRef}
+              className="absolute inset-0 w-full h-full object-cover avatar-video-transition"
+              playsInline
+              muted={false}
+              style={{ opacity: 0, display: 'none' }}
+            />
+            
+            {/* Indicateur d'état */}
+            {isAvatarSpeaking && (
+              <div className="absolute top-4 right-4 px-3 py-2 bg-primary/90 text-primary-foreground text-sm rounded-full flex items-center gap-2 animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                Parle...
+              </div>
+            )}
+            
+            {isStreaming && !isAvatarSpeaking && (
+              <div className="absolute top-4 right-4 px-3 py-2 bg-green-500/90 text-white text-sm rounded-full flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-white" />
+                Prêt
+              </div>
+            )}
+            
+            {!isStreaming && !isAvatarSpeaking && (
+              <div className="absolute top-4 right-4 px-3 py-2 bg-yellow-500/90 text-white text-sm rounded-full animate-pulse">
+                Connexion...
+              </div>
+            )}
+          </div>
+              
+          
+          {/* Voice Controls - Positionnés directement sous la vidéo */}
+          <VoiceControls
+            onVoiceMessage={handleVoiceMessage}
+            isProcessing={isLoading}
+            className="justify-center mt-3"
+            onUserSpeaking={handleUserSpeaking}
+            isAvatarSpeaking={isAvatarSpeaking}
+          />
+        </div>
+      )}
 
       {/* Chat Interface */}
       <div className="space-y-4">
@@ -922,54 +980,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         </div>
       </div>
 
-      {/* Generated Videos Gallery */}
-      {generatedVideos.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold flex items-center gap-2">
-            <Video className="w-4 h-4 text-primary" />
-            Vidéos Générées ({generatedVideos.length})
-          </h4>
-          <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-            {generatedVideos.map((video, idx) => (
-              <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
-                <video
-                  src={video.url}
-                  className="w-full aspect-video object-cover"
-                  controls
-                  preload="metadata"
-                />
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = video.url;
-                      a.download = `avatar-response-${idx + 1}.mp4`;
-                      a.click();
-                      toast({
-                        title: "📥 Téléchargement",
-                        description: "La vidéo va être téléchargée",
-                      });
-                    }}
-                  >
-                    Télécharger
-                  </Button>
-                </div>
-                <div className="p-2 bg-background/80 backdrop-blur-sm">
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {video.text}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {video.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Error Overlay */}
       <ErrorOverlay 
