@@ -84,22 +84,40 @@ serve(async (req) => {
         }
         
         
-        // 2. Use fal.subscribe() for automatic queue handling
-        console.log('🎬 Submitting to FAL AI with fal.subscribe()...');
-        console.log('📋 Source URL:', data.source_url);
-        console.log('📋 Audio URL length:', audioData?.substring(0, 100));
-        
-        // Important: FAL AI MuseTalk requires a VIDEO, not an image
-        // If the source is an image (.jpg, .png), we need to convert it or use a different approach
-        const sourceUrl = data.source_url;
+        // 2. Convert image to video if needed
+        let sourceUrl = data.source_url;
         
         if (sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
-          throw new Error(
-            'FAL AI MuseTalk requires a VIDEO source, not an image. ' +
-            'Please upload a short video (MP4, WebM) of the avatar instead of an image. ' +
-            'The video should be a few seconds long showing the face to animate.'
-          );
+          console.log('🖼️ Image detected, converting to video...');
+          
+          // Use FAL AI to create a short video from the image
+          const imageToVideoResult = await fal.subscribe("fal-ai/fast-svd", {
+            input: {
+              image_url: sourceUrl,
+              motion_bucket_id: 20, // Low motion for subtle animation
+              fps: 6, // Low fps for short output
+              cond_aug: 0.02
+            },
+            logs: true,
+            onQueueUpdate: (update) => {
+              if (update.status === "IN_PROGRESS") {
+                console.log('📹 Image-to-video progress:', update.status);
+              }
+            },
+          });
+          
+          if (!imageToVideoResult.data?.video?.url) {
+            throw new Error('Failed to convert image to video');
+          }
+          
+          sourceUrl = imageToVideoResult.data.video.url;
+          console.log('✅ Video created from image:', sourceUrl);
         }
+        
+        // 3. Use fal.subscribe() for MuseTalk
+        console.log('🎬 Submitting to FAL AI MuseTalk...');
+        console.log('📋 Source URL:', sourceUrl);
+        console.log('📋 Audio URL length:', audioData?.substring(0, 100));
         
         const result = await fal.subscribe("fal-ai/musetalk", {
           input: {
@@ -109,7 +127,7 @@ serve(async (req) => {
           logs: true,
           onQueueUpdate: (update) => {
             if (update.status === "IN_PROGRESS") {
-              console.log('📊 Progress:', update.status);
+              console.log('📊 MuseTalk progress:', update.status);
               update.logs?.map((log) => log.message).forEach(console.log);
             }
           },
