@@ -459,7 +459,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       setStreamingText("");
 
       // Étape 3: Génération vidéo avec provider sélectionné
-      let provider = config.avatarProvider || 'did';
+      const provider = config.avatarProvider || 'did';
       console.log(`🎬 Étape 3: Génération vidéo ${provider.toUpperCase()}...`);
       console.log('📋 Config complète:', { 
         avatarProvider: config.avatarProvider,
@@ -479,24 +479,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
       
       console.log("📸 Avatar config:", avatarForDID);
-      
-      // Vérifier si c'est une image et basculer sur D-ID si nécessaire
-      if (provider === 'musetalk') {
-        const sourceUrl = (avatarForDID.url || currentVideoUrl);
-        const isImage = sourceUrl && sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i);
-        
-        if (isImage) {
-          console.log("⚠️ Image détectée avec MuseTalk, bascule automatique sur D-ID");
-          console.log("📸 Source:", sourceUrl);
-          provider = 'did';
-          
-          toast({
-            title: "🔄 Bascule sur D-ID",
-            description: "Image détectée, utilisation de D-ID pour l'animation",
-            duration: 3000,
-          });
-        }
-      }
       
       // Validation de la longueur du texte
       let textForVideo = responseText;
