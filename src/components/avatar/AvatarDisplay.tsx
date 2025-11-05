@@ -6,7 +6,7 @@ import { Send, Loader2, Video, Play } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import VoiceControls from "./VoiceControls";
 import ErrorOverlay from "./ErrorOverlay";
-import { debounce } from "@/utils/audioUtils";
+import { debounce, AudioPlayer } from "@/utils/audioUtils";
 import { VideoTransitionManager } from "@/utils/videoTransitions";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { DIDWebRTCManager } from "@/utils/didWebRTC";
@@ -67,6 +67,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [webRTCStatus, setWebRTCStatus] = useState<string>("");
   const webRTCManagerRef = useRef<any>(null);
+  const audioPlayerRef = useRef<AudioPlayer | null>(null);
 
   const [avatarForDID, setAvatarForDID] = useState<{ presenterId?: string; url?: string }>(getAvatarForDID('amy'));
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
@@ -88,6 +89,9 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       console.log("🎬 Gestionnaire de transitions initialisé");
     }
+
+    // Initialize AudioPlayer for fallback audio
+    audioPlayerRef.current = new AudioPlayer();
 
     return () => {
       transitionManagerRef.current?.cleanup();
@@ -691,11 +695,50 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       } catch (videoError) {
         console.error("❌ Erreur génération vidéo:", videoError);
         setIsVideoLoading(false);
-        // Continuer sans vidéo - le texte est déjà affiché
-        toast({
-          title: "⚠️ Vidéo non disponible",
-          description: "Réponse affichée en texte",
-        });
+        
+        // Fallback: Générer et jouer l'audio uniquement
+        try {
+          console.log("🔊 Fallback: Génération audio ElevenLabs...");
+          
+          const ttsResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify({
+                text: responseText,
+                voiceId: config.selectedVoice || '9BWtsMINqrJLrRacOk9x',
+              }),
+            }
+          );
+
+          if (!ttsResponse.ok) {
+            throw new Error('Erreur génération audio');
+          }
+
+          const { audioContent } = await ttsResponse.json();
+          
+          // Décoder et jouer l'audio
+          const audioData = Uint8Array.from(atob(audioContent), c => c.charCodeAt(0));
+          await audioPlayerRef.current?.playBase64(audioContent);
+          
+          console.log("✅ Audio fallback joué");
+          setIsAvatarSpeaking(true);
+          
+          toast({
+            title: "🔊 Audio uniquement",
+            description: "Vidéo non disponible, audio joué",
+          });
+        } catch (audioError) {
+          console.error("❌ Erreur audio fallback:", audioError);
+          toast({
+            title: "⚠️ Réponse en texte uniquement",
+            description: "Impossible de générer l'audio",
+          });
+        }
       }
 
 
