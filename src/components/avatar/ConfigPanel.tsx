@@ -11,7 +11,6 @@ import EmbedGenerator from "./EmbedGenerator";
 import { Key, Mic, Bot, User, Image as ImageIcon, FileCode, MessageSquare, Video } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import EnvUploader from "./EnvUploader";
-import ImageUploader from "./ImageUploader";
 import VideoUploader from "./VideoUploader";
 import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
@@ -205,20 +204,9 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
         </TabsContent>
 
         <TabsContent value="avatar" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <ImageIcon className="w-4 h-4" />
-              Image personnalisée
-            </Label>
-            <ImageUploader 
-              currentImage={config.customAvatarImage}
-              onImageSelected={(url) => setConfig({ ...config, customAvatarImage: url })}
-            />
-          </div>
-
           {config.avatarProvider === 'musetalk' ? (
             <>
-              <div className="space-y-2 pt-4 border-t border-border/50">
+              <div className="space-y-2">
                 <VideoUploader 
                   currentVideo={config.customAvatarVideo}
                   onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
@@ -231,8 +219,8 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             </>
           ) : (
             <>
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <VideoUploader 
+              <div className="space-y-2">
+                <VideoUploader
                   currentVideo={config.customAvatarVideo}
                   onVideoUploaded={(url) => setConfig({ ...config, customAvatarVideo: url })}
                 />
