@@ -461,21 +461,41 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         let videoUrl: string;
 
         if (provider === 'musetalk') {
-          // Upload local image to Supabase Storage to get a publicly accessible URL
-          const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
-          const imageUrl = await uploadLocalImageToStorage(
-            (avatarForDID.url || currentVideoUrl).startsWith('http') 
-              ? (avatarForDID.url || currentVideoUrl)
-              : `${window.location.origin}${avatarForDID.url || currentVideoUrl}`
-          );
+          // Vérifier que la source est bien une vidéo, pas une image
+          const sourceUrl = (avatarForDID.url || currentVideoUrl);
+          const isImage = sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i);
+          
+          if (isImage) {
+            console.error("❌ MuseTalk nécessite une vidéo, pas une image");
+            toast({
+              title: "📹 Vidéo requise pour MuseTalk",
+              description: "MuseTalk nécessite une courte vidéo de votre avatar (MP4, WebM, MOV). Veuillez uploader une vidéo dans la configuration au lieu d'une image.",
+              variant: "destructive",
+            });
+            setIsVideoLoading(false);
+            setIsLoading(false);
+            return;
+          }
 
-          console.log("📸 Public image URL:", imageUrl);
+          // Upload local video to Supabase Storage to get a publicly accessible URL
+          const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
+          let videoUrl: string;
+          
+          if (sourceUrl.startsWith('http')) {
+            videoUrl = sourceUrl;
+          } else {
+            videoUrl = await uploadLocalImageToStorage(
+              `${window.location.origin}${sourceUrl}`
+            );
+          }
+
+          console.log("📹 Public video URL:", videoUrl);
 
           // Appel à FAL AI MuseTalk via edge function
           const requestBody = {
             action: 'create_talk',
             data: {
-              source_url: imageUrl,
+              source_url: videoUrl,
               text: textForVideo,
               voice_id: config.selectedVoice,
               config: {
