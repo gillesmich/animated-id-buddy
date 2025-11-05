@@ -77,13 +77,13 @@ serve(async (req) => {
           console.log('✅ Audio generated');
         }
         
-        // 2. Call FAL AI MuseTalk
-        console.log('🎬 Calling FAL AI MuseTalk...');
+        // 2. Submit request to FAL AI Queue
+        console.log('🎬 Submitting to FAL AI queue...');
         
-        const falResponse = await fetch('https://queue.fal.run/fal-ai/musetalk', {
+        const submitResponse = await fetch('https://queue.fal.run/fal-ai/musetalk', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${falApiKey}`,
+            'Authorization': `Key ${falApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -93,63 +93,77 @@ serve(async (req) => {
           }),
         });
 
-        if (!falResponse.ok) {
-          const errorText = await falResponse.text();
+        if (!submitResponse.ok) {
+          const errorText = await submitResponse.text();
           console.error('FAL API error:', errorText);
           
-          if (falResponse.status === 429) {
+          if (submitResponse.status === 429) {
             throw new Error('Rate limit exceeded. Please try again later.');
-          } else if (falResponse.status === 402) {
+          } else if (submitResponse.status === 402) {
             throw new Error('Insufficient FAL AI credits. Please top up your account.');
           }
           
-          throw new Error(`FAL API error: ${falResponse.status} - ${errorText}`);
+          throw new Error(`FAL API error: ${submitResponse.status} - ${errorText}`);
         }
 
-        const falData = await falResponse.json();
-        console.log('✅ FAL AI result:', falData);
+        const submitData = await submitResponse.json();
+        const requestId = submitData.request_id;
+        console.log('✅ Request submitted:', requestId);
 
-        // FAL AI returns the result directly or provides a request_id for polling
-        let videoUrl = falData.video?.url;
+        // 3. Poll for result
+        console.log('📊 Polling for result...');
+        let videoUrl = null;
+        let attempts = 0;
+        const maxAttempts = 60;
         
-        if (!videoUrl && falData.request_id) {
-          // Poll for result
-          console.log('📊 Polling FAL AI for result...');
-          const requestId = falData.request_id;
-          let attempts = 0;
-          const maxAttempts = 60;
+        while (attempts < maxAttempts && !videoUrl) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          attempts++;
           
-          while (attempts < maxAttempts && !videoUrl) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            attempts++;
-            
-            const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status`, {
+          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}/status`, {
+            headers: {
+              'Authorization': `Key ${falApiKey}`,
+            },
+          });
+          
+          if (!statusResponse.ok) {
+            throw new Error(`Failed to check status: ${statusResponse.status}`);
+          }
+          
+          const statusData = await statusResponse.json();
+          console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
+          
+          if (statusData.status === 'COMPLETED') {
+            // Get the result
+            const resultResponse = await fetch(`https://queue.fal.run/fal-ai/musetalk/requests/${requestId}`, {
               headers: {
-                'Authorization': `Bearer ${falApiKey}`,
+                'Authorization': `Key ${falApiKey}`,
               },
             });
             
-            if (!statusResponse.ok) {
-              throw new Error(`Failed to check status: ${statusResponse.status}`);
+            if (!resultResponse.ok) {
+              throw new Error(`Failed to get result: ${resultResponse.status}`);
             }
             
-            const statusData = await statusResponse.json();
-            console.log(`Status (${attempts}/${maxAttempts}):`, statusData.status);
+            const resultData = await resultResponse.json();
+            videoUrl = resultData.video?.url;
             
-            if (statusData.status === 'COMPLETED' && statusData.video?.url) {
-              videoUrl = statusData.video.url;
-            } else if (statusData.status === 'FAILED') {
-              throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
+            if (!videoUrl) {
+              throw new Error('No video URL in result');
             }
-          }
-          
-          if (!videoUrl) {
-            throw new Error('Timeout waiting for FAL AI video generation');
+          } else if (statusData.status === 'FAILED') {
+            throw new Error(`FAL AI generation failed: ${statusData.error || 'Unknown error'}`);
           }
         }
+        
+        if (!videoUrl) {
+          throw new Error('Timeout waiting for FAL AI video generation');
+        }
+
+        console.log('✅ Video generated:', videoUrl);
 
         return new Response(JSON.stringify({ 
-          id: falData.request_id || 'completed',
+          id: requestId,
           result_url: videoUrl,
           status: 'completed'
         }), {
