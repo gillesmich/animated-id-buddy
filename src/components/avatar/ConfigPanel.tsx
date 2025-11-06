@@ -166,15 +166,13 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
               />
             </div>
 
-            {config.avatarProvider !== 'musetalk' && (
-              <div className="pt-4 border-t border-border/50">
-                <VoiceSelector
-                  value={config.selectedVoice}
-                  onChange={(value) => setConfig({ ...config, selectedVoice: value })}
-                  apiKey={config.elevenlabsApiKey}
-                />
-              </div>
-            )}
+            <div className="pt-4 border-t border-border/50">
+              <VoiceSelector
+                value={config.selectedVoice}
+                onChange={(value) => setConfig({ ...config, selectedVoice: value })}
+                apiKey={config.elevenlabsApiKey}
+              />
+            </div>
           </div>
         </TabsContent>
 
