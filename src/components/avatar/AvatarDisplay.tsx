@@ -109,19 +109,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       videoLength: config.customAvatarVideo?.length
     });
     
-    // Pour MuseTalk, priorité ABSOLUE à la vidéo personnalisée
-    if (config.avatarProvider === 'musetalk') {
-      if (config.customAvatarVideo && config.customAvatarVideo.trim() !== '') {
-        console.log("📹 ✅ Chargement vidéo personnalisée pour MuseTalk:", config.customAvatarVideo);
-        setAvatarForDID({ url: config.customAvatarVideo });
-        setCurrentVideoUrl(config.customAvatarVideo);
-        return;
-      } else {
-        console.warn("⚠️ MuseTalk activé mais AUCUNE vidéo uploadée!");
-        console.warn("⚠️ Uploadez une vidéo dans l'onglet Upload pour utiliser MuseTalk");
-      }
+    // PRIORITÉ ABSOLUE : vidéo personnalisée uploadée (pour tous les providers)
+    if (config.customAvatarVideo && config.customAvatarVideo.trim() !== '') {
+      console.log("📹 ✅ Chargement vidéo uploadée:", config.customAvatarVideo);
+      setAvatarForDID({ url: config.customAvatarVideo });
+      setCurrentVideoUrl(config.customAvatarVideo);
+      return; // Ne pas continuer avec les autres options
     }
     
+    // Si pas de vidéo uploadée, utiliser les avatars par défaut
     // Priorité à l'image personnalisée (si elle existe vraiment)
     if (config.customAvatarImage && config.customAvatarImage.trim() !== '') {
       console.log("📸 Chargement image personnalisée");
@@ -149,14 +145,21 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     if (!videoRef.current || !currentVideoUrl) return;
     
     // Si c'est une vidéo, la charger
-    if (currentVideoUrl.match(/\.(mp4|webm|mov)$/i)) {
+    if (currentVideoUrl.match(/\.(mp4|webm|mov|gif)$/i)) {
       console.log("📹 Rechargement vidéo:", currentVideoUrl);
       videoRef.current.src = currentVideoUrl;
       videoRef.current.load();
-      videoRef.current.play().catch(e => {
-        // L'autoplay peut être bloqué, ce n'est pas grave
-        console.log("Autoplay bloqué (normal au premier chargement)");
-      });
+      
+      // Autoplay seulement pour les vidéos uploadées et générées
+      const isUploadedOrGenerated = currentVideoUrl.includes('supabase.co') || 
+                                      currentVideoUrl.includes('d-id.com') ||
+                                      currentVideoUrl.includes('fal.media');
+      
+      if (isUploadedOrGenerated) {
+        videoRef.current.play().catch(e => {
+          console.log("Autoplay bloqué:", e.message);
+        });
+      }
     } else {
       // Si c'est une image, vider la source vidéo
       console.log("📸 Affichage image:", currentVideoUrl);
