@@ -17,26 +17,70 @@ serve(async (req) => {
       throw new Error('ELEVENLABS_API_KEY not configured');
     }
 
-    console.log('🎤 Fetching ElevenLabs voices...');
+    console.log('🎤 Fetching ElevenLabs voices and agents...');
 
-    const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+    // Récupérer les voix standards
+    const voicesResponse = await fetch('https://api.elevenlabs.io/v1/voices', {
       method: 'GET',
       headers: {
         'xi-api-key': ELEVENLABS_API_KEY,
       },
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('ElevenLabs API error:', error);
-      throw new Error(`ElevenLabs API error: ${response.status}`);
+    if (!voicesResponse.ok) {
+      const error = await voicesResponse.text();
+      console.error('ElevenLabs voices API error:', error);
+      throw new Error(`ElevenLabs voices API error: ${voicesResponse.status}`);
     }
 
-    const data = await response.json();
-    console.log(`✅ Retrieved ${data.voices?.length || 0} voices`);
+    const voicesData = await voicesResponse.json();
+    console.log(`✅ Retrieved ${voicesData.voices?.length || 0} standard voices`);
+
+    // Récupérer les agents conversationnels
+    let agentVoices: any[] = [];
+    try {
+      const agentsResponse = await fetch('https://api.elevenlabs.io/v1/convai/agents', {
+        method: 'GET',
+        headers: {
+          'xi-api-key': ELEVENLABS_API_KEY,
+        },
+      });
+
+      if (agentsResponse.ok) {
+        const agentsData = await agentsResponse.json();
+        console.log(`✅ Retrieved ${agentsData.agents?.length || 0} agents`);
+        
+        // Transformer les agents en format voix
+        agentVoices = (agentsData.agents || []).map((agent: any) => ({
+          voice_id: agent.agent_id,
+          name: `${agent.name} (Agent)`,
+          category: 'Agents créés',
+          labels: {
+            type: 'agent',
+            ...(agent.conversation_config?.agent?.prompt?.prompt && {
+              description: agent.conversation_config.agent.prompt.prompt.substring(0, 50) + '...'
+            })
+          }
+        }));
+      } else {
+        console.log('⚠️ Could not fetch agents (may not have access)');
+      }
+    } catch (agentError) {
+      console.log('⚠️ Error fetching agents:', agentError);
+      // Continue même si les agents ne peuvent pas être récupérés
+    }
+
+    // Ajouter la catégorie aux voix standards
+    const categorizedVoices = (voicesData.voices || []).map((voice: any) => ({
+      ...voice,
+      category: 'Voix standards'
+    }));
+
+    // Combiner toutes les voix
+    const allVoices = [...categorizedVoices, ...agentVoices];
 
     return new Response(
-      JSON.stringify(data),
+      JSON.stringify({ voices: allVoices }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
