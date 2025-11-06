@@ -1,25 +1,25 @@
 project_id = "lmxcucdyvowoshqoblhk"
 
-["did-webrtc-session"]
+[functions.did-webrtc-session]
 verify_jwt = false
 
-["elevenlabs-tts"]
+[functions.elevenlabs-tts]
 verify_jwt = false
 
-["elevenlabs-voices"]
+[functions.elevenlabs-voices]
 verify_jwt = false
 
-["openai-chat"]
+[functions.openai-chat]
 verify_jwt = false
 
-["whisper-transcribe"]
+[functions.whisper-transcribe]
 verify_jwt = false
 
-["avatar-export"]
+[functions.avatar-export]
 verify_jwt = false
 
-["musetalk-avatar"]
+[functions.musetalk-avatar]
 verify_jwt = false
 
-["musetalk-realtime"]
+[functions.musetalk-realtime]
 verify_jwt = false
