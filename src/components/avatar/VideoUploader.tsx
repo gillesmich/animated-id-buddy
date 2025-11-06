@@ -67,22 +67,41 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Upload vers Supabase Storage avec gestion améliorée des erreurs
+      console.log(`📤 Début upload: ${fileName} (${(file.size / (1024 * 1024)).toFixed(2)}MB)`);
+
+      // Upload vers Supabase Storage avec timeout personnalisé
+      const uploadPromise = supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      // Timeout de 60 secondes pour l'upload
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout: L\'upload a pris trop de temps (>60s). Essayez avec un fichier plus petit.')), 60000)
+      );
+
       let uploadResult;
       try {
-        uploadResult = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-      } catch (fetchError) {
-        console.error('Erreur réseau lors de l\'upload:', fetchError);
-        throw new Error('Erreur réseau : vérifiez votre connexion internet et réessayez. Si le problème persiste, le fichier est peut-être trop volumineux.');
+        uploadResult = await Promise.race([uploadPromise, timeoutPromise]) as any;
+        console.log('✅ Upload réussi');
+      } catch (error) {
+        console.error('❌ Erreur upload:', error);
+        
+        if (error instanceof Error) {
+          if (error.message.includes('Timeout')) {
+            throw error;
+          }
+          if (error.message.includes('Failed to fetch')) {
+            throw new Error('Erreur réseau: Vérifiez votre connexion internet. Si le fichier est volumineux, essayez de le compresser.');
+          }
+        }
+        throw new Error('Erreur réseau lors de l\'upload. Réessayez avec un fichier plus petit ou compressé.');
       }
 
       if (uploadResult.error) {
-        console.error('Erreur Supabase Storage:', uploadResult.error);
+        console.error('❌ Erreur Supabase Storage:', uploadResult.error);
         throw new Error(`Échec de l'upload: ${uploadResult.error.message}`)
       }
 
