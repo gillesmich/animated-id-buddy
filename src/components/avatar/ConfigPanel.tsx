@@ -165,6 +165,16 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 className="glass"
               />
             </div>
+
+            {config.avatarProvider !== 'musetalk' && (
+              <div className="pt-4 border-t border-border/50">
+                <VoiceSelector
+                  value={config.selectedVoice}
+                  onChange={(value) => setConfig({ ...config, selectedVoice: value })}
+                  apiKey={config.elevenlabsApiKey}
+                />
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -251,12 +261,6 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 </SelectContent>
               </Select>
             </div>
-
-            <VoiceSelector
-              value={config.selectedVoice}
-              onChange={(value) => setConfig({ ...config, selectedVoice: value })}
-              apiKey={config.elevenlabsApiKey}
-            />
 
             <div className="space-y-2">
               <Label htmlFor="model" className="flex items-center gap-2">

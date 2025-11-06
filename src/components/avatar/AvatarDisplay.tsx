@@ -38,6 +38,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [streamingText, setStreamingText] = useState("");
   const [apiError, setApiError] = useState<{ title: string; message: string; timestamp: Date } | null>(null);
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{ current: number; max: number; message: string } | null>(null);
   
   // Charger les vidéos depuis localStorage au démarrage
   const [generatedVideos, setGeneratedVideos] = useState<Array<{ url: string; text: string; timestamp: Date }>>(() => {
@@ -544,6 +545,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               duration: 8000,
             });
             setIsVideoLoading(false);
+            setGenerationProgress(null);
             return;
           }
           
@@ -576,10 +578,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           };
 
           toast({
-            title: "⏳ Génération en cours...",
-            description: "L'animation peut prendre 30-60 secondes",
-            duration: 5000,
+            title: "🎬 Préparation...",
+            description: "Initialisation de la génération vidéo",
+            duration: 2000,
           });
+
+          setGenerationProgress({ current: 0, max: 100, message: "Préparation de la vidéo..." });
 
           // Step 1: Submit the job
           const submitResponse = await authenticatedFetch('musetalk-avatar', {
@@ -618,6 +622,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s between checks
             attempts++;
             
+            const progressPercent = Math.min(Math.round((attempts / maxAttempts) * 100), 95);
+            setGenerationProgress({ 
+              current: progressPercent, 
+              max: 100, 
+              message: `Génération en cours... ${progressPercent}%` 
+            });
+            
             const statusResponse = await authenticatedFetch('musetalk-avatar', {
               method: 'POST',
               body: JSON.stringify({
@@ -634,6 +645,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             console.log(`📊 Attempt ${attempts}/${maxAttempts} - Status:`, statusData.status);
 
             if (statusData.status === 'COMPLETED') {
+              setGenerationProgress({ current: 100, max: 100, message: "Finalisation..." });
               videoUrl = statusData.videoUrl;
               
               console.log("🔍 DEBUG statusData:", JSON.stringify(statusData, null, 2));
@@ -794,6 +806,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         });
 
         setIsVideoLoading(false);
+        setGenerationProgress(null);
         toast({
           title: "✅ Vidéo prête",
           description: "L'avatar répond",
@@ -801,6 +814,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       } catch (videoError) {
         console.error("❌ Erreur génération vidéo:", videoError);
         setIsVideoLoading(false);
+        setGenerationProgress(null);
         
         // Fallback: Générer et jouer l'audio uniquement
         try {
@@ -869,6 +883,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       });
       
       setIsVideoLoading(false);
+      setGenerationProgress(null);
     } finally {
       setIsLoading(false);
     }
@@ -1191,9 +1206,26 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             </>
           )}
           {isLoading && !streamingText && (
-            <div className="flex items-center gap-2 text-muted-foreground p-3">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Avatar réfléchit...</span>
+            <div className="flex flex-col gap-2 p-3">
+              {generationProgress ? (
+                <>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">{generationProgress.message}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="bg-primary h-full transition-all duration-300 ease-out"
+                      style={{ width: `${generationProgress.current}%` }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Avatar réfléchit...</span>
+                </div>
+              )}
             </div>
           )}
           <div ref={conversationEndRef} />
