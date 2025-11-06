@@ -1046,14 +1046,22 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                 <div 
                   key={idx} 
                   className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => {
+                  onClick={async () => {
                     console.log("📹 Chargement vidéo historique:", video.url);
-                    setCurrentVideoUrl(video.url);
-                    if (videoRef.current) {
+                    setIsAvatarSpeaking(true);
+                    
+                    if (transitionManagerRef.current) {
+                      await transitionManagerRef.current.transitionToVideo(video.url, false);
+                    } else if (videoRef.current) {
                       videoRef.current.src = video.url;
                       videoRef.current.load();
-                      videoRef.current.play().catch(e => console.error("Erreur lecture:", e));
+                      await videoRef.current.play().catch(e => {
+                        console.error("Erreur lecture:", e);
+                        setIsAvatarSpeaking(false);
+                      });
                     }
+                    
+                    setCurrentVideoUrl(video.url);
                     toast({
                       title: "Vidéo chargée",
                       description: `Lecture de la vidéo #${idx + 1}`,
