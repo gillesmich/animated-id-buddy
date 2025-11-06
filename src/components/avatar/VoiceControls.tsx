@@ -86,6 +86,9 @@ const VoiceControls = ({
           try {
             const audioBlob = await recorderRef.current.stop();
             
+            // Remettre isListening à false pour permettre le redémarrage
+            setIsListening(false);
+            
             // Filtrage: ignorer les audios trop courts (< 1 seconde)
             if (audioBlob.size < 16000) {
               setTimeout(() => startVADListening(), 500);
@@ -95,10 +98,14 @@ const VoiceControls = ({
             const base64Audio = await audioToBase64(audioBlob);
             await onVoiceMessage(base64Audio);
             
-            // Redémarrer l'écoute
-            setTimeout(() => startVADListening(), 500);
+            // Redémarrer l'écoute après traitement
+            setTimeout(() => {
+              console.log("🔄 Redémarrage du VAD après traitement");
+              startVADListening();
+            }, 1000);
           } catch (error) {
             console.error("❌ Erreur audio:", error);
+            setIsListening(false);
             setTimeout(() => startVADListening(), 500);
           }
         },

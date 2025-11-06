@@ -916,17 +916,28 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     const video = videoRef.current;
     if (!video) return;
 
+    let speakingTimeout: NodeJS.Timeout | null = null;
+
     const handlePlay = () => {
       setIsAvatarSpeaking(true);
       console.log("🗣️ Avatar commence à parler");
+      
+      // Timeout de sécurité: remettre à false après 30 secondes max
+      if (speakingTimeout) clearTimeout(speakingTimeout);
+      speakingTimeout = setTimeout(() => {
+        console.log("⚠️ Timeout sécurité: forcer l'arrêt de isAvatarSpeaking");
+        setIsAvatarSpeaking(false);
+      }, 30000); // 30 secondes
     };
 
     const handlePause = () => {
+      if (speakingTimeout) clearTimeout(speakingTimeout);
       setIsAvatarSpeaking(false);
       console.log("🤫 Avatar arrête de parler");
     };
 
     const handleEnded = async () => {
+      if (speakingTimeout) clearTimeout(speakingTimeout);
       setIsAvatarSpeaking(false);
       console.log("✅ Avatar a fini de parler - retour à l'idle");
       
@@ -943,6 +954,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     video.addEventListener('ended', handleEnded);
 
     return () => {
+      if (speakingTimeout) clearTimeout(speakingTimeout);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ended', handleEnded);
