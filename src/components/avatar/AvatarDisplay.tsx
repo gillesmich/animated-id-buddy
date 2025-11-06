@@ -944,6 +944,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           
           {/* Deux éléments vidéo pour les transitions fluides */}
           <div className="relative w-full aspect-video">
+            {/* Image statique pour les avatars sans vidéo */}
+            {currentVideoUrl && !currentVideoUrl.match(/\.(mp4|webm|mov)$/i) && (
+              <img
+                src={currentVideoUrl}
+                alt="Avatar"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+            
             {/* Vidéo principale */}
             <video
               ref={videoRef}
@@ -954,8 +963,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               playsInline
               muted={false}
               src={currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? currentVideoUrl : undefined}
-              poster={currentVideoUrl?.match(/\.(jpg|jpeg|png|gif)$/i) ? currentVideoUrl : undefined}
-              style={{ opacity: 1 }}
+              style={{ opacity: currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? 1 : 0 }}
             />
             
             {/* Vidéo secondaire pour transitions */}
