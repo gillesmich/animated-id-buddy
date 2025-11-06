@@ -1042,32 +1042,49 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-              {generatedVideos.map((video, idx) => (
-                <div 
-                  key={idx} 
-                  className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
-                  onClick={async () => {
-                    console.log("📹 Chargement vidéo historique:", video.url);
-                    setIsAvatarSpeaking(true);
-                    
-                    if (transitionManagerRef.current) {
-                      await transitionManagerRef.current.transitionToVideo(video.url, false);
-                    } else if (videoRef.current) {
-                      videoRef.current.src = video.url;
-                      videoRef.current.load();
-                      await videoRef.current.play().catch(e => {
-                        console.error("Erreur lecture:", e);
-                        setIsAvatarSpeaking(false);
+              {generatedVideos.map((video, idx) => {
+                // Debug: vérifier la structure de l'objet video
+                if (!video || !video.url) {
+                  console.warn(`⚠️ Vidéo #${idx} invalide:`, video);
+                  return null;
+                }
+                
+                return (
+                  <div 
+                    key={`${video.url}-${idx}`}
+                    className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
+                    onClick={async () => {
+                      const url = video.url;
+                      console.log("📹 Chargement vidéo historique:", url);
+                      
+                      if (!url) {
+                        console.error("❌ URL vidéo manquante");
+                        toast({
+                          title: "Erreur",
+                          description: "URL de vidéo invalide",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      
+                      setIsAvatarSpeaking(true);
+                      setCurrentVideoUrl(url);
+                      
+                      if (videoRef.current) {
+                        videoRef.current.src = url;
+                        videoRef.current.load();
+                        await videoRef.current.play().catch(e => {
+                          console.error("Erreur lecture:", e);
+                          setIsAvatarSpeaking(false);
+                        });
+                      }
+                      
+                      toast({
+                        title: "Vidéo chargée",
+                        description: `Lecture de la vidéo #${idx + 1}`,
                       });
-                    }
-                    
-                    setCurrentVideoUrl(video.url);
-                    toast({
-                      title: "Vidéo chargée",
-                      description: `Lecture de la vidéo #${idx + 1}`,
-                    });
-                  }}
-                >
+                    }}
+                  >
                   <video
                     src={video.url}
                     className="w-full aspect-video object-cover"
@@ -1082,7 +1099,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                     </p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
