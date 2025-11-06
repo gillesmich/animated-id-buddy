@@ -41,14 +41,23 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
         return;
       }
 
-      // Vérifier la taille (max 20MB)
-      if (file.size > 20 * 1024 * 1024) {
+      // Vérifier la taille (max 10MB recommandé pour éviter les timeouts)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
         toast({
           title: "Fichier trop volumineux",
-          description: "La vidéo ne doit pas dépasser 20MB",
+          description: `La vidéo ne doit pas dépasser 10MB. Taille actuelle: ${(file.size / (1024 * 1024)).toFixed(1)}MB`,
           variant: "destructive",
         });
         return;
+      }
+
+      // Avertir si le fichier est assez gros (> 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Fichier volumineux",
+          description: "L'upload peut prendre quelques secondes...",
+        });
       }
 
       setUploading(true);
@@ -58,16 +67,23 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Upload vers Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Upload vers Supabase Storage avec gestion améliorée des erreurs
+      let uploadResult;
+      try {
+        uploadResult = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+      } catch (fetchError) {
+        console.error('Erreur réseau lors de l\'upload:', fetchError);
+        throw new Error('Erreur réseau : vérifiez votre connexion internet et réessayez. Si le problème persiste, le fichier est peut-être trop volumineux.');
+      }
 
-      if (uploadError) {
-        throw uploadError;
+      if (uploadResult.error) {
+        console.error('Erreur Supabase Storage:', uploadResult.error);
+        throw new Error(`Échec de l'upload: ${uploadResult.error.message}`)
       }
 
       // Obtenir l'URL publique
@@ -103,7 +119,8 @@ const VideoUploader = ({ onVideoUploaded, currentVideo }: VideoUploaderProps) =>
           Télécharger une vidéo d'avatar
         </Label>
         <p className="text-xs text-muted-foreground">
-          Formats supportés: MP4, WebM, MOV, GIF (max 20MB)
+          Formats supportés: MP4, WebM, MOV, GIF (max 10MB recommandé)<br/>
+          Pour éviter les erreurs, utilisez des vidéos courtes et compressées
         </p>
         <div className="flex gap-2">
           <Input
