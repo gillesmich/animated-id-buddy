@@ -233,12 +233,15 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 </Label>
                 <Select
                   value={config.selectedAvatar}
-                  onValueChange={(value) => setConfig({ 
-                    ...config, 
-                    selectedAvatar: value,
-                    customAvatarVideo: '', // Vider la vidéo personnalisée lors du changement d'avatar
-                    customAvatarImage: '' // Vider l'image personnalisée aussi
-                  })}
+                  onValueChange={(value) => {
+                    console.log("🔄 Changement avatar vers:", value);
+                    setConfig({ 
+                      ...config, 
+                      selectedAvatar: value,
+                      customAvatarVideo: '', // Vider la vidéo personnalisée
+                      customAvatarImage: ''  // Vider l'image personnalisée
+                    });
+                  }}
                 >
                   <SelectTrigger className="glass">
                     <SelectValue placeholder="Select an avatar" />

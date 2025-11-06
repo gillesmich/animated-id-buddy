@@ -157,6 +157,11 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         // L'autoplay peut être bloqué, ce n'est pas grave
         console.log("Autoplay bloqué (normal au premier chargement)");
       });
+    } else {
+      // Si c'est une image, vider la source vidéo
+      console.log("📸 Affichage image:", currentVideoUrl);
+      videoRef.current.src = '';
+      videoRef.current.load();
     }
   }, [currentVideoUrl]);
 
