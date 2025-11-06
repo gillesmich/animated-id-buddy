@@ -621,6 +621,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             if (statusData.status === 'COMPLETED') {
               videoUrl = statusData.videoUrl;
               
+              console.log("🔍 DEBUG statusData:", JSON.stringify(statusData, null, 2));
+              console.log("🔍 DEBUG videoUrl type:", typeof videoUrl);
+              console.log("🔍 DEBUG videoUrl value:", videoUrl);
+              
               if (!videoUrl) {
                 console.error("❌ Pas de videoUrl dans la réponse:", statusData);
                 throw new Error("Aucune vidéo générée par MuseTalk");
@@ -725,7 +729,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
         // Remplacer la vidéo actuelle par la nouvelle vidéo générée
         console.log("🔄 Remplacement de la vidéo actuelle par la vidéo générée");
-        console.log("📹 URL vidéo:", videoUrl);
+        console.log("📹 DEBUG - Type de videoUrl:", typeof videoUrl);
+        console.log("📹 DEBUG - Valeur de videoUrl:", videoUrl);
+        console.log("📹 DEBUG - videoUrl stringifié:", JSON.stringify(videoUrl));
+        
+        // Vérifier si videoUrl est valide
+        if (!videoUrl || typeof videoUrl !== 'string') {
+          console.error("❌ videoUrl invalide:", { videoUrl, type: typeof videoUrl });
+          throw new Error("URL de vidéo invalide");
+        }
         
         // Forcer le changement de la vidéo
         setCurrentVideoUrl(videoUrl);
@@ -741,11 +753,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         }, 100);
         
         // Sauvegarder dans l'historique
+        console.log("💾 Sauvegarde dans l'historique - URL:", videoUrl);
         const newVideo = {
           url: videoUrl,
           text: responseText,
           timestamp: new Date()
         };
+        
+        console.log("💾 Objet vidéo à sauvegarder:", JSON.stringify(newVideo, null, 2));
         
         setGeneratedVideos(prev => {
           const updated = [...prev, newVideo];
