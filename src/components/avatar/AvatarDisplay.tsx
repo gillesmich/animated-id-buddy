@@ -713,44 +713,36 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           console.log("✅ Vidéo générée:", videoUrl);
         }
 
-        // Pour MuseTalk: remplacer la vidéo source par la vidéo générée
-        if (provider === 'musetalk') {
-          console.log("🔄 MuseTalk: Remplacement de la vidéo source par la vidéo générée");
-          setCurrentVideoUrl(videoUrl);
-          
-          // Mettre à jour la vidéo principale directement
-          if (videoRef.current) {
-            videoRef.current.src = videoUrl;
-            videoRef.current.load();
-            videoRef.current.play().catch(e => console.error("Erreur lecture vidéo:", e));
-          }
-          
-          setIsAvatarSpeaking(true);
-        } else {
-          // Pour D-ID: utiliser le système de transition existant
-          if (transitionManagerRef.current) {
-            transitionManagerRef.current.transitionToVideo(videoUrl);
-            setIsAvatarSpeaking(true);
-          }
-          
-          // Sauvegarder la vidéo générée pour D-ID
-          const newVideo = {
-            url: videoUrl,
-            text: responseText,
-            timestamp: new Date()
-          };
-          
-          setGeneratedVideos(prev => {
-            const updated = [...prev, newVideo];
-            // Persister dans localStorage
-            try {
-              localStorage.setItem('generatedVideos', JSON.stringify(updated));
-            } catch (error) {
-              console.error("Erreur sauvegarde vidéos:", error);
-            }
-            return updated;
-          });
+        // Remplacer la vidéo actuelle par la nouvelle vidéo générée
+        console.log("🔄 Remplacement de la vidéo actuelle par la vidéo générée");
+        setCurrentVideoUrl(videoUrl);
+        
+        // Mettre à jour et lancer la vidéo principale directement
+        if (videoRef.current) {
+          videoRef.current.src = videoUrl;
+          videoRef.current.load();
+          videoRef.current.play().catch(e => console.error("Erreur lecture vidéo:", e));
         }
+        
+        setIsAvatarSpeaking(true);
+        
+        // Sauvegarder dans l'historique
+        const newVideo = {
+          url: videoUrl,
+          text: responseText,
+          timestamp: new Date()
+        };
+        
+        setGeneratedVideos(prev => {
+          const updated = [...prev, newVideo];
+          // Persister dans localStorage
+          try {
+            localStorage.setItem('generatedVideos', JSON.stringify(updated));
+          } catch (error) {
+            console.error("Erreur sauvegarde vidéos:", error);
+          }
+          return updated;
+        });
 
         setIsVideoLoading(false);
         toast({
@@ -942,81 +934,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         </div>
       )}
 
-      {/* Generated Videos Gallery - Remplace la prévisualisation */}
-      {generatedVideos.length > 0 ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Video className="w-4 h-4 text-primary" />
-              Vidéos de Réponse ({generatedVideos.length})
-            </h4>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setGeneratedVideos([]);
-                localStorage.removeItem('generatedVideos');
-                toast({
-                  title: "Galerie vidée",
-                  description: "Toutes les vidéos ont été supprimées",
-                });
-              }}
-            >
-              Vider la galerie
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-            {generatedVideos.map((video, idx) => (
-              <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
-                <video
-                  src={video.url}
-                  className="w-full aspect-video object-contain bg-black"
-                  controls
-                  preload="metadata"
-                  controlsList="nodownload"
-                />
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => {
-                      const a = document.createElement('a');
-                      a.href = video.url;
-                      a.download = `avatar-response-${idx + 1}.mp4`;
-                      a.click();
-                      toast({
-                        title: "📥 Téléchargement",
-                        description: "La vidéo va être téléchargée",
-                      });
-                    }}
-                  >
-                    Télécharger
-                  </Button>
-                </div>
-                <div className="p-2 bg-background/80 backdrop-blur-sm">
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {video.text}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {video.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Voice Controls */}
-          <VoiceControls
-            onVoiceMessage={handleVoiceMessage}
-            isProcessing={isLoading}
-            className="justify-center mt-3"
-            onUserSpeaking={handleUserSpeaking}
-            isAvatarSpeaking={isAvatarSpeaking}
-          />
-        </div>
-      ) : (
-        /* Avatar Video Area - Affiché seulement si aucune vidéo générée */
+      {/* Avatar Video Area - Toujours affichée */}
+      <div className="space-y-3">
         <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
           <div className="absolute inset-0 gradient-glow opacity-30"></div>
           
@@ -1077,7 +996,68 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             isAvatarSpeaking={isAvatarSpeaking}
           />
         </div>
-      )}
+
+        {/* Historique des vidéos - Affiché sous la vidéo principale si des vidéos existent */}
+        {generatedVideos.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Video className="w-4 h-4 text-primary" />
+                Historique ({generatedVideos.length})
+              </h4>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGeneratedVideos([]);
+                  localStorage.removeItem('generatedVideos');
+                  toast({
+                    title: "Historique vidé",
+                    description: "Toutes les vidéos ont été supprimées",
+                  });
+                }}
+              >
+                Vider
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+              {generatedVideos.map((video, idx) => (
+                <div 
+                  key={idx} 
+                  className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => {
+                    console.log("📹 Chargement vidéo historique:", video.url);
+                    setCurrentVideoUrl(video.url);
+                    if (videoRef.current) {
+                      videoRef.current.src = video.url;
+                      videoRef.current.load();
+                      videoRef.current.play().catch(e => console.error("Erreur lecture:", e));
+                    }
+                    toast({
+                      title: "Vidéo chargée",
+                      description: `Lecture de la vidéo #${idx + 1}`,
+                    });
+                  }}
+                >
+                  <video
+                    src={video.url}
+                    className="w-full aspect-video object-cover"
+                    preload="metadata"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Play className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-1 bg-background/90 backdrop-blur-sm">
+                    <p className="text-xs text-muted-foreground truncate">
+                      #{idx + 1} - {video.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Chat Interface */}
       <div className="space-y-4">
