@@ -133,17 +133,24 @@ export class AudioRecorder {
     onVolumeChange?: (volume: number) => void;
   }): Promise<void> {
     try {
+      // Optimized audio constraints for Whisper (16kHz mono is sufficient)
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000,  // Reduce from 44.1kHz to 16kHz for Whisper
+          channelCount: 1      // Mono audio
         } 
       });
       
-      this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Configure MediaRecorder with lower bitrate for compression
+      const recorderOptions: MediaRecorderOptions = {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 16000  // 16kbps is sufficient for speech
+      };
+      
+      this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
       
       this.audioChunks = [];
       
