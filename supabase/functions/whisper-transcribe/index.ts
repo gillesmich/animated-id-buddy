@@ -97,7 +97,38 @@ serve(async (req) => {
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
     
-    // 1. Patterns de sous-titres, crédits et appels à l'action YouTube
+    console.log('📝 Texte brut Whisper:', cleanedText);
+    
+    // Liste de mots-clés YouTube à bloquer complètement
+    const youtubeKeywords = [
+      'voir une autre vidéo',
+      'voir une vidéo',
+      'abonnez-vous',
+      'ma seconde chaîne',
+      'ma chaîne',
+      'seconde chaîne',
+      'deuxième chaîne',
+      'likez',
+      'commentez',
+      'partagez',
+      'cliquez sur la cloche',
+      'suivez-moi',
+      'n\'oubliez pas',
+    ];
+    
+    // Vérifier si le texte contient majoritairement des mots-clés YouTube
+    const lowerText = cleanedText.toLowerCase();
+    const keywordCount = youtubeKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    
+    // Si plus de 2 mots-clés YouTube détectés, rejeter complètement le message
+    if (keywordCount >= 2) {
+      console.log('❌ Message rejeté: trop de mots-clés YouTube détectés');
+      return new Response(JSON.stringify({ ...data, text: '' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // 1. Patterns de sous-titres, crédits et appels à l'action YouTube (patterns agressifs)
     const subtitlePatterns = [
       // Sous-titres Amara
       /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
@@ -105,24 +136,29 @@ serve(async (req) => {
       /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
       /.*amara\.org.*/gi,
       
+      // Appels à l'action YouTube - patterns très agressifs
+      /voir\s+(une\s+)?(autre\s+)?vidéo/gi,
+      /voir\s+une/gi,
+      /voir/gi,
+      /abonnez[-\s]?vous/gi,
+      /abonne(z)?[-\s]?toi/gi,
+      /ma\s+(seconde|deuxième|2e|2ème)\s+chaîne/gi,
+      /ma\s+chaîne/gi,
+      /(seconde|deuxième|2e|2ème)\s+chaîne/gi,
+      /n['']oubliez\s+pas/gi,
+      /like(z)?(\s+la)?(\s+vidéo)?/gi,
+      /cliquez\s+sur(\s+la)?\s+cloche/gi,
+      /partagez(\s+la)?(\s+vidéo)?/gi,
+      /commentez(\s+en)?\s+dessous/gi,
+      /suivez[-\s]?moi/gi,
+      
       // Phrases de remerciement génériques
-      /merci\s+(à\s+tous|beaucoup|pour\s+cette\s+vidéo)(\s+et\s+à\s+bientôt)?[\s!.]*$/gi,
-      /à\s+bientôt[\s!.]*$/gi,
-      /merci\s+d['']avoir\s+regardé[\s!.]*$/gi,
-      
-      // Appels à l'action YouTube/réseaux sociaux
-      /n['']oubliez\s+pas\s+de\s+(vous\s+)?abonner[\s!.]*$/gi,
-      /abonnez[-\s]?vous[\s!.]*$/gi,
-      /like(z)?\s+(la\s+)?vidéo[\s!.]*$/gi,
-      /cliquez\s+sur\s+(la\s+)?cloche[\s!.]*$/gi,
-      /partagez\s+(la\s+|cette\s+)?vidéo[\s!.]*$/gi,
-      /commentez\s+(en\s+)?dessous[\s!.]*$/gi,
-      /suivez[-\s]?moi\s+sur[\s!.]*$/gi,
-      
-      // Génériques de fin
-      /à\s+la\s+prochaine[\s!.]*$/gi,
-      /on\s+se\s+retrouve\s+(bientôt|prochainement)[\s!.]*$/gi,
-      /rendez[-\s]?vous\s+(dans\s+)?(la\s+)?prochaine\s+vidéo[\s!.]*$/gi,
+      /merci\s+(à\s+tous|beaucoup|pour\s+cette\s+vidéo)/gi,
+      /à\s+bientôt/gi,
+      /merci\s+d['']avoir\s+regardé/gi,
+      /à\s+la\s+prochaine/gi,
+      /on\s+se\s+retrouve/gi,
+      /rendez[-\s]?vous/gi,
     ];
     
     // 2. Filtrer les patterns
@@ -131,33 +167,21 @@ serve(async (req) => {
       filteredText = filteredText.replace(pattern, '');
     }
     
-    // 3. Supprimer les répétitions de phrases (détecte "voir ... voir ... voir")
-    const segments = filteredText.split(/\s*\.\.\.\s*/);
-    const uniqueSegments: string[] = [];
-    const seenSegments = new Set<string>();
+    // 3. Nettoyer les espaces multiples et ponctuation excessive
+    filteredText = filteredText.replace(/\s+/g, ' ').trim();
+    filteredText = filteredText.replace(/[.!?]+\s*$/, '').trim();
     
-    for (const segment of segments) {
-      const normalized = segment.trim().toLowerCase();
-      // Si on a déjà vu ce segment et qu'il est court (< 20 caractères), c'est probablement une répétition
-      if (normalized && normalized.length < 20 && seenSegments.has(normalized)) {
-        // Arrêter dès qu'on détecte une répétition
-        break;
-      }
-      if (normalized) {
-        seenSegments.add(normalized);
-        uniqueSegments.push(segment.trim());
-      }
+    console.log('📝 Texte après filtrage:', filteredText);
+    
+    // 4. Rejeter si le texte est trop court ou vide après nettoyage
+    if (!filteredText || filteredText.length < 10) {
+      console.log('❌ Message rejeté: texte trop court après nettoyage');
+      filteredText = '';
     }
     
-    filteredText = uniqueSegments.join(' ').trim();
-    
-    // 4. Nettoyer les espaces multiples
-    filteredText = filteredText.replace(/\s+/g, ' ').trim();
-    
-    console.log('📝 Texte nettoyé:', filteredText);
-    
-    // 4. Ne retourner que si le texte est significatif (> 5 caractères et pas que de la ponctuation)
-    if (!filteredText || filteredText.length < 5 || /^[.,!?\s]+$/.test(filteredText)) {
+    // 5. Rejeter si le texte ne contient que de la ponctuation
+    if (/^[.,!?\s]+$/.test(filteredText)) {
+      console.log('❌ Message rejeté: que de la ponctuation');
       filteredText = '';
     }
 
