@@ -25,6 +25,7 @@ const VoiceControls = ({
   const [vadEnabled, setVadEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [volume, setVolume] = useState(0);
+  const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const { toast } = useToast();
   
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -56,8 +57,10 @@ const VoiceControls = ({
     if (isListening) return;
 
     try {
+      setMicPermissionDenied(false);
       const permissions = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (permissions.state === 'denied') {
+        setMicPermissionDenied(true);
         throw new Error('Microphone access denied');
       }
 
@@ -108,9 +111,10 @@ const VoiceControls = ({
       
     } catch (error) {
       console.error("❌ Erreur VAD:", error);
+      setMicPermissionDenied(true);
       toast({
         title: "Erreur microphone",
-        description: "Impossible d'accéder au microphone",
+        description: "Cliquez sur 'Autoriser le micro' pour activer l'écoute vocale",
         variant: "destructive",
       });
     }
@@ -147,12 +151,27 @@ const VoiceControls = ({
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
+      {/* Alerte permission microphone */}
+      {micPermissionDenied && (
+        <div className="flex items-center gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <MicOff className="w-5 h-5 text-destructive" />
+          <p className="text-sm flex-1">Accès microphone refusé</p>
+          <Button
+            onClick={startVADListening}
+            size="sm"
+            variant="destructive"
+          >
+            Autoriser le micro
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         {/* Toggle VAD Mode */}
         <Button
           onClick={toggleVAD}
           variant={vadEnabled ? "default" : "outline"}
-          className={`gap-2 ${isListening ? "ring-2 ring-primary" : ""}`}
+          className={`gap-2 ${isListening ? "ring-2 ring-primary animate-pulse" : ""}`}
         >
           {vadEnabled ? (
             <>
