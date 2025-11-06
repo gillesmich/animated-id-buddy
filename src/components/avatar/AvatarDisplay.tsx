@@ -144,6 +144,22 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
   }, [config.selectedAvatar, config.customAvatarImage, config.customAvatarVideo, config.avatarProvider]);
 
+  // Forcer le rechargement de la vidéo quand currentVideoUrl change
+  useEffect(() => {
+    if (!videoRef.current || !currentVideoUrl) return;
+    
+    // Si c'est une vidéo, la charger
+    if (currentVideoUrl.match(/\.(mp4|webm|mov)$/i)) {
+      console.log("📹 Rechargement vidéo:", currentVideoUrl);
+      videoRef.current.src = currentVideoUrl;
+      videoRef.current.load();
+      videoRef.current.play().catch(e => {
+        // L'autoplay peut être bloqué, ce n'est pas grave
+        console.log("Autoplay bloqué (normal au premier chargement)");
+      });
+    }
+  }, [currentVideoUrl]);
+
 
 
 
