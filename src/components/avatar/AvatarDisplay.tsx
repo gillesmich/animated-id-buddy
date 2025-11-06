@@ -713,29 +713,44 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           console.log("✅ Vidéo générée:", videoUrl);
         }
 
-        // Jouer la vidéo avec transition
-        if (transitionManagerRef.current) {
-          transitionManagerRef.current.transitionToVideo(videoUrl);
-          setIsAvatarSpeaking(true);
-        }
-
-        // Sauvegarder la vidéo générée
-        const newVideo = {
-          url: videoUrl,
-          text: responseText,
-          timestamp: new Date()
-        };
-        
-        setGeneratedVideos(prev => {
-          const updated = [...prev, newVideo];
-          // Persister dans localStorage
-          try {
-            localStorage.setItem('generatedVideos', JSON.stringify(updated));
-          } catch (error) {
-            console.error("Erreur sauvegarde vidéos:", error);
+        // Pour MuseTalk: remplacer la vidéo source par la vidéo générée
+        if (provider === 'musetalk') {
+          console.log("🔄 MuseTalk: Remplacement de la vidéo source par la vidéo générée");
+          setCurrentVideoUrl(videoUrl);
+          
+          // Mettre à jour la vidéo principale directement
+          if (videoRef.current) {
+            videoRef.current.src = videoUrl;
+            videoRef.current.load();
+            videoRef.current.play().catch(e => console.error("Erreur lecture vidéo:", e));
           }
-          return updated;
-        });
+          
+          setIsAvatarSpeaking(true);
+        } else {
+          // Pour D-ID: utiliser le système de transition existant
+          if (transitionManagerRef.current) {
+            transitionManagerRef.current.transitionToVideo(videoUrl);
+            setIsAvatarSpeaking(true);
+          }
+          
+          // Sauvegarder la vidéo générée pour D-ID
+          const newVideo = {
+            url: videoUrl,
+            text: responseText,
+            timestamp: new Date()
+          };
+          
+          setGeneratedVideos(prev => {
+            const updated = [...prev, newVideo];
+            // Persister dans localStorage
+            try {
+              localStorage.setItem('generatedVideos', JSON.stringify(updated));
+            } catch (error) {
+              console.error("Erreur sauvegarde vidéos:", error);
+            }
+            return updated;
+          });
+        }
 
         setIsVideoLoading(false);
         toast({
