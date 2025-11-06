@@ -536,7 +536,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
           // Upload local video to Supabase Storage to get a publicly accessible URL
           const { uploadLocalImageToStorage } = await import('@/utils/uploadImageToStorage');
-          let videoUrl: string;
           
           if (sourceUrl.startsWith('http')) {
             videoUrl = sourceUrl;
