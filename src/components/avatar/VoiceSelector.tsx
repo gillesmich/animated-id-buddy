@@ -43,14 +43,18 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
     const loadVoices = async () => {
       setLoading(true);
       try {
-        console.log('🎤 Fetching ElevenLabs voices and agents...');
+        console.log('🎤 Fetching ElevenLabs voices...');
         const { data, error } = await supabase.functions.invoke('elevenlabs-voices');
         
         if (error) throw error;
         
         if (data?.voices) {
-          setVoices(data.voices);
-          console.log(`✅ Loaded ${data.voices.length} voices`);
+          // Filtrer les agents conversationnels (incompatibles avec TTS)
+          const ttsVoices = data.voices.filter((voice: Voice) => 
+            !voice.voice_id.startsWith('agent_')
+          );
+          setVoices(ttsVoices);
+          console.log(`✅ Loaded ${ttsVoices.length} TTS voices`);
         }
       } catch (error) {
         console.error('❌ Error loading voices:', error);
