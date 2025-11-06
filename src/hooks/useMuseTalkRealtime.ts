@@ -7,6 +7,12 @@ interface MuseTalkRealtimeConfig {
   bbox_shift?: number;
 }
 
+interface WebSocketMessage {
+  timestamp: string;
+  direction: 'sent' | 'received';
+  data: any;
+}
+
 interface UseMuseTalkRealtimeReturn {
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -15,6 +21,8 @@ interface UseMuseTalkRealtimeReturn {
   currentVideo: string | null;
   error: string | null;
   status: string;
+  debugMessages: WebSocketMessage[];
+  clearDebugMessages: () => void;
 }
 
 export const useMuseTalkRealtime = (): UseMuseTalkRealtimeReturn => {
@@ -22,8 +30,22 @@ export const useMuseTalkRealtime = (): UseMuseTalkRealtimeReturn => {
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Disconnected');
+  const [debugMessages, setDebugMessages] = useState<WebSocketMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const { toast } = useToast();
+
+  const addDebugMessage = useCallback((direction: 'sent' | 'received', data: any) => {
+    const timestamp = new Date().toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit'
+    });
+    setDebugMessages(prev => [...prev, { timestamp, direction, data }]);
+  }, []);
+
+  const clearDebugMessages = useCallback(() => {
+    setDebugMessages([]);
+  }, []);
 
   const connect = useCallback(async () => {
     try {
@@ -48,6 +70,7 @@ export const useMuseTalkRealtime = (): UseMuseTalkRealtimeReturn => {
         try {
           const message = JSON.parse(event.data);
           console.log('📥 Received message:', message);
+          addDebugMessage('received', message);
 
           switch (message.type) {
             case 'connected':
@@ -146,10 +169,13 @@ export const useMuseTalkRealtime = (): UseMuseTalkRealtimeReturn => {
     setStatus('Generating video...');
     setCurrentVideo(null);
     
-    wsRef.current.send(JSON.stringify({
+    const message = {
       action: 'start_realtime',
       data: config
-    }));
+    };
+    
+    addDebugMessage('sent', message);
+    wsRef.current.send(JSON.stringify(message));
   }, [toast]);
 
   // Cleanup on unmount
@@ -168,6 +194,8 @@ export const useMuseTalkRealtime = (): UseMuseTalkRealtimeReturn => {
     isConnected,
     currentVideo,
     error,
-    status
+    status,
+    debugMessages,
+    clearDebugMessages
   };
 };

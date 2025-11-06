@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Loader2, Play, Video, Radio } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { authenticatedFetch } from "@/utils/authenticatedFetch";
 import { useMuseTalkRealtime } from "@/hooks/useMuseTalkRealtime";
+import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
 
 interface MuseTalkControlsProps {
   onConnectionStatusChange?: (connected: boolean) => void;
@@ -25,7 +26,9 @@ const MuseTalkControls = ({ onConnectionStatusChange }: MuseTalkControlsProps) =
     sendMessage: sendRealtimeMessage,
     isConnected: isRealtimeConnected,
     currentVideo,
-    status: realtimeStatus
+    status: realtimeStatus,
+    debugMessages,
+    clearDebugMessages
   } = useMuseTalkRealtime();
 
   const checkConnection = async () => {
@@ -241,6 +244,13 @@ const MuseTalkControls = ({ onConnectionStatusChange }: MuseTalkControlsProps) =
           </div>
         )}
       </CardContent>
+
+      {isRealtimeConnected && debugMessages.length > 0 && (
+        <WebSocketDebugPanel 
+          messages={debugMessages}
+          onClear={clearDebugMessages}
+        />
+      )}
     </Card>
   );
 };
