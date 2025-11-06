@@ -26,8 +26,6 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    console.log('🎤 Whisper transcription request');
-
     // Handle both data URL format and raw base64
     let base64Data = audioBase64;
     if (audioBase64.includes(',')) {
@@ -99,9 +97,6 @@ serve(async (req) => {
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
     
-    console.log('📝 Transcription brute de Whisper:', data.text);
-    console.log('📏 Longueur transcription:', data.text.length);
-    
     // 1. Patterns de sous-titres et crédits (uniquement pour les vraies vidéos sous-titrées)
     const subtitlePatterns = [
       /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
@@ -113,11 +108,7 @@ serve(async (req) => {
     ];
     
     for (const pattern of subtitlePatterns) {
-      const before = cleanedText;
       cleanedText = cleanedText.replace(pattern, '').trim();
-      if (before !== cleanedText) {
-        console.log('🧹 Pattern filtré:', pattern);
-      }
     }
     
     // 2. Nettoyer les espaces multiples
@@ -125,11 +116,8 @@ serve(async (req) => {
     
     // 3. Ne filtrer que si vraiment vide ou juste ponctuation
     if (!cleanedText || cleanedText.length < 2 || /^[.,!?\s]+$/.test(cleanedText)) {
-      console.log('⚠️ Transcription trop courte, ignorée');
       cleanedText = '';
     }
-    
-    console.log('✅ Whisper transcription success:', cleanedText);
 
     return new Response(JSON.stringify({ ...data, text: cleanedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

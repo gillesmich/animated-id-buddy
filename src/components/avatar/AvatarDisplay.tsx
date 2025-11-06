@@ -386,7 +386,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
     try {
       // Étape 1: Transcription avec Whisper
-      console.log("🎤 Étape 1: Transcription Whisper...");
       toast({
         title: "🎤 Transcription...",
         description: "Analyse de votre message vocal",
@@ -402,12 +401,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
 
       const { text: transcription } = await transcriptionResponse.json();
-      console.log("✅ Transcription:", transcription);
       
       // Filtrage: ignorer les transcriptions vides ou trop courtes
       const cleanTranscription = transcription.trim();
       if (!cleanTranscription || cleanTranscription.length < 5) {
-        console.log("⚠️ Transcription trop courte ou vide, ignorée:", cleanTranscription);
         setIsLoading(false);
         return;
       }
@@ -415,15 +412,11 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       // Filtrage: ignorer les phrases de remerciement génériques
       const genericPhrases = ["merci à tous", "au revoir", "merci et"];
       if (genericPhrases.some(phrase => cleanTranscription.toLowerCase().includes(phrase)) && cleanTranscription.length < 30) {
-        console.log("⚠️ Phrase générique détectée, ignorée:", cleanTranscription);
         setIsLoading(false);
         return;
       }
       
       setConversation((prev) => [...prev, { role: "user", content: cleanTranscription, type: 'voice' }]);
-
-      // Étape 2: Génération de réponse avec OpenAI
-      console.log("🤖 Étape 2: Génération réponse OpenAI...");
       toast({
         title: "🤖 Réflexion...",
         description: "Génération de la réponse",
