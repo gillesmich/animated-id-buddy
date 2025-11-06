@@ -715,16 +715,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
         // Remplacer la vidéo actuelle par la nouvelle vidéo générée
         console.log("🔄 Remplacement de la vidéo actuelle par la vidéo générée");
+        console.log("📹 URL vidéo:", videoUrl);
+        
+        // Forcer le changement de la vidéo
         setCurrentVideoUrl(videoUrl);
-        
-        // Mettre à jour et lancer la vidéo principale directement
-        if (videoRef.current) {
-          videoRef.current.src = videoUrl;
-          videoRef.current.load();
-          videoRef.current.play().catch(e => console.error("Erreur lecture vidéo:", e));
-        }
-        
         setIsAvatarSpeaking(true);
+        
+        // Attendre que React mette à jour, puis forcer la lecture
+        setTimeout(() => {
+          if (videoRef.current) {
+            console.log("🎬 Lancement lecture vidéo");
+            videoRef.current.load();
+            videoRef.current.play().catch(e => console.error("❌ Erreur lecture:", e));
+          }
+        }, 100);
         
         // Sauvegarder dans l'historique
         const newVideo = {
@@ -735,7 +739,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         
         setGeneratedVideos(prev => {
           const updated = [...prev, newVideo];
-          // Persister dans localStorage
           try {
             localStorage.setItem('generatedVideos', JSON.stringify(updated));
           } catch (error) {
