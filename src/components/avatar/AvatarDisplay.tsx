@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, Video, Play, ChevronDown, ChevronUp, Mic } from "lucide-react";
+import { Send, Loader2, Video, Play, ChevronDown, ChevronUp, Mic, Maximize2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import VoiceControls from "./VoiceControls";
 import ErrorOverlay from "./ErrorOverlay";
 import { debounce, AudioPlayer } from "@/utils/audioUtils";
@@ -61,6 +62,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     return [];
   });
   const [showHistory, setShowHistory] = useState(false);
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
   
   // Log à chaque changement de generatedVideos
   useEffect(() => {
@@ -983,8 +985,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
       {/* Avatar Video Area - Toujours affichée */}
       <div className="space-y-3">
-        <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group">
+        <div className="rounded-lg bg-secondary/30 border border-border/50 relative overflow-hidden group cursor-pointer" onClick={() => setIsVideoFullscreen(true)}>
           <div className="absolute inset-0 gradient-glow opacity-30"></div>
+          
+          {/* Icône agrandissement qui apparaît au hover */}
+          <div className="absolute top-4 left-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="bg-black/50 backdrop-blur-sm rounded-full p-2">
+              <Maximize2 className="w-5 h-5 text-white" />
+            </div>
+          </div>
           
           {/* Deux éléments vidéo pour les transitions fluides */}
           <div className="relative w-full aspect-video">
@@ -1228,6 +1237,38 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         error={apiError}
         onClose={() => setApiError(null)}
       />
+
+      {/* Dialog plein écran pour la vidéo */}
+      <Dialog open={isVideoFullscreen} onOpenChange={setIsVideoFullscreen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vidéo en plein écran</DialogTitle>
+          </DialogHeader>
+          <div className="relative w-full h-[90vh] bg-black">
+            {/* Image statique en grand */}
+            {currentVideoUrl && !currentVideoUrl.match(/\.(mp4|webm|mov)$/i) && (
+              <img
+                src={currentVideoUrl}
+                alt="Avatar"
+                className="w-full h-full object-contain"
+              />
+            )}
+            
+            {/* Vidéo en grand */}
+            {currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) && (
+              <video
+                src={currentVideoUrl}
+                className="w-full h-full object-contain"
+                autoPlay
+                playsInline
+                loop
+                muted={false}
+                controls
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
