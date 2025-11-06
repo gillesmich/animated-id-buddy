@@ -99,10 +99,12 @@ serve(async (req) => {
     
     console.log('📝 Texte brut Whisper:', cleanedText);
     
-    // Liste de mots-clés YouTube à bloquer complètement
+    // Liste élargie de mots-clés YouTube à bloquer
     const youtubeKeywords = [
       'voir une autre vidéo',
       'voir une vidéo',
+      'regardé cette vidéo',
+      'regardez cette vidéo',
       'abonnez-vous',
       'ma seconde chaîne',
       'ma chaîne',
@@ -111,6 +113,9 @@ serve(async (req) => {
       'likez',
       'commentez',
       'partagez',
+      'merci pour vos commentaires',
+      'merci d\'avoir regardé',
+      'merci pour',
       'cliquez sur la cloche',
       'suivez-moi',
       'n\'oubliez pas',
@@ -120,15 +125,17 @@ serve(async (req) => {
     const lowerText = cleanedText.toLowerCase();
     const keywordCount = youtubeKeywords.filter(keyword => lowerText.includes(keyword)).length;
     
-    // Si plus de 2 mots-clés YouTube détectés, rejeter complètement le message
-    if (keywordCount >= 2) {
-      console.log('❌ Message rejeté: trop de mots-clés YouTube détectés');
+    // Si 2+ mots-clés YouTube OU texte très répétitif, rejeter
+    const hasRepetition = /(.{10,})\1{2,}/.test(cleanedText); // Détecte 3+ répétitions d'une même phrase
+    
+    if (keywordCount >= 2 || hasRepetition) {
+      console.log('❌ Message rejeté: mots-clés YouTube ou répétitions détectés');
       return new Response(JSON.stringify({ ...data, text: '' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    // 1. Patterns de sous-titres, crédits et appels à l'action YouTube (patterns agressifs)
+    // Patterns de nettoyage très agressifs
     const subtitlePatterns = [
       // Sous-titres Amara
       /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
@@ -136,8 +143,10 @@ serve(async (req) => {
       /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
       /.*amara\.org.*/gi,
       
-      // Appels à l'action YouTube - patterns très agressifs
+      // Appels à l'action YouTube - TRÈS agressifs
       /voir\s+(une\s+)?(autre\s+)?vidéo/gi,
+      /regardé\s+(cette\s+)?vidéo/gi,
+      /regardez\s+(cette\s+)?vidéo/gi,
       /voir\s+une/gi,
       /voir/gi,
       /abonnez[-\s]?vous/gi,
@@ -152,36 +161,51 @@ serve(async (req) => {
       /commentez(\s+en)?\s+dessous/gi,
       /suivez[-\s]?moi/gi,
       
-      // Phrases de remerciement génériques
+      // Phrases de remerciement - TRÈS agressives
+      /merci\s+(d['']avoir\s+)?regardé/gi,
+      /merci\s+pour(\s+vos)?\s+commentaires?/gi,
+      /merci\s+pour/gi,
       /merci\s+(à\s+tous|beaucoup|pour\s+cette\s+vidéo)/gi,
       /à\s+bientôt/gi,
-      /merci\s+d['']avoir\s+regardé/gi,
       /à\s+la\s+prochaine/gi,
       /on\s+se\s+retrouve/gi,
       /rendez[-\s]?vous/gi,
     ];
     
-    // 2. Filtrer les patterns
+    // Filtrer tous les patterns
     let filteredText = cleanedText;
     for (const pattern of subtitlePatterns) {
       filteredText = filteredText.replace(pattern, '');
     }
     
-    // 3. Nettoyer les espaces multiples et ponctuation excessive
+    // Supprimer toutes les répétitions (même mot/phrase répété 2+ fois)
+    const words = filteredText.split(/\s+/);
+    const uniqueWords: string[] = [];
+    let lastWord = '';
+    let repeatCount = 0;
+    
+    for (const word of words) {
+      if (word.toLowerCase() === lastWord.toLowerCase()) {
+        repeatCount++;
+        if (repeatCount >= 2) continue; // Ignorer après 2 répétitions
+      } else {
+        repeatCount = 0;
+        lastWord = word;
+      }
+      uniqueWords.push(word);
+    }
+    
+    filteredText = uniqueWords.join(' ');
+    
+    // Nettoyer espaces multiples et ponctuation
     filteredText = filteredText.replace(/\s+/g, ' ').trim();
     filteredText = filteredText.replace(/[.!?]+\s*$/, '').trim();
     
     console.log('📝 Texte après filtrage:', filteredText);
     
-    // 4. Rejeter si le texte est trop court ou vide après nettoyage
-    if (!filteredText || filteredText.length < 10) {
-      console.log('❌ Message rejeté: texte trop court après nettoyage');
-      filteredText = '';
-    }
-    
-    // 5. Rejeter si le texte ne contient que de la ponctuation
-    if (/^[.,!?\s]+$/.test(filteredText)) {
-      console.log('❌ Message rejeté: que de la ponctuation');
+    // Rejeter si trop court, vide, ou que de la ponctuation
+    if (!filteredText || filteredText.length < 15 || /^[.,!?\s]+$/.test(filteredText)) {
+      console.log('❌ Message rejeté: texte trop court ou vide après nettoyage');
       filteredText = '';
     }
 
