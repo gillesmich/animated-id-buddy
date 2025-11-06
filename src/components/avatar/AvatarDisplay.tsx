@@ -1042,30 +1042,15 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               </Button>
             </div>
             <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-              {generatedVideos.map((video, idx) => {
-                // Debug: vérifier la structure de l'objet video
-                if (!video || !video.url) {
-                  console.warn(`⚠️ Vidéo #${idx} invalide:`, video);
-                  return null;
-                }
-                
-                return (
+              {generatedVideos
+                .filter(video => video && video.url) // Filtrer les vidéos invalides
+                .map((video, idx) => (
                   <div 
                     key={`${video.url}-${idx}`}
                     className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
                     onClick={async () => {
                       const url = video.url;
                       console.log("📹 Chargement vidéo historique:", url);
-                      
-                      if (!url) {
-                        console.error("❌ URL vidéo manquante");
-                        toast({
-                          title: "Erreur",
-                          description: "URL de vidéo invalide",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
                       
                       setIsAvatarSpeaking(true);
                       setCurrentVideoUrl(url);
@@ -1099,8 +1084,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                     </p>
                   </div>
                 </div>
-                );
-              })}
+                )
+              )}
             </div>
           </div>
         )}

@@ -118,8 +118,6 @@ serve(async (req) => {
       /partagez\s+(la\s+|cette\s+)?vidéo[\s!.]*$/gi,
       /commentez\s+(en\s+)?dessous[\s!.]*$/gi,
       /suivez[-\s]?moi\s+sur[\s!.]*$/gi,
-      /voir\s+(une\s+)?autre\s+vidéo[\s!.]*$/gi,
-      /une\s+autre\s+vidéo[\s!.]*$/gi,
       
       // Génériques de fin
       /à\s+la\s+prochaine[\s!.]*$/gi,
@@ -128,19 +126,42 @@ serve(async (req) => {
     ];
     
     // 2. Filtrer les patterns
+    let filteredText = cleanedText;
     for (const pattern of subtitlePatterns) {
-      cleanedText = cleanedText.replace(pattern, '').trim();
+      filteredText = filteredText.replace(pattern, '');
     }
     
-    // 3. Nettoyer les espaces multiples
-    cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+    // 3. Supprimer les répétitions de phrases (détecte "voir ... voir ... voir")
+    const segments = filteredText.split(/\s*\.\.\.\s*/);
+    const uniqueSegments: string[] = [];
+    const seenSegments = new Set<string>();
+    
+    for (const segment of segments) {
+      const normalized = segment.trim().toLowerCase();
+      // Si on a déjà vu ce segment et qu'il est court (< 20 caractères), c'est probablement une répétition
+      if (normalized && normalized.length < 20 && seenSegments.has(normalized)) {
+        // Arrêter dès qu'on détecte une répétition
+        break;
+      }
+      if (normalized) {
+        seenSegments.add(normalized);
+        uniqueSegments.push(segment.trim());
+      }
+    }
+    
+    filteredText = uniqueSegments.join(' ').trim();
+    
+    // 4. Nettoyer les espaces multiples
+    filteredText = filteredText.replace(/\s+/g, ' ').trim();
+    
+    console.log('📝 Texte nettoyé:', filteredText);
     
     // 4. Ne retourner que si le texte est significatif (> 5 caractères et pas que de la ponctuation)
-    if (!cleanedText || cleanedText.length < 5 || /^[.,!?\s]+$/.test(cleanedText)) {
-      cleanedText = '';
+    if (!filteredText || filteredText.length < 5 || /^[.,!?\s]+$/.test(filteredText)) {
+      filteredText = '';
     }
 
-    return new Response(JSON.stringify({ ...data, text: cleanedText }), {
+    return new Response(JSON.stringify({ ...data, text: filteredText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
