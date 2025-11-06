@@ -510,11 +510,17 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           
           const sourceUrl = config.customAvatarVideo || avatarForDID.url || currentVideoUrl;
           
-          if (!sourceUrl || sourceUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            console.error("❌ MuseTalk: Pas de vidéo ou source est une image");
+          // Vérifier si c'est une vraie vidéo (pas une image statique)
+          const isStaticImage = sourceUrl && sourceUrl.match(/\.(jpg|jpeg|png)$/i);
+          const hasNoSource = !sourceUrl || sourceUrl.trim() === '';
+          
+          if (hasNoSource || isStaticImage) {
+            console.error("❌ MuseTalk: Pas de vidéo valide");
+            console.error("   - sourceUrl:", sourceUrl);
+            console.error("   - isStaticImage:", isStaticImage);
             toast({
               title: "📹 Vidéo requise",
-              description: "Uploadez une vidéo dans Configuration → Onglet 'Upload vidéo' pour utiliser MuseTalk",
+              description: "Uploadez une vidéo MP4/WebM dans Configuration → Onglet 'Upload' pour utiliser MuseTalk",
               variant: "destructive",
               duration: 8000,
             });

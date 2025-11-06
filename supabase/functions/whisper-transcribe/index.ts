@@ -97,25 +97,44 @@ serve(async (req) => {
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
     
-    // 1. Patterns de sous-titres et crédits (uniquement pour les vraies vidéos sous-titrées)
+    // 1. Patterns de sous-titres, crédits et appels à l'action YouTube
     const subtitlePatterns = [
+      // Sous-titres Amara
       /sous[-\s]?titres?\s+réalisés?\s+(par|para|por)\s+(la\s+)?communauté\s+(d'?|de\s+)?amara\.org/gi,
       /subtítulos?\s+realizados?\s+(por|para)\s+(la\s+)?comunidad\s+de\s+amara\.org/gi,
       /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
       /.*amara\.org.*/gi,
-      /merci\s+(à\s+tous|beaucoup)(\s+et\s+à\s+bientôt)?[\s!.]*$/gi,
+      
+      // Phrases de remerciement génériques
+      /merci\s+(à\s+tous|beaucoup|pour\s+cette\s+vidéo)(\s+et\s+à\s+bientôt)?[\s!.]*$/gi,
       /à\s+bientôt[\s!.]*$/gi,
+      /merci\s+d['']avoir\s+regardé[\s!.]*$/gi,
+      
+      // Appels à l'action YouTube/réseaux sociaux
+      /n['']oubliez\s+pas\s+de\s+(vous\s+)?abonner[\s!.]*$/gi,
+      /abonnez[-\s]?vous[\s!.]*$/gi,
+      /like(z)?\s+(la\s+)?vidéo[\s!.]*$/gi,
+      /cliquez\s+sur\s+(la\s+)?cloche[\s!.]*$/gi,
+      /partagez\s+(la\s+|cette\s+)?vidéo[\s!.]*$/gi,
+      /commentez\s+(en\s+)?dessous[\s!.]*$/gi,
+      /suivez[-\s]?moi\s+sur[\s!.]*$/gi,
+      
+      // Génériques de fin
+      /à\s+la\s+prochaine[\s!.]*$/gi,
+      /on\s+se\s+retrouve\s+(bientôt|prochainement)[\s!.]*$/gi,
+      /rendez[-\s]?vous\s+(dans\s+)?(la\s+)?prochaine\s+vidéo[\s!.]*$/gi,
     ];
     
+    // 2. Filtrer les patterns
     for (const pattern of subtitlePatterns) {
       cleanedText = cleanedText.replace(pattern, '').trim();
     }
     
-    // 2. Nettoyer les espaces multiples
+    // 3. Nettoyer les espaces multiples
     cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
     
-    // 3. Ne filtrer que si vraiment vide ou juste ponctuation
-    if (!cleanedText || cleanedText.length < 2 || /^[.,!?\s]+$/.test(cleanedText)) {
+    // 4. Ne retourner que si le texte est significatif (> 5 caractères et pas que de la ponctuation)
+    if (!cleanedText || cleanedText.length < 5 || /^[.,!?\s]+$/.test(cleanedText)) {
       cleanedText = '';
     }
 
