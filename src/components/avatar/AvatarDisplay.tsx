@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, Video, Play } from "lucide-react";
+import { Send, Loader2, Video, Play, ChevronDown, ChevronUp, Mic } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import VoiceControls from "./VoiceControls";
 import ErrorOverlay from "./ErrorOverlay";
@@ -55,6 +55,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
     }
     return [];
   });
+  const [showHistory, setShowHistory] = useState(false);
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1008,23 +1009,46 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           </div>
               
           
-          {/* Voice Controls - Positionnés directement sous la vidéo */}
-          <VoiceControls
-            onVoiceMessage={handleVoiceMessage}
-            isProcessing={isLoading}
-            className="justify-center mt-3"
-            onUserSpeaking={handleUserSpeaking}
-            isAvatarSpeaking={isAvatarSpeaking}
-          />
+          {/* Section Écouter - Voice Controls */}
+          <div className="space-y-2 mt-4">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Mic className="w-4 h-4 text-primary" />
+              Écouter
+            </h4>
+            <VoiceControls
+              onVoiceMessage={handleVoiceMessage}
+              isProcessing={isLoading}
+              className="justify-center"
+              onUserSpeaking={handleUserSpeaking}
+              isAvatarSpeaking={isAvatarSpeaking}
+            />
+          </div>
         </div>
 
-        {/* Historique des vidéos - Affiché sous la vidéo principale si des vidéos existent */}
+        {/* Bouton Consulter l'historique */}
         {generatedVideos.length > 0 && (
-          <div className="space-y-2">
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-between"
+              onClick={() => setShowHistory(!showHistory)}
+            >
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-primary" />
+                <span>Consulter l'historique ({generatedVideos.length})</span>
+              </div>
+              {showHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
+        )}
+
+        {/* Historique des vidéos - Affiché sous la vidéo principale si des vidéos existent */}
+        {generatedVideos.length > 0 && showHistory && (
+          <div className="space-y-2 mt-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Video className="w-4 h-4 text-primary" />
-                Historique ({generatedVideos.length})
+                Historique des vidéos
               </h4>
               <Button
                 size="sm"
@@ -1032,6 +1056,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                 onClick={() => {
                   setGeneratedVideos([]);
                   localStorage.removeItem('generatedVideos');
+                  setShowHistory(false);
                   toast({
                     title: "Historique vidé",
                     description: "Toutes les vidéos ont été supprimées",
@@ -1043,11 +1068,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             </div>
             <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto">
               {generatedVideos
-                .filter(video => video && video.url) // Filtrer les vidéos invalides
+                .filter(video => video && video.url)
                 .map((video, idx) => (
-                  <div 
+                  <button
                     key={`${video.url}-${idx}`}
-                    className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary transition-colors"
+                    type="button"
+                    className="group relative rounded overflow-hidden border border-border/50 bg-secondary/20 cursor-pointer hover:border-primary hover:scale-105 transition-all focus:outline-none focus:ring-2 focus:ring-primary"
                     onClick={async () => {
                       const url = video.url;
                       console.log("📹 Chargement vidéo historique:", url);
@@ -1070,20 +1096,20 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
                       });
                     }}
                   >
-                  <video
-                    src={video.url}
-                    className="w-full aspect-video object-cover"
-                    preload="metadata"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Play className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-1 bg-background/90 backdrop-blur-sm">
-                    <p className="text-xs text-muted-foreground truncate">
-                      #{idx + 1} - {video.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
+                    <video
+                      src={video.url}
+                      className="w-full aspect-video object-cover pointer-events-none"
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Play className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 p-1 bg-background/90 backdrop-blur-sm">
+                      <p className="text-xs text-muted-foreground truncate">
+                        #{idx + 1} - {video.timestamp.toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </button>
                 )
               )}
             </div>
