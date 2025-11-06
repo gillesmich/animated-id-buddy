@@ -106,11 +106,6 @@ const VoiceControls = ({
       
       setIsListening(true);
       
-      toast({
-        title: "Mode VAD activé",
-        description: "Parlez naturellement, l'enregistrement se fera automatiquement",
-      });
-      
     } catch (error) {
       console.error("❌ Erreur VAD:", error);
       toast({
@@ -130,11 +125,6 @@ const VoiceControls = ({
     setIsListening(false);
     setIsRecording(false);
     setVolume(0);
-    
-    toast({
-      title: "Mode VAD désactivé",
-      description: "L'écoute automatique est arrêtée",
-    });
   };
 
   const toggleVAD = async () => {
@@ -153,11 +143,6 @@ const VoiceControls = ({
     if (!audioEnabled) {
       playerRef.current?.stop();
     }
-    
-    toast({
-      title: audioEnabled ? "Audio désactivé" : "Audio activé",
-      description: audioEnabled ? "Les réponses vocales sont désactivées" : "Les réponses vocales sont activées",
-    });
   };
 
   return (

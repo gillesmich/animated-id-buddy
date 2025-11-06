@@ -407,11 +407,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
 
     try {
       // Étape 1: Transcription avec Whisper
-      toast({
-        title: "🎤 Transcription...",
-        description: "Analyse de votre message vocal",
-      });
-
       const transcriptionResponse = await authenticatedFetch('whisper-transcribe', {
         method: 'POST',
         body: JSON.stringify({ audioBase64 }),
@@ -438,10 +433,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
       
       setConversation((prev) => [...prev, { role: "user", content: cleanTranscription, type: 'voice' }]);
-      toast({
-        title: "🤖 Réflexion...",
-        description: "Génération de la réponse",
-      });
 
       const chatResponse = await authenticatedFetch('openai-chat', {
         method: 'POST',
@@ -506,10 +497,6 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       }
       
       setIsVideoLoading(true);
-      toast({
-        title: "🎬 Génération vidéo...",
-        description: "Création de l'animation",
-      });
       
       try {
         let videoUrl: string;
