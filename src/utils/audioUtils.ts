@@ -144,10 +144,10 @@ export class AudioRecorder {
         } 
       });
       
-      // Configure MediaRecorder with lower bitrate for compression
+      // Configure MediaRecorder with optimal bitrate for Whisper
       const recorderOptions: MediaRecorderOptions = {
         mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 16000  // 16kbps is sufficient for speech
+        audioBitsPerSecond: 128000  // 128kbps for better transcription quality
       };
       
       this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
