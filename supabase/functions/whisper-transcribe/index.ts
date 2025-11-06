@@ -46,9 +46,9 @@ serve(async (req) => {
     formData.append('model', 'whisper-1');
     formData.append('language', 'fr');
 
-    // Créer un AbortController avec timeout de 30 secondes
+    // Créer un AbortController avec timeout de 60 secondes
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     let response;
     try {
@@ -63,8 +63,8 @@ serve(async (req) => {
     } catch (fetchError: unknown) {
       clearTimeout(timeoutId);
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('⏱️ Whisper API timeout après 30 secondes');
-        throw new Error('La transcription a pris trop de temps (timeout 30s). Essayez avec un audio plus court.');
+        console.error('⏱️ Whisper API timeout après 60 secondes');
+        throw new Error('La transcription a pris trop de temps (timeout 60s). Essayez avec un audio plus court.');
       }
       throw fetchError;
     } finally {
