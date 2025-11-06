@@ -42,20 +42,33 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const [generatedVideos, setGeneratedVideos] = useState<Array<{ url: string; text: string; timestamp: Date }>>(() => {
     try {
       const saved = localStorage.getItem('generatedVideos');
+      console.log('🔍 localStorage generatedVideos:', saved);
       if (saved) {
         const parsed = JSON.parse(saved);
+        console.log('🔍 Parsed videos:', parsed);
         // Convertir les timestamps string en Date
-        return parsed.map((v: any) => ({
+        const videos = parsed.map((v: any) => ({
           ...v,
           timestamp: new Date(v.timestamp)
         }));
+        console.log('✅ Vidéos chargées au démarrage:', videos.length);
+        return videos;
       }
     } catch (error) {
       console.error("Erreur chargement vidéos:", error);
     }
+    console.log('ℹ️ Aucune vidéo en historique');
     return [];
   });
   const [showHistory, setShowHistory] = useState(false);
+  
+  // Log à chaque changement de generatedVideos
+  useEffect(() => {
+    console.log('📊 Historique mis à jour:', {
+      count: generatedVideos.length,
+      videos: generatedVideos.map(v => ({ url: v.url?.substring(0, 50), hasUrl: !!v.url }))
+    });
+  }, [generatedVideos]);
   const { toast } = useToast();
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -764,8 +777,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         
         setGeneratedVideos(prev => {
           const updated = [...prev, newVideo];
+          console.log('📊 Ajout vidéo à l\'historique:', {
+            totalVideos: updated.length,
+            newVideo: { url: newVideo.url?.substring(0, 50), hasUrl: !!newVideo.url }
+          });
           try {
-            localStorage.setItem('generatedVideos', JSON.stringify(updated));
+            const serialized = JSON.stringify(updated);
+            localStorage.setItem('generatedVideos', serialized);
+            console.log('✅ Historique sauvegardé dans localStorage');
           } catch (error) {
             console.error("Erreur sauvegarde vidéos:", error);
           }
