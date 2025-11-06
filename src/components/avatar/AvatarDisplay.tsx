@@ -955,9 +955,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               <div key={idx} className="group relative rounded-lg overflow-hidden border border-border/50 bg-secondary/20">
                 <video
                   src={video.url}
-                  className="w-full aspect-video object-cover"
+                  className="w-full aspect-video object-contain bg-black"
                   controls
                   preload="metadata"
+                  controlsList="nodownload"
                 />
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
