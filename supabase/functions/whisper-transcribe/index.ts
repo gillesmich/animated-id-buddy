@@ -118,6 +118,8 @@ serve(async (req) => {
       /partagez\s+(la\s+|cette\s+)?vidéo[\s!.]*$/gi,
       /commentez\s+(en\s+)?dessous[\s!.]*$/gi,
       /suivez[-\s]?moi\s+sur[\s!.]*$/gi,
+      /voir\s+(une\s+)?autre\s+vidéo[\s!.]*$/gi,
+      /une\s+autre\s+vidéo[\s!.]*$/gi,
       
       // Génériques de fin
       /à\s+la\s+prochaine[\s!.]*$/gi,
