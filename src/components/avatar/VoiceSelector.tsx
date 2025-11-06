@@ -41,11 +41,6 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
 
   useEffect(() => {
     const loadVoices = async () => {
-      if (!apiKey) {
-        console.log('⚠️ ElevenLabs API key not set');
-        return;
-      }
-
       setLoading(true);
       try {
         console.log('🎤 Fetching ElevenLabs voices and agents...');
@@ -61,7 +56,7 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
         console.error('❌ Error loading voices:', error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les voix. Vérifiez votre clé API.",
+          description: "Impossible de charger les voix. Vérifiez la configuration ElevenLabs.",
           variant: "destructive",
         });
       } finally {
@@ -70,7 +65,7 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
     };
 
     loadVoices();
-  }, [apiKey, toast]);
+  }, [toast]);
 
   // Grouper les voix par catégorie
   const groupedVoices = voices.reduce((acc, voice) => {
@@ -98,7 +93,7 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between glass"
-            disabled={loading || !apiKey}
+            disabled={loading}
           >
             <div className="flex items-center gap-2 truncate">
               {loading ? (
@@ -165,11 +160,6 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
           </Command>
         </PopoverContent>
       </Popover>
-      {!apiKey && (
-        <p className="text-sm text-muted-foreground">
-          Ajoutez votre clé API ElevenLabs pour voir les voix disponibles
-        </p>
-      )}
     </div>
   );
 }
