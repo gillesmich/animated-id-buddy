@@ -35,8 +35,10 @@ const VoiceControls = ({
   useEffect(() => {
     playerRef.current = new AudioPlayer();
     
-    // Démarrer le VAD automatiquement
-    startVADListening();
+    // Démarrer le VAD automatiquement après un délai
+    setTimeout(() => {
+      startVADListening();
+    }, 500);
     
     return () => {
       if (vadEnabled) {
@@ -48,13 +50,39 @@ const VoiceControls = ({
     };
   }, []);
 
+  // Arrêter/redémarrer le VAD quand l'avatar parle
+  useEffect(() => {
+    if (isAvatarSpeaking) {
+      console.log("🔇 Avatar parle - Arrêt VAD");
+      stopVADListening();
+    } else if (vadEnabled && !isProcessing) {
+      console.log("🔊 Avatar a fini - Redémarrage VAD dans 2s");
+      setTimeout(() => {
+        if (!isAvatarSpeaking && !isProcessing) {
+          startVADListening();
+        }
+      }, 2000);
+    }
+  }, [isAvatarSpeaking]);
+
+  // Arrêter le VAD pendant le traitement
+  useEffect(() => {
+    if (isProcessing && isListening) {
+      console.log("⏸️ Traitement en cours - Pause VAD");
+      stopVADListening();
+    }
+  }, [isProcessing]);
+
   // Arrêter l'avatar quand l'utilisateur commence à parler
   useEffect(() => {
     onUserSpeaking?.(isRecording);
   }, [isRecording, onUserSpeaking]);
 
   const startVADListening = async () => {
-    if (isListening) return;
+    if (isListening || isAvatarSpeaking || isProcessing) {
+      console.log("⏸️ VAD bloqué:", { isListening, isAvatarSpeaking, isProcessing });
+      return;
+    }
 
     try {
       setMicPermissionDenied(false);
@@ -70,8 +98,12 @@ const VoiceControls = ({
         enableVAD: true,
         onSpeechStart: () => {
           // Ignorer si l'avatar parle ou si déjà en cours d'enregistrement
-          if (isAvatarSpeaking || vadRecordingRef.current) return;
+          if (isAvatarSpeaking || vadRecordingRef.current || isProcessing) {
+            console.log("🚫 Speech ignoré - Avatar/Processing actif");
+            return;
+          }
           
+          console.log("🎤 Début d'enregistrement utilisateur");
           vadRecordingRef.current = true;
           setIsRecording(true);
           onUserSpeaking?.(true);
@@ -79,6 +111,7 @@ const VoiceControls = ({
         onSpeechEnd: async () => {
           if (!vadRecordingRef.current || !recorderRef.current) return;
           
+          console.log("🎤 Fin d'enregistrement utilisateur");
           vadRecordingRef.current = false;
           setIsRecording(false);
           onUserSpeaking?.(false);
@@ -86,27 +119,34 @@ const VoiceControls = ({
           try {
             const audioBlob = await recorderRef.current.stop();
             
-            // Remettre isListening à false pour permettre le redémarrage
-            setIsListening(false);
+            // Arrêter complètement le VAD pour éviter l'écho
+            stopVADListening();
             
             // Filtrage: ignorer les audios trop courts (< 1 seconde)
             if (audioBlob.size < 16000) {
-              setTimeout(() => startVADListening(), 500);
+              console.log("⏭️ Audio trop court, redémarrage VAD");
+              setTimeout(() => startVADListening(), 1000);
               return;
             }
             
+            console.log("📤 Envoi du message vocal");
             const base64Audio = await audioToBase64(audioBlob);
             await onVoiceMessage(base64Audio);
             
-            // Redémarrer l'écoute après traitement
+            // Attendre 3 secondes avant de redémarrer pour éviter de capturer l'avatar
+            console.log("⏳ Attente 3s avant redémarrage VAD");
             setTimeout(() => {
-              console.log("🔄 Redémarrage du VAD après traitement");
-              startVADListening();
-            }, 1000);
+              if (!isAvatarSpeaking && !isProcessing) {
+                console.log("🔄 Redémarrage du VAD");
+                startVADListening();
+              } else {
+                console.log("⏸️ Redémarrage VAD reporté (avatar/processing actif)");
+              }
+            }, 3000);
           } catch (error) {
             console.error("❌ Erreur audio:", error);
-            setIsListening(false);
-            setTimeout(() => startVADListening(), 500);
+            stopVADListening();
+            setTimeout(() => startVADListening(), 1000);
           }
         },
         onVolumeChange: (vol) => {
@@ -115,6 +155,7 @@ const VoiceControls = ({
       });
       
       setIsListening(true);
+      console.log("✅ VAD démarré");
       
     } catch (error) {
       console.error("❌ Erreur VAD:", error);
@@ -128,6 +169,7 @@ const VoiceControls = ({
   };
 
   const stopVADListening = () => {
+    console.log("🛑 Arrêt du VAD");
     if (recorderRef.current) {
       recorderRef.current.stop().catch(() => {});
       recorderRef.current = null;
