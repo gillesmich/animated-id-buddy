@@ -138,6 +138,17 @@ const Index = () => {
                 Scénarios
               </Button>
               <Button 
+                onClick={() => {
+                  setShowWorkflow(true);
+                  setShowEmbed(false);
+                }}
+                variant="default"
+                className="gradient-primary"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Custom
+              </Button>
+              <Button 
                 onClick={() => navigate('/chat')}
                 variant="outline"
                 className="glass border-primary/30 hover:border-primary/60"

@@ -166,17 +166,6 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 onChange={(e) => setConfig({ ...config, elevenlabsApiKey: e.target.value })}
                 className="glass"
               />
-              <div className="pt-2">
-                <button
-                  onClick={() => {
-                    const workflowTab = document.querySelector('[value="workflow"]') as HTMLElement;
-                    workflowTab?.click();
-                  }}
-                  className="text-sm text-primary hover:underline flex items-center gap-1"
-                >
-                  → Custom - Accéder aux scénarios personnalisés
-                </button>
-              </div>
             </div>
 
             <div className="pt-4 border-t border-border/50">
