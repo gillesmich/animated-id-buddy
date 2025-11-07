@@ -10,7 +10,7 @@ import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
-import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
+
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -172,9 +172,6 @@ const Index = () => {
 
             {/* Avatar Display & Tests */}
             <div className="space-y-6">
-              {selectedProvider === 'elevenlabs' ? (
-                <ElevenLabsConversation config={config} />
-              ) : (
               <Tabs defaultValue="musetalk" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="musetalk">MuseTalk</TabsTrigger>
@@ -217,10 +214,9 @@ const Index = () => {
                 </TabsContent>
 
                 <TabsContent value="elevenlabs" className="mt-6">
-                  <ElevenLabsConversation config={config} />
+                  <AvatarDisplay config={{ ...config, avatarProvider: 'did' }} />
                 </TabsContent>
               </Tabs>
-              )}
             </div>
           </div>
         )}
