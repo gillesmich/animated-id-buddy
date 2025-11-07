@@ -12,7 +12,7 @@ import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
 import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut } from "lucide-react";
+import { Sparkles, LogOut, MessageCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
@@ -125,6 +125,14 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => navigate('/chat')}
+                variant="outline"
+                className="glass border-primary/30 hover:border-primary/60"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Chat
+              </Button>
               <Button 
                 onClick={() => setShowEmbed(!showEmbed)}
                 variant="outline"
