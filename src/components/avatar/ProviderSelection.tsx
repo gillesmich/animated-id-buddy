@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Video, Sparkles, MessageSquare } from "lucide-react";
 
 interface ProviderSelectionProps {
-  onProviderSelect: (provider: 'did' | 'musetalk' | 'elevenlabs') => void;
+  onProviderSelect: (provider: 'did' | 'musetalk') => void;
 }
 
 const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
@@ -19,7 +19,7 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
           <Card 
             className="glass p-8 space-y-6 cursor-pointer hover:scale-105 transition-all duration-300 hover:shadow-xl border-2 hover:border-primary/50"
             onClick={() => onProviderSelect('did')}
@@ -74,32 +74,6 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
             </Button>
           </Card>
 
-          <Card 
-            className="glass p-8 space-y-6 cursor-pointer hover:scale-105 transition-all duration-300 hover:shadow-xl border-2 hover:border-primary/50"
-            onClick={() => onProviderSelect('elevenlabs')}
-          >
-            <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <MessageSquare className="w-10 h-10 text-primary" />
-              </div>
-            </div>
-            <div className="text-center space-y-3">
-              <h2 className="text-3xl font-bold">ElevenLabs</h2>
-              <p className="text-muted-foreground">
-                Conversations IA ultra-réalistes avec voix naturelle et interaction vocale en temps réel
-              </p>
-            </div>
-            <Button 
-              className="w-full" 
-              size="lg"
-              onClick={(e) => {
-                e.stopPropagation();
-                onProviderSelect('elevenlabs');
-              }}
-            >
-              Utiliser ElevenLabs
-            </Button>
-          </Card>
         </div>
       </div>
     </div>
