@@ -99,8 +99,8 @@ serve(async (req) => {
     
     console.log('📝 Texte brut Whisper:', cleanedText);
     
-    // Liste élargie de mots-clés YouTube à bloquer
-    const youtubeKeywords = [
+    // Liste élargie de mots-clés à bloquer
+    const noiseKeywords = [
       'voir une autre vidéo',
       'voir une vidéo',
       'regardé cette vidéo',
@@ -119,17 +119,27 @@ serve(async (req) => {
       'cliquez sur la cloche',
       'suivez-moi',
       'n\'oubliez pas',
+      'au revoir',
+      'à bientôt',
+      'à très vite',
+      'à plus tard',
+      'bye',
+      'salut',
+      'ciao',
+      'merci',
+      'avec plaisir',
     ];
     
-    // Vérifier si le texte contient majoritairement des mots-clés YouTube
+    // Vérifier si le texte contient majoritairement des mots-clés de bruit
     const lowerText = cleanedText.toLowerCase();
-    const keywordCount = youtubeKeywords.filter(keyword => lowerText.includes(keyword)).length;
+    const keywordCount = noiseKeywords.filter(keyword => lowerText.includes(keyword)).length;
     
-    // Si 2+ mots-clés YouTube OU texte très répétitif, rejeter
-    const hasRepetition = /(.{10,})\1{2,}/.test(cleanedText); // Détecte 3+ répétitions d'une même phrase
+    // Rejeter si contient des mots-clés de bruit OU texte très répétitif OU trop court
+    const hasRepetition = /(.{10,})\1{2,}/.test(cleanedText);
+    const isTooShort = cleanedText.length < 10;
     
-    if (keywordCount >= 2 || hasRepetition) {
-      console.log('❌ Message rejeté: mots-clés YouTube ou répétitions détectés');
+    if (keywordCount >= 1 || hasRepetition || isTooShort) {
+      console.log('❌ Message rejeté: bruit détecté (keywords:', keywordCount, ', répétitions:', hasRepetition, ', trop court:', isTooShort, ')');
       return new Response(JSON.stringify({ ...data, text: '' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -143,7 +153,7 @@ serve(async (req) => {
       /subtitles?\s+(by|from|made\s+by)\s+(the\s+)?amara\.org\s+community/gi,
       /.*amara\.org.*/gi,
       
-      // Appels à l'action YouTube - TRÈS agressifs
+      // Appels à l'action - TRÈS agressifs
       /voir\s+(une\s+)?(autre\s+)?vidéo/gi,
       /regardé\s+(cette\s+)?vidéo/gi,
       /regardez\s+(cette\s+)?vidéo/gi,
@@ -161,15 +171,23 @@ serve(async (req) => {
       /commentez(\s+en)?\s+dessous/gi,
       /suivez[-\s]?moi/gi,
       
-      // Phrases de remerciement - TRÈS agressives
+      // Formules de politesse et remerciements - TRÈS agressives
       /merci\s+(d['']avoir\s+)?regardé/gi,
       /merci\s+pour(\s+vos)?\s+commentaires?/gi,
       /merci\s+pour/gi,
       /merci\s+(à\s+tous|beaucoup|pour\s+cette\s+vidéo)/gi,
-      /à\s+bientôt/gi,
+      /merci\s*\.?\s*/gi,
+      /au\s+revoir\s*\.?\s*/gi,
+      /à\s+bientôt\s*\.?\s*/gi,
+      /à\s+très\s+vite\s*\.?\s*/gi,
+      /à\s+plus\s+tard\s*\.?\s*/gi,
       /à\s+la\s+prochaine/gi,
       /on\s+se\s+retrouve/gi,
       /rendez[-\s]?vous/gi,
+      /bye\s*\.?\s*/gi,
+      /salut\s*\.?\s*/gi,
+      /ciao\s*\.?\s*/gi,
+      /avec\s+plaisir\s*\.?\s*/gi,
     ];
     
     // Filtrer tous les patterns
@@ -204,8 +222,8 @@ serve(async (req) => {
     console.log('📝 Texte après filtrage:', filteredText);
     
     // Rejeter si trop court, vide, ou que de la ponctuation
-    if (!filteredText || filteredText.length < 15 || /^[.,!?\s]+$/.test(filteredText)) {
-      console.log('❌ Message rejeté: texte trop court ou vide après nettoyage');
+    if (!filteredText || filteredText.length < 30 || /^[.,!?\s]+$/.test(filteredText)) {
+      console.log('❌ Message rejeté: texte trop court ou vide après nettoyage (longueur:', filteredText.length, ')');
       filteredText = '';
     }
 
