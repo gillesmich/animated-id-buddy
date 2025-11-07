@@ -216,6 +216,14 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       console.log("🎬 Démarrage session WebRTC D-ID");
       console.log("📸 Avatar config:", avatarForDID);
       
+      // Vérifier si c'est une vidéo uploadée
+      const avatarUrl = avatarForDID.url || config.customAvatarVideo || config.customAvatarImage || '';
+      const isVideo = avatarUrl.match(/\.(mp4|webm|mov)$/i);
+      
+      if (isVideo) {
+        throw new Error("WebRTC ne fonctionne qu'avec des images. Veuillez uploader une image (JPG/PNG) ou utiliser un avatar préconfiguré.");
+      }
+      
       // Créer le gestionnaire WebRTC
       webRTCManagerRef.current = new DIDWebRTCManager(
         videoRef.current,
@@ -225,9 +233,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         }
       );
 
-      // Créer la session (use URL for now, WebRTC might need URL)
-      const imageUrl = avatarForDID.url || '';
-      await webRTCManagerRef.current.createSession(imageUrl);
+      // Créer la session avec l'image
+      await webRTCManagerRef.current.createSession(avatarUrl);
       
       toast({
         title: "✅ Connexion établie",
