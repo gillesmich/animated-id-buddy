@@ -19,7 +19,7 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card 
             className="glass p-8 space-y-6 cursor-pointer hover:scale-105 transition-all duration-300 hover:shadow-xl border-2 hover:border-primary/50"
             onClick={() => onProviderSelect('did')}
@@ -36,7 +36,7 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
               </p>
             </div>
             <Button 
-              className="w-full" 
+              className="w-full gradient-primary" 
               size="lg"
               onClick={(e) => {
                 e.stopPropagation();
@@ -63,7 +63,7 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
               </p>
             </div>
             <Button 
-              className="w-full" 
+              className="w-full gradient-primary" 
               size="lg"
               onClick={(e) => {
                 e.stopPropagation();
@@ -90,7 +90,7 @@ const ProviderSelection = ({ onProviderSelect }: ProviderSelectionProps) => {
               </p>
             </div>
             <Button 
-              className="w-full" 
+              className="w-full gradient-primary" 
               size="lg"
               onClick={(e) => {
                 e.stopPropagation();
