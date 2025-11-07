@@ -134,6 +134,11 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
             }`}
           />
           
+          {/* Lip Sync Animation */}
+          {conversation.isSpeaking && (
+            <div className="avatar-mouth-overlay" />
+          )}
+          
           {/* Status Indicator */}
           <div className="absolute top-4 right-4">
             <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
