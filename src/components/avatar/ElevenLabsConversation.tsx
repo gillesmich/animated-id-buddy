@@ -65,8 +65,10 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
       // Obtenir l'URL signée
       const url = await getSignedUrl();
       
-      // Démarrer la conversation
-      await conversation.startSession({ url });
+      // Démarrer la conversation avec l'URL signée
+      await conversation.startSession({
+        signedUrl: url,
+      });
       
     } catch (error) {
       console.error("❌ Error starting conversation:", error);
