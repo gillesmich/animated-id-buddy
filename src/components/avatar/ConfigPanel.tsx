@@ -348,6 +348,18 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             </div>
           </div>
 
+          <div className="glass rounded-lg p-4 mb-6 border border-primary/20">
+            <a 
+              href="https://elevenlabs.io/docs" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+            >
+              <Mic className="w-4 h-4" />
+              Documentation ElevenLabs
+            </a>
+          </div>
+
           {useN8n ? (
             <div className="space-y-6">
               <WorkflowManager
