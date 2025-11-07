@@ -10,7 +10,7 @@ interface ApiKeyValidatorProps {
     openaiApiKey: string;
     elevenlabsApiKey: string;
   };
-  avatarProvider?: 'did' | 'musetalk';
+  avatarProvider?: 'did' | 'musetalk' | 'elevenlabs';
 }
 
 interface ValidationResult {
@@ -77,8 +77,8 @@ const ApiKeyValidator = ({ config, avatarProvider }: ApiKeyValidatorProps) => {
       elevenlabs: null,
     };
 
-    // Validate D-ID only if not using MuseTalk
-    if (avatarProvider !== 'musetalk' && config.didApiKey) {
+    // Validate D-ID only if not using MuseTalk or ElevenLabs
+    if (avatarProvider !== 'musetalk' && avatarProvider !== 'elevenlabs' && config.didApiKey) {
       newResults.did = await validateDidKey();
     }
 
@@ -142,7 +142,7 @@ const ApiKeyValidator = ({ config, avatarProvider }: ApiKeyValidatorProps) => {
       </div>
 
       <div className="space-y-3">
-        {avatarProvider !== 'musetalk' && (
+        {avatarProvider !== 'musetalk' && avatarProvider !== 'elevenlabs' && (
           <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border/50">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium">D-ID API</span>

@@ -10,6 +10,7 @@ interface ElevenLabsConversationProps {
   config: {
     selectedAvatar: string;
     customAvatarImage?: string;
+    elevenlabsAgentId?: string;
   };
 }
 
@@ -40,8 +41,16 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
 
   const getSignedUrl = async () => {
     try {
+      if (!config.elevenlabsAgentId) {
+        toast.error("Veuillez configurer votre ElevenLabs Agent ID dans la section API Keys");
+        throw new Error("Agent ID manquant");
+      }
+
       const { data, error } = await supabase.functions.invoke('elevenlabs-agent', {
-        body: { action: 'get_signed_url' }
+        body: { 
+          action: 'get_signed_url',
+          agentId: config.elevenlabsAgentId
+        }
       });
 
       if (error) throw error;

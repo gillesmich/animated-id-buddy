@@ -21,12 +21,20 @@ serve(async (req) => {
     const { action, agentId } = await req.json();
 
     if (action === 'get_signed_url') {
-      // Pour l'instant, on utilise un agent ID par défaut
-      // L'utilisateur devra créer son agent sur ElevenLabs et mettre l'ID ici
-      const defaultAgentId = agentId || 'YOUR_AGENT_ID'; // À remplacer par l'agent ID réel
+      if (!agentId) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Agent ID requis. Créez un agent sur ElevenLabs et configurez l\'ID dans les paramètres.' 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+          }
+        );
+      }
       
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${defaultAgentId}`,
+        `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
         {
           method: 'GET',
           headers: {

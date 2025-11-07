@@ -39,6 +39,7 @@ interface ConfigPanelProps {
     didApiKey: string;
     openaiApiKey: string;
     elevenlabsApiKey: string;
+    elevenlabsAgentId?: string;
     selectedAvatar: string;
     customAvatarImage?: string;
     customAvatarVideo?: string;
@@ -48,7 +49,7 @@ interface ConfigPanelProps {
     selectedWorkflow: string;
     useN8n?: boolean;
     systemPrompt?: string;
-    avatarProvider?: 'did' | 'musetalk';
+    avatarProvider?: 'did' | 'musetalk' | 'elevenlabs';
   };
   setConfig: (config: any) => void;
 }
@@ -119,7 +120,7 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
           />
 
           <div className="space-y-4 pt-4 border-t border-border/50">
-            {config.avatarProvider !== 'musetalk' && (
+            {config.avatarProvider !== 'musetalk' && config.avatarProvider !== 'elevenlabs' && (
               <div className="space-y-2">
                 <Label htmlFor="did-key" className="flex items-center gap-2">
                   <Key className="w-4 h-4" />
@@ -164,6 +165,24 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 onChange={(e) => setConfig({ ...config, elevenlabsApiKey: e.target.value })}
                 className="glass"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="elevenlabs-agent-id" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                ElevenLabs Agent ID (pour Conversational AI)
+              </Label>
+              <Input
+                id="elevenlabs-agent-id"
+                type="text"
+                placeholder="Ex: your-agent-id-here"
+                value={config.elevenlabsAgentId || ''}
+                onChange={(e) => setConfig({ ...config, elevenlabsAgentId: e.target.value })}
+                className="glass"
+              />
+              <p className="text-xs text-muted-foreground">
+                Créez un agent sur <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ElevenLabs Conversational AI</a> et copiez l'ID ici
+              </p>
             </div>
 
             <div className="pt-4 border-t border-border/50">
