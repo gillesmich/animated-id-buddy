@@ -10,6 +10,7 @@ import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
+import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -168,31 +169,49 @@ const Index = () => {
 
             {/* Avatar Display & Tests */}
             <div className="space-y-6">
-              <Tabs defaultValue="preview" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="creator">Créateur IA</TabsTrigger>
-                  <TabsTrigger value="preview">Prévisualisation</TabsTrigger>
-                  <TabsTrigger value="animations">Tests</TabsTrigger>
-                  <TabsTrigger value="gif">GIF</TabsTrigger>
+              <Tabs defaultValue="musetalk" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="musetalk">MuseTalk</TabsTrigger>
+                  <TabsTrigger value="did">D-ID WebRTC</TabsTrigger>
+                  <TabsTrigger value="elevenlabs">ElevenLabs</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="creator" className="mt-6">
-                  <AvatarCreator />
+                <TabsContent value="musetalk" className="mt-6">
+                  <Tabs defaultValue="preview" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="creator">Créateur IA</TabsTrigger>
+                      <TabsTrigger value="preview">Prévisualisation</TabsTrigger>
+                      <TabsTrigger value="animations">Tests</TabsTrigger>
+                      <TabsTrigger value="gif">GIF</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="creator" className="mt-6">
+                      <AvatarCreator />
+                    </TabsContent>
+
+                    <TabsContent value="preview" className="mt-6">
+                      <AvatarDisplay config={{ ...config, avatarProvider: 'musetalk' }} />
+                    </TabsContent>
+                    
+                    <TabsContent value="animations" className="mt-6">
+                      <AvatarAnimationTest config={{
+                        customAvatarImage: config.customAvatarImage,
+                        selectedAvatar: config.selectedAvatar
+                      }} />
+                    </TabsContent>
+
+                    <TabsContent value="gif" className="mt-6">
+                      <GifGenerator />
+                    </TabsContent>
+                  </Tabs>
                 </TabsContent>
 
-                <TabsContent value="preview" className="mt-6">
-                  <AvatarDisplay config={config} />
-                </TabsContent>
-                
-                <TabsContent value="animations" className="mt-6">
-                  <AvatarAnimationTest config={{
-                    customAvatarImage: config.customAvatarImage,
-                    selectedAvatar: config.selectedAvatar
-                  }} />
+                <TabsContent value="did" className="mt-6">
+                  <AvatarDisplay config={{ ...config, avatarProvider: 'did' }} />
                 </TabsContent>
 
-                <TabsContent value="gif" className="mt-6">
-                  <GifGenerator />
+                <TabsContent value="elevenlabs" className="mt-6">
+                  <ElevenLabsConversation config={config} />
                 </TabsContent>
               </Tabs>
             </div>

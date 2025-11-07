@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.musetalk-realtime]
 verify_jwt = false
+
+[functions.elevenlabs-agent]
+verify_jwt = false
