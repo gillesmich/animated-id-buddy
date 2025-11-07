@@ -171,15 +171,26 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
             <div className="pt-4 border-t border-border/50">
               <AgentSelector
                 value={config.elevenlabsAgentId || ''}
-                onChange={(value) => setConfig({ ...config, elevenlabsAgentId: value })}
+                onChange={(value) => {
+                  console.log('🤖 Agent sélectionné:', value);
+                  setConfig({ ...config, elevenlabsAgentId: value });
+                }}
                 apiKey={config.elevenlabsApiKey}
               />
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 rounded-lg bg-secondary/30">
+              <span>💡</span>
+              <span>Choisissez soit un agent soit une voix (pas les deux)</span>
             </div>
 
             <div className="pt-4 border-t border-border/50">
               <VoiceSelector
                 value={config.selectedVoice}
-                onChange={(value) => setConfig({ ...config, selectedVoice: value })}
+                onChange={(value) => {
+                  console.log('🎤 Voix sélectionnée:', value);
+                  setConfig({ ...config, selectedVoice: value });
+                }}
                 apiKey={config.elevenlabsApiKey}
               />
             </div>
@@ -366,7 +377,8 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 elevenlabsKey: config.elevenlabsApiKey,
                 didKey: config.didApiKey,
                 model: config.selectedModel,
-                voiceId: config.selectedVoice
+                voiceId: config.selectedVoice,
+                agentId: config.elevenlabsAgentId
               }}
             />
           )}

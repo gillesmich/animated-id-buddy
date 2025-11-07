@@ -19,6 +19,7 @@ interface AvatarDisplayProps {
     didApiKey: string;
     openaiApiKey: string;
     elevenlabsApiKey: string;
+    elevenlabsAgentId?: string;
     selectedAvatar: string;
     customAvatarImage: string;
     customAvatarVideo?: string;
@@ -293,7 +294,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         body: JSON.stringify({
           message: messageText,
           avatarId: config.customAvatarImage || config.selectedAvatar,
-          voiceId: config.selectedVoice,
+          voiceId: config.elevenlabsAgentId || config.selectedVoice,
+          agentId: config.elevenlabsAgentId,
           model: config.selectedModel,
           audio: audioBase64,
           timestamp: new Date().toISOString()
@@ -356,10 +358,13 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
       return;
     }
 
-    if (!config.selectedAvatar || !config.selectedVoice || !config.selectedModel) {
+    // Validation: au moins une voix ou un agent doit être configuré
+    const hasVoiceOrAgent = config.selectedVoice || config.elevenlabsAgentId;
+    
+    if (!config.selectedAvatar || !hasVoiceOrAgent || !config.selectedModel) {
       toast({
         title: "Sélection manquante",
-        description: "Veuillez sélectionner avatar, voix et modèle",
+        description: "Veuillez sélectionner avatar, voix/agent et modèle",
         variant: "destructive",
       });
       return;
@@ -565,12 +570,16 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           console.log("📹 Public video URL:", videoUrl);
 
           // Appel à FAL AI MuseTalk via edge function
+          // Utiliser l'agent ElevenLabs si configuré, sinon la voix TTS
+          const voiceOrAgent = config.elevenlabsAgentId || config.selectedVoice;
+          console.log('🎤 Utilisation:', config.elevenlabsAgentId ? `Agent ${voiceOrAgent}` : `Voix ${voiceOrAgent}`);
+
           const requestBody = {
             action: 'create_talk',
             data: {
               source_url: videoUrl,
               text: textForVideo,
-              voice_id: config.selectedVoice,
+              voice_id: voiceOrAgent,
               config: {
                 bbox_shift: 0
               }
@@ -820,6 +829,10 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
         try {
           console.log("🔊 Fallback: Génération audio ElevenLabs...");
           
+          // Utiliser l'agent ElevenLabs si configuré, sinon la voix TTS
+          const voiceOrAgent = config.elevenlabsAgentId || config.selectedVoice || '9BWtsMINqrJLrRacOk9x';
+          console.log('🎤 Audio fallback - Utilisation:', config.elevenlabsAgentId ? `Agent ${voiceOrAgent}` : `Voix ${voiceOrAgent}`);
+
           const ttsResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
             {
@@ -830,7 +843,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
               },
               body: JSON.stringify({
                 text: responseText,
-                voiceId: config.selectedVoice || '9BWtsMINqrJLrRacOk9x',
+                voiceId: voiceOrAgent,
               }),
             }
           );

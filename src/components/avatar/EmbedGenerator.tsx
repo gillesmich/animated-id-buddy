@@ -9,6 +9,7 @@ interface EmbedGeneratorProps {
     didApiKey: string;
     openaiApiKey: string;
     elevenlabsApiKey: string;
+    elevenlabsAgentId?: string;
     selectedAvatar: string;
     customAvatarImage?: string;
     selectedVoice: string;
@@ -53,7 +54,8 @@ const generateEmbedCode = () => {
     config: {
       container: '#avatarai-container',
       avatar: '${config.customAvatarImage || config.selectedAvatar || 'default'}',
-      voice: '${config.selectedVoice || 'alloy'}',
+      voice: '${config.elevenlabsAgentId || config.selectedVoice || 'alloy'}',
+      agentId: '${config.elevenlabsAgentId || ''}',
       model: '${config.selectedModel || 'gpt-4o-mini'}',
       workflowUrl: '${selectedWorkflow?.webhookUrl || 'YOUR_N8N_WEBHOOK_URL'}',
       streamResponse: true,
