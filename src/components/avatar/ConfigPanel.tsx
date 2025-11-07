@@ -183,6 +183,18 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
                 apiKey={config.elevenlabsApiKey}
               />
             </div>
+
+            <div className="pt-4 border-t border-border/50">
+              <a 
+                href="https://elevenlabs.io/docs" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <Mic className="w-4 h-4" />
+                Documentation ElevenLabs
+              </a>
+            </div>
           </div>
         </TabsContent>
 
