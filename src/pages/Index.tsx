@@ -12,7 +12,7 @@ import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
 import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogOut, MessageCircle } from "lucide-react";
+import { Sparkles, LogOut, MessageCircle, Workflow } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
@@ -77,6 +77,7 @@ const Index = () => {
   });
 
   const [showEmbed, setShowEmbed] = useState(false);
+  const [showWorkflow, setShowWorkflow] = useState(false);
 
   // Sauvegarder la config dans localStorage quand elle change
   useEffect(() => {
@@ -126,6 +127,17 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button 
+                onClick={() => {
+                  setShowWorkflow(!showWorkflow);
+                  setShowEmbed(false);
+                }}
+                variant="outline"
+                className="glass border-primary/30 hover:border-primary/60"
+              >
+                <Workflow className="w-4 h-4 mr-2" />
+                Scénarios
+              </Button>
+              <Button 
                 onClick={() => navigate('/chat')}
                 variant="outline"
                 className="glass border-primary/30 hover:border-primary/60"
@@ -134,7 +146,10 @@ const Index = () => {
                 Chat
               </Button>
               <Button 
-                onClick={() => setShowEmbed(!showEmbed)}
+                onClick={() => {
+                  setShowEmbed(!showEmbed);
+                  setShowWorkflow(false);
+                }}
                 variant="outline"
                 className="glass border-primary/30 hover:border-primary/60"
               >
@@ -171,6 +186,18 @@ const Index = () => {
 
         {showEmbed ? (
           <EmbedGenerator config={config} />
+        ) : showWorkflow ? (
+          <div className="max-w-4xl mx-auto">
+            <div className="glass rounded-lg p-8 space-y-6">
+              <div className="text-center space-y-2 mb-8">
+                <h2 className="text-3xl font-bold text-gradient">Scénarios Personnalisés</h2>
+                <p className="text-muted-foreground">
+                  Créez et gérez vos workflows n8n ou backends Python personnalisés
+                </p>
+              </div>
+              <ConfigPanel config={config} setConfig={setConfig} />
+            </div>
+          </div>
         ) : (
           <div className="grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
             {/* Configuration Panel */}
