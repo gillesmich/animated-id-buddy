@@ -39,6 +39,18 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  // Réinitialiser automatiquement si une voix agent est sélectionnée
+  useEffect(() => {
+    if (value && value.startsWith('agent_')) {
+      console.log('⚠️ Agent voice detected, resetting to default TTS voice');
+      onChange('EXAVITQu4vr4xnSDxMaL'); // Sarah - voix TTS par défaut
+      toast({
+        title: "Voix mise à jour",
+        description: "Les agents conversationnels ne sont pas compatibles avec TTS. Voix réinitialisée.",
+      });
+    }
+  }, [value, onChange, toast]);
+
   useEffect(() => {
     const loadVoices = async () => {
       setLoading(true);
@@ -49,7 +61,7 @@ export function VoiceSelector({ value, onChange, apiKey }: VoiceSelectorProps) {
         if (error) throw error;
         
         if (data?.voices) {
-          // Filtrer les agents conversationnels (ils sont gérés séparément)
+          // Filtrer les agents conversationnels (incompatibles avec TTS)
           const ttsVoices = data.voices.filter((voice: Voice) => 
             !voice.voice_id.startsWith('agent_')
           );

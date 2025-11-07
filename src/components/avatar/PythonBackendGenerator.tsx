@@ -11,7 +11,6 @@ interface PythonBackendGeneratorProps {
     didKey: string;
     model: string;
     voiceId: string;
-    agentId?: string;
   };
 }
 
@@ -48,7 +47,6 @@ ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', '${config.elevenlabsKey}')
 DID_API_KEY = os.getenv('DID_API_KEY', '${config.didKey}')
 MODEL = '${config.model || 'gpt-5-2025-08-07'}'
 VOICE_ID = '${config.voiceId || 'EXAVITQu4vr4xnSDxMaL'}'
-AGENT_ID = '${config.agentId || ''}'  # Agent ElevenLabs si configuré
 
 # Validate API keys
 if not all([OPENAI_API_KEY, ELEVENLABS_API_KEY, DID_API_KEY]):

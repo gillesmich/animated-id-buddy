@@ -10,7 +10,7 @@ import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
-
+import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +19,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedProvider, setSelectedProvider] = useState<'did' | 'musetalk' | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'did' | 'musetalk' | 'elevenlabs' | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -72,7 +72,7 @@ const Index = () => {
       selectedWorkflow: "",
       useN8n: false,
       systemPrompt: "Vous êtes un assistant virtuel nommé Clara. Vous êtes sympathique, professionnelle et vous aidez les utilisateurs avec leurs questions.",
-      avatarProvider: 'did' as 'did' | 'musetalk',
+      avatarProvider: 'did' as 'did' | 'musetalk' | 'elevenlabs',
     };
   });
 
@@ -154,6 +154,8 @@ const Index = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             {selectedProvider === 'musetalk' 
               ? "Powered by MuseTalk, OpenAI, and ElevenLabs. Configure, test, and deploy interactive AI avatars on any website."
+              : selectedProvider === 'elevenlabs'
+              ? "Powered by ElevenLabs Conversational AI. Natural voice conversations with ultra-realistic AI avatars."
               : "Powered by D-ID, OpenAI, and ElevenLabs. Configure, test, and deploy interactive AI avatars on any website."
             }
           </p>
@@ -170,10 +172,14 @@ const Index = () => {
 
             {/* Avatar Display & Tests */}
             <div className="space-y-6">
+              {selectedProvider === 'elevenlabs' ? (
+                <ElevenLabsConversation config={config} />
+              ) : (
               <Tabs defaultValue="musetalk" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="musetalk">MuseTalk</TabsTrigger>
                   <TabsTrigger value="did">D-ID WebRTC</TabsTrigger>
+                  <TabsTrigger value="elevenlabs">ElevenLabs</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="musetalk" className="mt-6">
@@ -209,7 +215,12 @@ const Index = () => {
                 <TabsContent value="did" className="mt-6">
                   <AvatarDisplay config={{ ...config, avatarProvider: 'did' }} />
                 </TabsContent>
+
+                <TabsContent value="elevenlabs" className="mt-6">
+                  <ElevenLabsConversation config={config} />
+                </TabsContent>
               </Tabs>
+              )}
             </div>
           </div>
         )}
@@ -221,6 +232,8 @@ const Index = () => {
           <p>
             {selectedProvider === 'musetalk' 
               ? "Powered by MuseTalk, OpenAI, and ElevenLabs • Built with ❤️"
+              : selectedProvider === 'elevenlabs'
+              ? "Powered by ElevenLabs Conversational AI • Built with ❤️"
               : "Powered by D-ID, OpenAI, and ElevenLabs • Built with ❤️"
             }
           </p>
