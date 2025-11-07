@@ -37,6 +37,7 @@ serve(async (req) => {
     console.log(`✅ Retrieved ${voicesData.voices?.length || 0} standard voices`);
 
     // Récupérer les agents conversationnels
+    let agents: any[] = [];
     let agentVoices: any[] = [];
     try {
       const agentsResponse = await fetch('https://api.elevenlabs.io/v1/convai/agents', {
@@ -50,16 +51,21 @@ serve(async (req) => {
         const agentsData = await agentsResponse.json();
         console.log(`✅ Retrieved ${agentsData.agents?.length || 0} agents`);
         
+        // Stocker les agents complets
+        agents = (agentsData.agents || []).map((agent: any) => ({
+          agent_id: agent.agent_id,
+          name: agent.name,
+          description: agent.conversation_config?.agent?.prompt?.prompt?.substring(0, 100) || 'Agent conversationnel'
+        }));
+        
         // Transformer les agents en format voix
-        agentVoices = (agentsData.agents || []).map((agent: any) => ({
+        agentVoices = agents.map((agent: any) => ({
           voice_id: agent.agent_id,
           name: `${agent.name} (Agent)`,
           category: 'Agents créés',
           labels: {
             type: 'agent',
-            ...(agent.conversation_config?.agent?.prompt?.prompt && {
-              description: agent.conversation_config.agent.prompt.prompt.substring(0, 50) + '...'
-            })
+            description: agent.description
           }
         }));
       } else {
@@ -80,7 +86,10 @@ serve(async (req) => {
     const allVoices = [...categorizedVoices, ...agentVoices];
 
     return new Response(
-      JSON.stringify({ voices: allVoices }),
+      JSON.stringify({ 
+        voices: allVoices,
+        agents: agents 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

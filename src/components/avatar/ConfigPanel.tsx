@@ -16,6 +16,7 @@ import WorkflowManager from "./WorkflowManager";
 import ApiKeyValidator from "./ApiKeyValidator";
 import MuseTalkControls from "./MuseTalkControls";
 import { VoiceSelector } from "./VoiceSelector";
+import { AgentSelector } from "./AgentSelector";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -167,22 +168,12 @@ const ConfigPanel = ({ config, setConfig }: ConfigPanelProps) => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="elevenlabs-agent-id" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                ElevenLabs Agent ID (pour Conversational AI)
-              </Label>
-              <Input
-                id="elevenlabs-agent-id"
-                type="text"
-                placeholder="Ex: your-agent-id-here"
+            <div className="pt-4 border-t border-border/50">
+              <AgentSelector
                 value={config.elevenlabsAgentId || ''}
-                onChange={(e) => setConfig({ ...config, elevenlabsAgentId: e.target.value })}
-                className="glass"
+                onChange={(value) => setConfig({ ...config, elevenlabsAgentId: value })}
+                apiKey={config.elevenlabsApiKey}
               />
-              <p className="text-xs text-muted-foreground">
-                Créez un agent sur <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ElevenLabs Conversational AI</a> et copiez l'ID ici
-              </p>
             </div>
 
             <div className="pt-4 border-t border-border/50">
