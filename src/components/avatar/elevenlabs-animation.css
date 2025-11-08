@@ -1,0 +1,46 @@
+/* ElevenLabs Avatar Lipsync Animation */
+@keyframes lipsync {
+  0%, 100% {
+    transform: scale(1) translateY(0);
+  }
+  25% {
+    transform: scale(1.02) translateY(-2px);
+  }
+  50% {
+    transform: scale(1.01) translateY(2px);
+  }
+  75% {
+    transform: scale(1.015) translateY(-1px);
+  }
+}
+
+@keyframes mouth-move {
+  0%, 100% {
+    clip-path: inset(0 0 0 0);
+  }
+  50% {
+    clip-path: inset(0 0 2% 0);
+  }
+}
+
+.animate-lipsync {
+  animation: lipsync 0.3s ease-in-out infinite;
+}
+
+/* Subtle glow effect when speaking */
+.speaking-glow {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5),
+              0 0 40px rgba(59, 130, 246, 0.3);
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5),
+                0 0 40px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.7),
+                0 0 60px rgba(59, 130, 246, 0.5);
+  }
+}

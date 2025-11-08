@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import "./elevenlabs-animation.css";
 
 interface ElevenLabsConversationProps {
   config: {
@@ -122,11 +123,15 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
         </div>
 
         {/* Avatar Display */}
-        <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20">
+        <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 transition-all duration-300 ${
+          conversation.isSpeaking ? 'speaking-glow' : ''
+        }`}>
           <img
             src={getAvatarImage()}
             alt="Avatar"
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover transition-transform duration-100 ${
+              conversation.isSpeaking ? 'animate-lipsync' : ''
+            }`}
           />
           
           {/* Status Indicator */}
