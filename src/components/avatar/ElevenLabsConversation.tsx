@@ -36,7 +36,9 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
     },
     onError: (error) => {
       console.error("❌ ElevenLabs error:", error);
-      toast.error("Erreur de connexion");
+      console.error("❌ Error details:", typeof error === 'string' ? error : JSON.stringify(error, null, 2));
+      const errorMessage = typeof error === 'string' ? error : "Erreur de connexion inconnue";
+      toast.error(`Erreur ElevenLabs: ${errorMessage}`);
     },
   });
 
@@ -107,17 +109,40 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
       const url = await getSignedUrl();
       console.log("✅ Signed URL obtained:", url ? "Yes" : "No");
       
+      if (!url) {
+        throw new Error("URL signée non valide");
+      }
+      
       // Démarrer la conversation avec l'URL signée
       console.log("🚀 Starting session with ElevenLabs...");
-      await conversation.startSession({
+      console.log("📍 Using signed URL:", url);
+      
+      // Ajouter un timeout pour détecter les connexions qui prennent trop de temps
+      const sessionPromise = conversation.startSession({
         signedUrl: url,
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Timeout: La connexion a pris trop de temps")), 10000)
+      );
+      
+      await Promise.race([sessionPromise, timeoutPromise]);
       
       console.log("✅ Session started successfully");
       
     } catch (error) {
       console.error("❌ Error starting conversation:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      console.error("❌ Error type:", typeof error);
+      console.error("❌ Error keys:", error ? Object.keys(error) : "null");
+      
+      let errorMessage = "Erreur inconnue";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object') {
+        errorMessage = JSON.stringify(error);
+      }
+      
       toast.error(`Erreur: ${errorMessage}`);
     }
   };
