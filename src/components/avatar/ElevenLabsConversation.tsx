@@ -42,6 +42,8 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
 
   const getSignedUrl = async () => {
     try {
+      console.log("🔑 Getting signed URL for agent:", config.elevenlabsAgentId);
+      
       if (!config.elevenlabsAgentId) {
         toast.error("Veuillez configurer votre ElevenLabs Agent ID dans la section API Keys");
         throw new Error("Agent ID manquant");
@@ -54,35 +56,69 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
         }
       });
 
-      if (error) throw error;
+      console.log("📡 Edge function response:", { data, error });
+
+      if (error) {
+        console.error("❌ Edge function error:", error);
+        throw error;
+      }
       
+      if (!data || !data.signed_url) {
+        console.error("❌ Invalid response from edge function:", data);
+        throw new Error("URL signée invalide");
+      }
+
+      console.log("✅ Signed URL received successfully");
       setSignedUrl(data.signed_url);
       return data.signed_url;
     } catch (error) {
       console.error("❌ Error getting signed URL:", error);
-      toast.error("Erreur lors de la récupération de l'URL signée");
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      toast.error(`Erreur: ${errorMessage}`);
       throw error;
     }
   };
 
   const startConversation = async () => {
     try {
+      console.log("🎙️ Starting ElevenLabs conversation...");
       toast.info("Initialisation...");
       
+      // Vérifier la configuration
+      if (!config.elevenlabsAgentId) {
+        toast.error("Agent ID manquant. Veuillez le configurer dans les paramètres.");
+        return;
+      }
+
+      console.log("🎤 Requesting microphone access...");
+      
       // Demander l'accès au microphone
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("✅ Microphone access granted");
+      } catch (micError) {
+        console.error("❌ Microphone access denied:", micError);
+        toast.error("Accès au microphone refusé");
+        return;
+      }
       
       // Obtenir l'URL signée
+      console.log("🔗 Getting signed URL...");
       const url = await getSignedUrl();
+      console.log("✅ Signed URL obtained:", url ? "Yes" : "No");
       
       // Démarrer la conversation avec l'URL signée
+      console.log("🚀 Starting session with ElevenLabs...");
       await conversation.startSession({
         signedUrl: url,
       });
       
+      console.log("✅ Session started successfully");
+      
     } catch (error) {
       console.error("❌ Error starting conversation:", error);
-      toast.error("Erreur lors du démarrage");
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
+      toast.error(`Erreur: ${errorMessage}`);
     }
   };
 
