@@ -26,10 +26,8 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    // Validate API key is a valid ByteString (ASCII only)
-    if (!/^[\x00-\x7F]*$/.test(OPENAI_API_KEY)) {
-      throw new Error('OPENAI_API_KEY contains invalid characters');
-    }
+    console.log('API Key length:', OPENAI_API_KEY.length);
+    console.log('API Key starts with:', OPENAI_API_KEY.substring(0, 7));
 
     // Handle both data URL format and raw base64
     let base64Data = audioBase64;
