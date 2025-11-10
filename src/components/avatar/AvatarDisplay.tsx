@@ -633,7 +633,7 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
             setGenerationProgress({ 
               current: progressPercent, 
               max: 100, 
-              message: `Génération en cours... ${progressPercent}%` 
+              message: '' 
             });
             
             const statusResponse = await authenticatedFetch('musetalk-avatar', {
@@ -1227,18 +1227,12 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           {isLoading && !streamingText && (
             <div className="flex flex-col gap-2 p-3">
               {generationProgress ? (
-                <>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">{generationProgress.message}</span>
-                  </div>
-                  <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="bg-primary h-full transition-all duration-300 ease-out"
-                      style={{ width: `${generationProgress.current}%` }}
-                    />
-                  </div>
-                </>
+                <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300 ease-out"
+                    style={{ width: `${generationProgress.current}%` }}
+                  />
+                </div>
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
