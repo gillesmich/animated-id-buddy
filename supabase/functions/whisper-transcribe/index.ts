@@ -20,10 +20,15 @@ serve(async (req) => {
     const body = await req.json();
     const validatedData = requestSchema.parse(body);
     const { audioBase64 } = validatedData;
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')?.trim();
 
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY not configured');
+    }
+
+    // Validate API key is a valid ByteString (ASCII only)
+    if (!/^[\x00-\x7F]*$/.test(OPENAI_API_KEY)) {
+      throw new Error('OPENAI_API_KEY contains invalid characters');
     }
 
     // Handle both data URL format and raw base64
