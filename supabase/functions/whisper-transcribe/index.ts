@@ -26,9 +26,6 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    console.log('API Key length:', OPENAI_API_KEY.length);
-    console.log('API Key starts with:', OPENAI_API_KEY.substring(0, 7));
-
     // Handle both data URL format and raw base64
     let base64Data = audioBase64;
     if (audioBase64.includes(',')) {
@@ -100,8 +97,6 @@ serve(async (req) => {
     // Filtrer les sous-titres automatiques indésirables et références Amara
     let cleanedText = data.text;
     
-    console.log('📝 Texte brut Whisper:', cleanedText);
-    
     // Liste élargie de mots-clés YouTube à bloquer
     const youtubeKeywords = [
       'voir une autre vidéo',
@@ -132,7 +127,6 @@ serve(async (req) => {
     const hasRepetition = /(.{10,})\1{2,}/.test(cleanedText); // Détecte 3+ répétitions d'une même phrase
     
     if (keywordCount >= 2 || hasRepetition) {
-      console.log('❌ Message rejeté: mots-clés YouTube ou répétitions détectés');
       return new Response(JSON.stringify({ ...data, text: '' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -204,11 +198,8 @@ serve(async (req) => {
     filteredText = filteredText.replace(/\s+/g, ' ').trim();
     filteredText = filteredText.replace(/[.!?]+\s*$/, '').trim();
     
-    console.log('📝 Texte après filtrage:', filteredText);
-    
     // Rejeter si trop court, vide, ou que de la ponctuation
     if (!filteredText || filteredText.length < 15 || /^[.,!?\s]+$/.test(filteredText)) {
-      console.log('❌ Message rejeté: texte trop court ou vide après nettoyage');
       filteredText = '';
     }
 
