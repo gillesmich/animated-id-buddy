@@ -11,6 +11,8 @@ import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
 import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
+import ElevenLabsWebSocketConversation from "@/components/avatar/ElevenLabsWebSocketConversation";
+import ElevenLabsImageLipsync from "@/components/avatar/ElevenLabsImageLipsync";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, MessageCircle, Workflow } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -219,7 +221,28 @@ const Index = () => {
             {/* Avatar Display & Tests */}
             <div className="space-y-6">
               {selectedProvider === 'elevenlabs' ? (
-                <ElevenLabsConversation config={config} />
+                <Tabs defaultValue="websocket" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="websocket">WebSocket Manuel</TabsTrigger>
+                    <TabsTrigger value="sdk">SDK React</TabsTrigger>
+                    <TabsTrigger value="lipsync">Image Lipsync</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="websocket" className="mt-6">
+                    <ElevenLabsWebSocketConversation config={config} />
+                  </TabsContent>
+                  
+                  <TabsContent value="sdk" className="mt-6">
+                    <ElevenLabsConversation config={config} />
+                  </TabsContent>
+                  
+                  <TabsContent value="lipsync" className="mt-6">
+                    <ElevenLabsImageLipsync 
+                      config={config} 
+                      onImageSelected={(url) => setConfig(prev => ({ ...prev, customAvatarImage: url }))}
+                    />
+                  </TabsContent>
+                </Tabs>
               ) : (
               <Tabs defaultValue="musetalk" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
@@ -263,7 +286,28 @@ const Index = () => {
                 </TabsContent>
 
                 <TabsContent value="elevenlabs" className="mt-6">
-                  <ElevenLabsConversation config={config} />
+                  <Tabs defaultValue="websocket" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="websocket">WebSocket Manuel</TabsTrigger>
+                      <TabsTrigger value="sdk">SDK React</TabsTrigger>
+                      <TabsTrigger value="lipsync">Image Lipsync</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="websocket" className="mt-6">
+                      <ElevenLabsWebSocketConversation config={config} />
+                    </TabsContent>
+                    
+                    <TabsContent value="sdk" className="mt-6">
+                      <ElevenLabsConversation config={config} />
+                    </TabsContent>
+                    
+                    <TabsContent value="lipsync" className="mt-6">
+                      <ElevenLabsImageLipsync 
+                        config={config} 
+                        onImageSelected={(url) => setConfig(prev => ({ ...prev, customAvatarImage: url }))}
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </TabsContent>
               </Tabs>
               )}
