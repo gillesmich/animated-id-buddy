@@ -124,10 +124,10 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
       <div className="space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold text-gradient">
-            ElevenLabs Conversational AI
+            ElevenLabs Backend Local
           </h3>
           <p className="text-muted-foreground">
-            Connexion WebSocket manuelle avec contrôle complet
+            Connexion directe à votre serveur Socket.IO local
           </p>
         </div>
 
@@ -198,9 +198,8 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
 
         {/* Info */}
         <div className="text-center text-sm text-muted-foreground space-y-1">
-          <p>💡 Connexion au backend Python local (port 8000)</p>
-          <p>🎤 Pipeline complet: Whisper → GPT → ElevenLabs → MuseTalk</p>
-          <p>🤖 Socket.IO pour communication temps réel</p>
+          <p>🎤 Votre voix → Backend Local (port 8000)</p>
+          <p>🤖 ElevenLabs → MuseTalk → Vidéo générée</p>
         </div>
       </div>
     </Card>
