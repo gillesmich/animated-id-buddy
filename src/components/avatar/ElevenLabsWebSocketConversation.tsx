@@ -96,14 +96,11 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
     }
   };
 
-  const startConversation = async () => {
+  const connectWebSocket = async () => {
     try {
-      console.log("🎙️ Starting conversation with local backend...");
-      toast.info("Connexion au backend local...");
-      
-      console.log("🚀 Connecting to local backend...");
+      console.log("🔌 Connecting to WebSocket...");
+      toast.info("Connexion au WebSocket...");
       await connect();
-      
     } catch (error) {
       console.error("❌ Error:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
@@ -176,12 +173,12 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
         <div className="flex gap-4 justify-center">
           {!isConnected ? (
             <Button
-              onClick={startConversation}
+              onClick={connectWebSocket}
               size="lg"
               className="gradient-primary text-primary-foreground gap-2"
             >
               <Phone className="w-5 h-5" />
-              Démarrer la conversation
+              Connexion WebSocket
             </Button>
           ) : (
             <Button
@@ -191,7 +188,7 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
               className="gap-2"
             >
               <PhoneOff className="w-5 h-5" />
-              Terminer
+              Déconnecter
             </Button>
           )}
         </div>
