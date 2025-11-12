@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
+import { io, Socket } from 'socket.io-client';
 
 interface UseElevenLabsWebSocketProps {
   onConnect?: () => void;
@@ -7,6 +8,8 @@ interface UseElevenLabsWebSocketProps {
   onMessage?: (message: any) => void;
   onError?: (error: any) => void;
   onAudioData?: (audioData: string) => void;
+  avatarData?: string;
+  avatarUrl?: string;
 }
 
 export const useElevenLabsWebSocket = ({
@@ -14,86 +17,22 @@ export const useElevenLabsWebSocket = ({
   onDisconnect,
   onMessage,
   onError,
-  onAudioData
+  onAudioData,
+  avatarData,
+  avatarUrl
 }: UseElevenLabsWebSocketProps = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-
-  const playAudioChunk = useCallback(async (base64Audio: string) => {
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-      }
-
-      // Decode base64 to binary
-      const binaryString = atob(base64Audio);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      // Convert PCM16 to AudioBuffer
-      const int16Array = new Int16Array(bytes.buffer);
-      const float32Array = new Float32Array(int16Array.length);
-      
-      for (let i = 0; i < int16Array.length; i++) {
-        float32Array[i] = int16Array[i] / 32768.0;
-      }
-
-      const audioBuffer = audioContextRef.current.createBuffer(
-        1,
-        float32Array.length,
-        24000
-      );
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
-      
-      source.onended = () => {
-        isPlayingRef.current = false;
-        processAudioQueue();
-      };
-
-      source.start(0);
-      isPlayingRef.current = true;
-      setIsSpeaking(true);
-
-    } catch (error) {
-      console.error('❌ Error playing audio chunk:', error);
-      isPlayingRef.current = false;
-      setIsSpeaking(false);
-      processAudioQueue();
-    }
-  }, []);
-
-  const processAudioQueue = useCallback(() => {
-    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
-      if (audioQueueRef.current.length === 0) {
-        setIsSpeaking(false);
-      }
-      return;
-    }
-
-    const nextChunk = audioQueueRef.current.shift();
-    if (nextChunk) {
-      playAudioChunk(nextChunk);
-    }
-  }, [playAudioChunk]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   const startMicrophone = async () => {
     try {
       console.log('🎤 Starting microphone...');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 24000,
-          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true
@@ -102,44 +41,28 @@ export const useElevenLabsWebSocket = ({
       
       mediaStreamRef.current = stream;
       
-      const audioContext = new AudioContext({ sampleRate: 24000 });
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-      processor.onaudioprocess = (e) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
-          
-          // Convert Float32 to Int16
-          const int16Array = new Int16Array(inputData.length);
-          for (let i = 0; i < inputData.length; i++) {
-            const s = Math.max(-1, Math.min(1, inputData[i]));
-            int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-          }
-
-          // Convert to base64
-          const uint8Array = new Uint8Array(int16Array.buffer);
-          let binary = '';
-          const chunkSize = 0x8000;
-          
-          for (let i = 0; i < uint8Array.length; i += chunkSize) {
-            const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
-          }
-          
-          const base64Audio = btoa(binary);
-
-          // Send audio to WebSocket
-          wsRef.current.send(JSON.stringify({
-            type: 'audio',
-            data: base64Audio
-          }));
+      // Create MediaRecorder for recording
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && socketRef.current?.connected) {
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64Audio = reader.result as string;
+            sendAudioToBackend(base64Audio);
+          };
+          reader.readAsDataURL(event.data);
         }
       };
-
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-
+      
+      // Record in chunks
+      mediaRecorder.start(1000); // 1 second chunks
+      
       console.log('✅ Microphone started');
     } catch (error) {
       console.error('❌ Error starting microphone:', error);
@@ -149,6 +72,11 @@ export const useElevenLabsWebSocket = ({
   };
 
   const stopMicrophone = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+    
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
@@ -156,93 +84,122 @@ export const useElevenLabsWebSocket = ({
     }
   };
 
-  const connect = useCallback(async (signedUrl: string) => {
+  const sendAudioToBackend = useCallback((audioBase64: string) => {
+    if (socketRef.current?.connected && (avatarData || avatarUrl)) {
+      socketRef.current.emit('chat_with_avatar', {
+        audio_data: audioBase64,
+        avatar_data: avatarData,
+        avatar_url: avatarUrl,
+        voice_provider: 'elevenlabs',
+        voice_id: 'EXAVITQu4vr4xnSDxMaL',
+        conversation_history: [],
+        bbox_shift: 0
+      });
+    }
+  }, [avatarData, avatarUrl]);
+
+  const connect = useCallback(async () => {
     try {
-      console.log('🔌 Connecting to ElevenLabs WebSocket...');
+      console.log('🔌 Connecting to local backend...');
       
-      // Close existing connection if any
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      // Se connecter au backend local Socket.IO
+      const socket = io('http://localhost:8000', {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-      // Create WebSocket connection
-      const ws = new WebSocket(signedUrl);
-      wsRef.current = ws;
+      socketRef.current = socket;
 
-      ws.onopen = () => {
-        console.log('✅ WebSocket connected');
+      socket.on('connect', () => {
+        console.log('✅ Connected to local backend');
         setIsConnected(true);
         onConnect?.();
+        // Démarrer le microphone après la connexion
         startMicrophone();
-      };
+      });
 
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          console.log('📨 Message received:', message.type);
-          
-          onMessage?.(message);
+      socket.on('connected', (data) => {
+        console.log('🎉 Backend ready:', data);
+      });
 
-          // Handle audio data
-          if (message.type === 'audio' && message.data) {
-            audioQueueRef.current.push(message.data);
-            onAudioData?.(message.data);
-            processAudioQueue();
-          }
-
-          // Handle text messages
-          if (message.type === 'text') {
-            console.log('💬 Text:', message.data);
-          }
-
-        } catch (error) {
-          console.error('❌ Error parsing message:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        onError?.(error);
-        toast.error('Erreur de connexion WebSocket');
-      };
-
-      ws.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
+      socket.on('disconnect', () => {
+        console.log('🔌 Disconnected from local backend');
         setIsConnected(false);
         setIsSpeaking(false);
         stopMicrophone();
         onDisconnect?.();
-        
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
+      });
+
+      socket.on('status', (data) => {
+        console.log('📊 Status:', data);
+        onMessage?.(data);
+        if (data.stage === 'tts' || data.stage === 'avatar_generation') {
+          setIsSpeaking(true);
         }
-      };
+        if (data.stage === 'complete') {
+          setIsSpeaking(false);
+        }
+      });
+
+      socket.on('transcription', (data) => {
+        console.log('📝 Transcription:', data);
+        onMessage?.({ type: 'transcription', ...data });
+      });
+
+      socket.on('ai_response', (data) => {
+        console.log('🤖 AI Response:', data);
+        onMessage?.({ type: 'ai_response', ...data });
+      });
+
+      socket.on('chat_result', (data) => {
+        console.log('✅ Chat result:', data);
+        setIsSpeaking(false);
+        onMessage?.({ type: 'result', ...data });
+        
+        // Construire l'URL complète pour la vidéo
+        if (data.download_url) {
+          const videoUrl = `http://localhost:8000${data.download_url}`;
+          onAudioData?.(videoUrl);
+        }
+      });
+
+      socket.on('error', (error) => {
+        console.error('❌ Backend error:', error);
+        setIsSpeaking(false);
+        onError?.(error);
+        toast.error(error.message || 'Erreur du backend');
+      });
+
+      socket.on('pong', () => {
+        console.log('🏓 Pong received');
+      });
 
     } catch (error) {
-      console.error('❌ Error connecting:', error);
+      console.error('❌ Connection error:', error);
       onError?.(error);
-      throw error;
+      toast.error('Erreur de connexion');
     }
-  }, [onConnect, onDisconnect, onMessage, onError, onAudioData, processAudioQueue]);
+  }, [onConnect, onDisconnect, onMessage, onError, onAudioData, avatarData, avatarUrl]);
 
   const disconnect = useCallback(() => {
     console.log('🔌 Disconnecting...');
     
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
     }
     
     stopMicrophone();
-    
-    audioQueueRef.current = [];
-    isPlayingRef.current = false;
     
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+    
+    setIsConnected(false);
+    setIsSpeaking(false);
   }, []);
 
   return {

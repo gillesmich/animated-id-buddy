@@ -18,7 +18,24 @@ interface ElevenLabsWebSocketConversationProps {
 const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversationProps) => {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
+  const getAvatarImage = () => {
+    if (config.customAvatarImage) {
+      return config.customAvatarImage;
+    }
+    
+    const avatarMap: Record<string, string> = {
+      amy: "/src/assets/avatar-amy.jpg",
+      john: "/src/assets/avatar-john.jpg",
+      marcus: "/src/assets/avatar-marcus.jpg",
+      sophia: "/src/assets/avatar-sophia.jpg",
+    };
+    
+    return avatarMap[config.selectedAvatar] || avatarMap.amy;
+  };
+
   const { isConnected, isSpeaking, connect, disconnect } = useElevenLabsWebSocket({
+    avatarData: config.customAvatarImage,
+    avatarUrl: !config.customAvatarImage ? getAvatarImage() : undefined,
     onConnect: () => {
       console.log("✅ Connected to ElevenLabs");
       toast.success("Connecté à ElevenLabs");
@@ -81,23 +98,11 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
 
   const startConversation = async () => {
     try {
-      console.log("🎙️ Starting conversation...");
-      toast.info("Initialisation...");
+      console.log("🎙️ Starting conversation with local backend...");
+      toast.info("Connexion au backend local...");
       
-      if (!config.elevenlabsAgentId) {
-        toast.error("Agent ID manquant");
-        return;
-      }
-
-      console.log("🔗 Getting signed URL...");
-      const url = await getSignedUrl();
-      
-      if (!url) {
-        throw new Error("URL signée non valide");
-      }
-      
-      console.log("🚀 Connecting to WebSocket...");
-      await connect(url);
+      console.log("🚀 Connecting to local backend...");
+      await connect();
       
     } catch (error) {
       console.error("❌ Error:", error);
@@ -112,21 +117,6 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
     } catch (error) {
       console.error("❌ Error ending conversation:", error);
     }
-  };
-
-  const getAvatarImage = () => {
-    if (config.customAvatarImage) {
-      return config.customAvatarImage;
-    }
-    
-    const avatarMap: Record<string, string> = {
-      amy: "/src/assets/avatar-amy.jpg",
-      john: "/src/assets/avatar-john.jpg",
-      marcus: "/src/assets/avatar-marcus.jpg",
-      sophia: "/src/assets/avatar-sophia.jpg",
-    };
-    
-    return avatarMap[config.selectedAvatar] || avatarMap.amy;
   };
 
   return (
@@ -177,7 +167,7 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
           {/* WebSocket Mode Badge */}
           <div className="absolute bottom-4 right-4">
             <div className="px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm bg-purple-500/20 text-purple-400 border border-purple-500/30">
-              WebSocket Manuel
+              Backend Local
             </div>
           </div>
         </div>
@@ -208,9 +198,9 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
 
         {/* Info */}
         <div className="text-center text-sm text-muted-foreground space-y-1">
-          <p>💡 Connexion WebSocket directe sans SDK</p>
-          <p>🎤 Contrôle total sur l'audio et les erreurs</p>
-          <p>🤖 Communication bidirectionnelle en temps réel</p>
+          <p>💡 Connexion au backend Python local (port 8000)</p>
+          <p>🎤 Pipeline complet: Whisper → GPT → ElevenLabs → MuseTalk</p>
+          <p>🤖 Socket.IO pour communication temps réel</p>
         </div>
       </div>
     </Card>
