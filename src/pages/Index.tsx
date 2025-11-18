@@ -11,7 +11,7 @@ import ProviderSelection from "@/components/avatar/ProviderSelection";
 import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
 import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
-import ElevenLabsWebSocketConversation from "@/components/avatar/ElevenLabsWebSocketConversation";
+import LocalWebSocketConversation from "@/components/avatar/LocalWebSocketConversation";
 import ElevenLabsImageLipsync from "@/components/avatar/ElevenLabsImageLipsync";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, MessageCircle, Workflow } from "lucide-react";
@@ -229,7 +229,7 @@ const Index = () => {
                   </TabsList>
                   
                   <TabsContent value="websocket" className="mt-6">
-                    <ElevenLabsWebSocketConversation config={config} />
+                    <LocalWebSocketConversation config={config} />
                   </TabsContent>
                   
                   <TabsContent value="sdk" className="mt-6">
@@ -294,7 +294,7 @@ const Index = () => {
                     </TabsList>
                     
                     <TabsContent value="websocket" className="mt-6">
-                      <ElevenLabsWebSocketConversation config={config} />
+                      <LocalWebSocketConversation config={config} />
                     </TabsContent>
                     
                     <TabsContent value="sdk" className="mt-6">

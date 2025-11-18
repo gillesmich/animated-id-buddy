@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { io, Socket } from 'socket.io-client';
 
-interface UseElevenLabsWebSocketProps {
+interface UseLocalWebSocketProps {
   onConnect?: () => void;
   onDisconnect?: () => void;
   onMessage?: (message: any) => void;
@@ -12,7 +12,7 @@ interface UseElevenLabsWebSocketProps {
   avatarUrl?: string;
 }
 
-export const useElevenLabsWebSocket = ({
+export const useLocalWebSocket = ({
   onConnect,
   onDisconnect,
   onMessage,
@@ -20,7 +20,7 @@ export const useElevenLabsWebSocket = ({
   onAudioData,
   avatarData,
   avatarUrl
-}: UseElevenLabsWebSocketProps = {}) => {
+}: UseLocalWebSocketProps = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const socketRef = useRef<Socket | null>(null);
