@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff } from "lucide-react";
+import { Phone, PhoneOff, Mic } from "lucide-react";
 import { toast } from "sonner";
-import { useLocalWebSocket } from "@/hooks/useLocalWebSocket";
+import { useGradioApi } from "@/hooks/useGradioApi";
 import "./elevenlabs-animation.css";
 
 interface LocalWebSocketConversationProps {
@@ -33,41 +33,39 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     return avatarMap[config.selectedAvatar] || avatarMap.amy;
   };
 
-  const { isConnected, isSpeaking, connect, disconnect } = useLocalWebSocket({
+  const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useGradioApi({
     avatarData: config.customAvatarImage,
     avatarUrl: !config.customAvatarImage ? getAvatarImage() : undefined,
     onConnect: () => {
-      console.log("✅ Connected to local backend");
-      toast.success("Connecté au backend local");
+      console.log("✅ Connected to Gradio API");
+      toast.success("Connecté à l'API Gradio");
     },
     onDisconnect: () => {
-      console.log("🔌 Disconnected from local backend");
+      console.log("🔌 Disconnected from Gradio API");
       setVideoUrl(null);
       toast.info("Déconnecté");
     },
     onMessage: (message) => {
       console.log("📨 Message:", message);
-      if (message.type === 'transcription') {
-        toast.info(`Vous: ${message.text}`);
-      } else if (message.type === 'ai_response') {
-        toast.info(`IA: ${message.text}`);
+      if (message.type === 'video') {
+        toast.success("Vidéo reçue!");
       }
     },
     onError: (error) => {
       console.error("❌ Error:", error);
       toast.error("Erreur de connexion");
     },
-    onAudioData: (videoUrl) => {
+    onVideoGenerated: (videoUrl) => {
       console.log("🎥 Video URL received:", videoUrl);
       setVideoUrl(videoUrl);
       toast.success("Vidéo générée!");
     }
   });
 
-  const connectWebSocket = async () => {
+  const connectToApi = async () => {
     try {
-      console.log("🔌 Connecting to WebSocket...");
-      toast.info("Connexion au WebSocket...");
+      console.log("🔌 Connecting to Gradio API...");
+      toast.info("Connexion à l'API Gradio...");
       await connect();
     } catch (error) {
       console.error("❌ Error:", error);
@@ -89,36 +87,47 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       <div className="space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold text-gradient">
-            Backend Local
+            Backend Local (Gradio)
           </h3>
           <p className="text-muted-foreground">
-            Connexion directe à votre serveur Socket.IO local
+            Connexion à l'API Gradio sur port 7861
           </p>
         </div>
 
         {/* Avatar Display */}
         <div className="relative space-y-2">
           {/* Connection Button - Small, above avatar */}
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-2">
             {!isConnected ? (
               <Button
-                onClick={connectWebSocket}
+                onClick={connectToApi}
                 size="sm"
                 className="gradient-primary text-primary-foreground gap-2"
               >
                 <Phone className="w-4 h-4" />
-                Connexion WebSocket
+                Connexion API
               </Button>
             ) : (
-              <Button
-                onClick={endConversation}
-                size="sm"
-                variant="destructive"
-                className="gap-2"
-              >
-                <PhoneOff className="w-4 h-4" />
-                Déconnecter
-              </Button>
+              <>
+                <Button
+                  onClick={recordAndSend}
+                  size="sm"
+                  className="gradient-primary text-primary-foreground gap-2"
+                  disabled={isGenerating}
+                >
+                  <Mic className="w-4 h-4" />
+                  {isGenerating ? "Génération..." : "Envoyer Audio"}
+                </Button>
+                <Button
+                  onClick={endConversation}
+                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                  Déconnecter
+                </Button>
+              </>
             )}
           </div>
 
