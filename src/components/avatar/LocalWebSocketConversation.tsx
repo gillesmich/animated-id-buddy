@@ -3,11 +3,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { useElevenLabsWebSocket } from "@/hooks/useElevenLabsWebSocket";
+import { useLocalWebSocket } from "@/hooks/useLocalWebSocket";
 import "./elevenlabs-animation.css";
 
-interface ElevenLabsWebSocketConversationProps {
+interface LocalWebSocketConversationProps {
   config: {
     selectedAvatar: string;
     customAvatarImage?: string;
@@ -15,8 +14,7 @@ interface ElevenLabsWebSocketConversationProps {
   };
 }
 
-const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversationProps) => {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioVolume, setAudioVolume] = useState(0);
 
@@ -35,16 +33,15 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
     return avatarMap[config.selectedAvatar] || avatarMap.amy;
   };
 
-  const { isConnected, isSpeaking, connect, disconnect } = useElevenLabsWebSocket({
+  const { isConnected, isSpeaking, connect, disconnect } = useLocalWebSocket({
     avatarData: config.customAvatarImage,
     avatarUrl: !config.customAvatarImage ? getAvatarImage() : undefined,
     onConnect: () => {
-      console.log("✅ Connected to ElevenLabs");
+      console.log("✅ Connected to local backend");
       toast.success("Connecté au backend local");
     },
     onDisconnect: () => {
-      console.log("🔌 Disconnected from ElevenLabs");
-      setSignedUrl(null);
+      console.log("🔌 Disconnected from local backend");
       setVideoUrl(null);
       toast.info("Déconnecté");
     },
@@ -66,45 +63,6 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
       toast.success("Vidéo générée!");
     }
   });
-
-  const getSignedUrl = async () => {
-    try {
-      console.log("🔑 Getting signed URL for agent:", config.elevenlabsAgentId);
-      
-      if (!config.elevenlabsAgentId) {
-        toast.error("Veuillez configurer votre ElevenLabs Agent ID");
-        throw new Error("Agent ID manquant");
-      }
-
-      const { data, error } = await supabase.functions.invoke('elevenlabs-agent', {
-        body: { 
-          action: 'get_signed_url',
-          agentId: config.elevenlabsAgentId
-        }
-      });
-
-      console.log("📡 Response:", { data, error });
-
-      if (error) {
-        console.error("❌ Error:", error);
-        throw error;
-      }
-      
-      if (!data || !data.signed_url) {
-        console.error("❌ Invalid response:", data);
-        throw new Error("URL signée invalide");
-      }
-
-      console.log("✅ Signed URL received");
-      setSignedUrl(data.signed_url);
-      return data.signed_url;
-    } catch (error) {
-      console.error("❌ Error getting signed URL:", error);
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      toast.error(`Erreur: ${errorMessage}`);
-      throw error;
-    }
-  };
 
   const connectWebSocket = async () => {
     try {
@@ -131,7 +89,7 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
       <div className="space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold text-gradient">
-            ElevenLabs Backend Local
+            Backend Local
           </h3>
           <p className="text-muted-foreground">
             Connexion directe à votre serveur Socket.IO local
@@ -222,29 +180,26 @@ const ElevenLabsWebSocketConversation = ({ config }: ElevenLabsWebSocketConversa
                         style={{ width: `${audioVolume}%` }}
                       />
                     </div>
-                    <span className="text-xs text-white">{Math.round(audioVolume)}%</span>
                   </div>
                 </div>
               </div>
             )}
-
-            {/* WebSocket Mode Badge */}
-            <div className="absolute top-4 left-4">
-              <div className="px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                Backend Local
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Info */}
-        <div className="text-center text-sm text-muted-foreground space-y-1">
-          <p>🎤 Votre voix → Backend Local (port 8000)</p>
-          <p>🤖 ElevenLabs → MuseTalk → Vidéo générée</p>
+        {/* Instructions */}
+        <div className="text-sm text-muted-foreground space-y-2 p-4 rounded-lg bg-muted/30">
+          <p className="font-medium">📝 Instructions:</p>
+          <ol className="list-decimal list-inside space-y-1 ml-2">
+            <li>Assurez-vous que votre backend local tourne sur http://localhost:8000</li>
+            <li>Cliquez sur "Connexion WebSocket" pour établir la connexion</li>
+            <li>Parlez dans votre microphone pour interagir avec l'avatar</li>
+            <li>La vidéo MuseTalk sera générée et affichée automatiquement</li>
+          </ol>
         </div>
       </div>
     </Card>
   );
 };
 
-export default ElevenLabsWebSocketConversation;
+export default LocalWebSocketConversation;
