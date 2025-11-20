@@ -87,10 +87,10 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       <div className="space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-2xl font-bold text-gradient">
-            Backend Local (Gradio)
+            Backend Local (Socket.IO)
           </h3>
           <p className="text-muted-foreground">
-            Connexion à l'API Gradio sur port 7861
+            Connexion Socket.IO sur http://51.255.153.127:8000
           </p>
         </div>
 
@@ -200,8 +200,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
         <div className="text-sm text-muted-foreground space-y-2 p-4 rounded-lg bg-muted/30">
           <p className="font-medium">📝 Instructions:</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Assurez-vous que votre backend local tourne sur http://localhost:8000</li>
-            <li>Cliquez sur "Connexion WebSocket" pour établir la connexion</li>
+            <li>Assurez-vous que votre backend tourne sur http://51.255.153.127:8000</li>
+            <li>Cliquez sur "Connexion API" pour établir la connexion Socket.IO</li>
             <li>Parlez dans votre microphone pour interagir avec l'avatar</li>
             <li>La vidéo MuseTalk sera générée et affichée automatiquement</li>
           </ol>

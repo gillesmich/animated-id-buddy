@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
+import { io, Socket } from 'socket.io-client';
 
 interface UseGradioApiProps {
   onConnect?: () => void;
@@ -11,7 +12,7 @@ interface UseGradioApiProps {
   avatarUrl?: string;
 }
 
-const GRADIO_API_URL = 'http://51.255.153.127:7861';
+const BACKEND_URL = 'http://51.255.153.127:8000';
 
 export const useGradioApi = ({
   onConnect,
@@ -25,9 +26,9 @@ export const useGradioApi = ({
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
 
   const startMicrophone = async () => {
     try {
@@ -47,24 +48,21 @@ export const useGradioApi = ({
       });
       
       mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && socketRef.current?.connected) {
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64Audio = reader.result as string;
+            sendAudioToBackend(base64Audio);
+          };
+          reader.readAsDataURL(event.data);
         }
       };
       
-      mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          await sendAudioToGradio(audioBlob);
-          audioChunksRef.current = [];
-        }
-      };
-      
-      // Enregistrer par segments de 3 secondes
-      mediaRecorder.start();
+      // Record in chunks
+      mediaRecorder.start(1000); // 1 second chunks
       
       console.log('✅ Microphone started');
     } catch (error) {
@@ -87,98 +85,121 @@ export const useGradioApi = ({
     }
   };
 
-  const sendAudioToGradio = async (audioBlob: Blob) => {
-    if (!isConnected || isGenerating) return;
-    
-    try {
-      setIsGenerating(true);
-      setIsSpeaking(true);
-      console.log('📤 Sending audio to Gradio API...');
-      
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'audio.webm');
-      
-      if (avatarData) {
-        formData.append('avatar_data', avatarData);
-      } else if (avatarUrl) {
-        formData.append('avatar_url', avatarUrl);
-      }
-
-      const response = await fetch(`${GRADIO_API_URL}/api/predict`, {
-        method: 'POST',
-        body: formData,
+  const sendAudioToBackend = useCallback((audioBase64: string) => {
+    if (socketRef.current?.connected && (avatarData || avatarUrl)) {
+      socketRef.current.emit('chat_with_avatar', {
+        audio_data: audioBase64,
+        avatar_data: avatarData,
+        avatar_url: avatarUrl,
+        voice_provider: 'elevenlabs',
+        voice_id: 'EXAVITQu4vr4xnSDxMaL',
+        conversation_history: [],
+        bbox_shift: 0
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('📥 Response from Gradio:', result);
-
-      if (result.data && result.data.length > 0) {
-        const videoUrl = result.data[0];
-        console.log('🎥 Video URL:', videoUrl);
-        onVideoGenerated?.(videoUrl);
-        onMessage?.({ type: 'video', url: videoUrl });
-      }
-
-      setIsSpeaking(false);
-      setIsGenerating(false);
-    } catch (error) {
-      console.error('❌ Error sending to Gradio:', error);
-      onError?.(error);
-      toast.error('Erreur lors de l\'envoi à l\'API');
-      setIsSpeaking(false);
-      setIsGenerating(false);
     }
-  };
+  }, [avatarData, avatarUrl]);
 
   const recordAndSend = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      console.log('⏸️ Stopping recording and sending...');
-      mediaRecorderRef.current.stop();
-      
-      // Redémarrer l'enregistrement après un court délai
-      setTimeout(() => {
-        if (mediaRecorderRef.current && isConnected) {
-          audioChunksRef.current = [];
-          mediaRecorderRef.current.start();
-        }
-      }, 500);
-    }
-  }, [isConnected]);
+    // Not needed with continuous streaming
+    console.log('Audio is streaming continuously...');
+  }, []);
 
   const connect = useCallback(async () => {
     try {
-      console.log('🔌 Connecting to Gradio API...');
+      console.log('🔌 Connecting to backend...');
       
-      // Test de connexion
-      const response = await fetch(`${GRADIO_API_URL}/api/predict`, {
-        method: 'HEAD',
-      }).catch(() => null);
+      // Se connecter au backend Socket.IO
+      const socket = io(BACKEND_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-      setIsConnected(true);
-      onConnect?.();
-      toast.success('Connecté à l\'API Gradio');
-      
-      await startMicrophone();
-      
-      // Envoyer automatiquement toutes les 3 secondes
-      const interval = setInterval(() => {
-        recordAndSend();
-      }, 3000);
+      socketRef.current = socket;
 
-      return () => clearInterval(interval);
+      socket.on('connect', () => {
+        console.log('✅ Connected to backend');
+        setIsConnected(true);
+        onConnect?.();
+        startMicrophone();
+      });
+
+      socket.on('connected', (data) => {
+        console.log('🎉 Backend ready:', data);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('🔌 Disconnected from backend');
+        setIsConnected(false);
+        setIsSpeaking(false);
+        stopMicrophone();
+        onDisconnect?.();
+      });
+
+      socket.on('status', (data) => {
+        console.log('📊 Status:', data);
+        onMessage?.(data);
+        if (data.stage === 'tts' || data.stage === 'avatar_generation') {
+          setIsSpeaking(true);
+          setIsGenerating(true);
+        }
+        if (data.stage === 'complete') {
+          setIsSpeaking(false);
+          setIsGenerating(false);
+        }
+      });
+
+      socket.on('transcription', (data) => {
+        console.log('📝 Transcription:', data);
+        onMessage?.({ type: 'transcription', ...data });
+      });
+
+      socket.on('ai_response', (data) => {
+        console.log('🤖 AI Response:', data);
+        onMessage?.({ type: 'ai_response', ...data });
+      });
+
+      socket.on('chat_result', (data) => {
+        console.log('✅ Chat result:', data);
+        setIsSpeaking(false);
+        setIsGenerating(false);
+        onMessage?.({ type: 'result', ...data });
+        
+        // Construire l'URL complète pour la vidéo
+        if (data.download_url) {
+          const videoUrl = `${BACKEND_URL}${data.download_url}`;
+          onVideoGenerated?.(videoUrl);
+        }
+      });
+
+      socket.on('error', (error) => {
+        console.error('❌ Backend error:', error);
+        setIsSpeaking(false);
+        setIsGenerating(false);
+        onError?.(error);
+        toast.error(error.message || 'Erreur du backend');
+      });
+
+      socket.on('pong', () => {
+        console.log('🏓 Pong received');
+      });
+
     } catch (error) {
       console.error('❌ Connection error:', error);
       onError?.(error);
-      throw error;
+      toast.error('Erreur de connexion');
     }
-  }, [onConnect, onError, recordAndSend]);
+  }, [onConnect, onDisconnect, onMessage, onError, onVideoGenerated, avatarData, avatarUrl]);
 
   const disconnect = useCallback(() => {
-    console.log('🔌 Disconnecting from Gradio API...');
+    console.log('🔌 Disconnecting...');
+    
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    
     stopMicrophone();
     setIsConnected(false);
     setIsSpeaking(false);
