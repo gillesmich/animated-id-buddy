@@ -175,18 +175,68 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
     <Card className="glass border-2 border-primary/30 p-8">
       <div className="space-y-6">
         <div className="text-center space-y-2">
-          <h3 className="text-2xl font-bold text-gradient">
-            ElevenLabs Conversational AI
+          <h3 className="text-2xl font-bold text-gradient flex items-center justify-center gap-2">
+            <Phone className="w-6 h-6" />
+            Local Backend
           </h3>
           <p className="text-muted-foreground">
-            Avatar interactif avec voix ultra-réaliste
+            Conversation vocale en temps réel avec ElevenLabs via backend local
           </p>
         </div>
 
-        {/* Avatar Display */}
-        <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 transition-all duration-300 ${
+        {/* État de connexion */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium">État de connexion</h4>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+              <span className="text-sm">{isConnected ? "Connecté" : "Déconnecté"}</span>
+            </div>
+            <Button
+              onClick={() => toast.info("Connexion vérifiée")}
+              size="sm"
+              variant="outline"
+            >
+              Vérifier la connexion
+            </Button>
+          </div>
+        </div>
+
+        {/* Mode Temps Réel */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium flex items-center gap-2">
+            <Mic className="w-4 h-4" />
+            Mode Temps Réel ElevenLabs
+          </h4>
+          <div className="text-sm text-muted-foreground mb-2">
+            {isConnected ? "Connected" : "Disconnected"}
+          </div>
+          {!isConnected ? (
+            <Button
+              onClick={startConversation}
+              size="sm"
+              className="gradient-primary text-primary-foreground gap-2"
+            >
+              <Mic className="w-4 h-4" />
+              Connecter
+            </Button>
+          ) : (
+            <Button
+              onClick={endConversation}
+              size="sm"
+              variant="destructive"
+              className="gap-2"
+            >
+              <PhoneOff className="w-4 h-4" />
+              Déconnecter
+            </Button>
+          )}
+        </div>
+
+        {/* Avatar Display - Zone agrandie */}
+        <div className={`relative rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 transition-all duration-300 ${
           conversation.isSpeaking ? 'speaking-glow' : ''
-        }`}>
+        }`} style={{ minHeight: '400px' }}>
           <img
             src={getAvatarImage()}
             alt="Avatar"
@@ -195,17 +245,6 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
             }`}
           />
           
-          {/* Status Indicator */}
-          <div className="absolute top-4 right-4">
-            <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
-              isConnected 
-                ? "bg-green-500/20 text-green-400 border border-green-500/30" 
-                : "bg-muted/50 text-muted-foreground border border-border/30"
-            }`}>
-              {isConnected ? "🟢 Connecté" : "⚫ Déconnecté"}
-            </div>
-          </div>
-
           {/* Speaking Indicator */}
           {conversation.isSpeaking && (
             <div className="absolute bottom-4 left-4">
@@ -217,35 +256,15 @@ const ElevenLabsConversation = ({ config }: ElevenLabsConversationProps) => {
           )}
         </div>
 
-        {/* Controls */}
-        <div className="flex gap-4 justify-center">
-          {!isConnected ? (
-            <Button
-              onClick={startConversation}
-              size="lg"
-              className="gradient-primary text-primary-foreground gap-2"
-            >
-              <Phone className="w-5 h-5" />
-              Démarrer la conversation
-            </Button>
-          ) : (
-            <Button
-              onClick={endConversation}
-              size="lg"
-              variant="destructive"
-              className="gap-2"
-            >
-              <PhoneOff className="w-5 h-5" />
-              Terminer
-            </Button>
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="text-center text-sm text-muted-foreground space-y-1">
-          <p>💡 Cliquez sur "Démarrer" et parlez naturellement</p>
-          <p>🎤 Votre microphone sera activé automatiquement</p>
-          <p>🤖 L'avatar vous répondra en temps réel avec ElevenLabs</p>
+        {/* Instructions */}
+        <div className="text-sm text-muted-foreground space-y-2 p-4 rounded-lg bg-muted/30">
+          <p className="font-medium">📝 Instructions:</p>
+          <ol className="list-decimal list-inside space-y-1 ml-2">
+            <li>Configurez votre ElevenLabs Agent ID dans les paramètres</li>
+            <li>Cliquez sur "Connecter" pour établir la connexion</li>
+            <li>Autorisez l'accès au microphone</li>
+            <li>Parlez naturellement avec l'avatar</li>
+          </ol>
         </div>
       </div>
     </Card>
