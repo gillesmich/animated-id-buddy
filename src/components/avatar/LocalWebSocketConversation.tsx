@@ -17,6 +17,7 @@ interface LocalWebSocketConversationProps {
 const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioVolume, setAudioVolume] = useState(0);
+  const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
 
   const getAvatarImage = () => {
     if (config.customAvatarImage) {
@@ -58,6 +59,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     onVideoGenerated: (videoUrl) => {
       console.log("🎥 Video URL received:", videoUrl);
       setVideoUrl(videoUrl);
+      setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
     }
   });
@@ -196,6 +198,37 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           </div>
         </div>
 
+        {/* Historique des vidéos */}
+        {videoHistory.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">📼 Historique des vidéos ({videoHistory.length})</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto p-2 rounded-lg bg-muted/30">
+              {videoHistory.map((video, index) => (
+                <div
+                  key={index}
+                  className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-primary/20 hover:border-primary/50 transition-all"
+                  onClick={() => {
+                    setVideoUrl(video.url);
+                    toast.info("Vidéo chargée");
+                  }}
+                >
+                  <video
+                    src={video.url}
+                    className="w-full h-24 object-cover"
+                    muted
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="text-white text-xs text-center px-2">
+                      <p className="font-medium">Cliquez pour rejouer</p>
+                      <p className="text-[10px] mt-1">{video.timestamp.toLocaleTimeString()}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Instructions */}
         <div className="text-sm text-muted-foreground space-y-2 p-4 rounded-lg bg-muted/30">
           <p className="font-medium">📝 Instructions:</p>
@@ -204,6 +237,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
             <li>Cliquez sur "Connexion API" pour établir la connexion Socket.IO</li>
             <li>Parlez dans votre microphone pour interagir avec l'avatar</li>
             <li>La vidéo MuseTalk sera générée et affichée automatiquement</li>
+            <li>Consultez l'historique pour rejouer les vidéos générées</li>
           </ol>
         </div>
       </div>
