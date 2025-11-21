@@ -22,30 +22,17 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
 
   const getAvatarImage = () => {
-    if (config.customAvatarImage) {
-      return config.customAvatarImage;
-    }
-    
-    const avatarMap: Record<string, string> = {
-      amy: "/src/assets/avatar-amy.jpg",
-      john: "/src/assets/avatar-john.jpg",
-      marcus: "/src/assets/avatar-marcus.jpg",
-      sophia: "/src/assets/avatar-sophia.jpg",
-    };
-    
-    return avatarMap[config.selectedAvatar] || avatarMap.amy;
+    return config.customAvatarImage || '';
   };
 
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useGradioApi({
     avatarData: config.customAvatarImage,
-    avatarUrl: !config.customAvatarImage ? getAvatarImage() : undefined,
     onConnect: () => {
       console.log("✅ Connected to Gradio API");
       toast.success("Connecté à l'API Gradio");
     },
     onDisconnect: () => {
       console.log("🔌 Disconnected from Gradio API");
-      setVideoUrl(null);
       toast.info("Déconnecté");
     },
     onMessage: (message) => {
@@ -70,7 +57,11 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     }
   });
 
-  const connectToApi = async () => {
+  const handleConnect = async () => {
+    if (!config.customAvatarImage) {
+      toast.error("Veuillez d'abord sélectionner un avatar");
+      return;
+    }
     try {
       console.log("🔌 Connecting to Gradio API...");
       toast.info("Connexion à l'API Gradio...");
@@ -82,12 +73,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     }
   };
 
-  const endConversation = async () => {
-    try {
-      disconnect();
-    } catch (error) {
-      console.error("❌ Error ending conversation:", error);
-    }
+  const handleDisconnect = () => {
+    disconnect();
   };
 
   return (
@@ -108,9 +95,10 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           <div className="flex justify-center gap-2">
             {!isConnected ? (
               <Button
-                onClick={connectToApi}
+                onClick={handleConnect}
                 size="sm"
                 className="gradient-primary text-primary-foreground gap-2"
+                disabled={!config.customAvatarImage}
               >
                 <Phone className="w-4 h-4" />
                 Connexion API
@@ -127,7 +115,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
                   {isGenerating ? "Génération..." : "Envoyer Audio"}
                 </Button>
                 <Button
-                  onClick={endConversation}
+                  onClick={handleDisconnect}
                   size="sm"
                   variant="destructive"
                   className="gap-2"
@@ -142,7 +130,6 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 transition-all duration-300 ${
             isSpeaking ? 'speaking-glow' : ''
           }`}>
-            {/* Display video if available, otherwise show image */}
             {videoUrl ? (
               <video
                 src={videoUrl}
@@ -154,14 +141,18 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
                   setAudioVolume(video.volume * 100);
                 }}
               />
-            ) : (
+            ) : config.customAvatarImage ? (
               <img
-                src={getAvatarImage()}
+                src={config.customAvatarImage}
                 alt="Avatar"
                 className={`w-full h-full object-cover transition-transform duration-100 ${
                   isSpeaking ? 'animate-lipsync' : ''
                 }`}
               />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                <p>Sélectionnez un avatar pour commencer</p>
+              </div>
             )}
             
             {/* Status Indicator */}
