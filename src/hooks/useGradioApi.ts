@@ -8,6 +8,7 @@ interface UseGradioApiProps {
   onMessage?: (message: any) => void;
   onError?: (error: any) => void;
   onVideoGenerated?: (videoUrl: string) => void;
+  onWebSocketEvent?: (direction: 'sent' | 'received', data: any) => void;
   avatarData?: string;
   avatarUrl?: string;
 }
@@ -20,6 +21,7 @@ export const useGradioApi = ({
   onMessage,
   onError,
   onVideoGenerated,
+  onWebSocketEvent,
   avatarData,
   avatarUrl
 }: UseGradioApiProps = {}) => {
@@ -87,7 +89,7 @@ export const useGradioApi = ({
 
   const sendAudioToBackend = useCallback((audioBase64: string) => {
     if (socketRef.current?.connected && (avatarData || avatarUrl)) {
-      socketRef.current.emit('chat_with_avatar', {
+      const payload = {
         audio_data: audioBase64,
         avatar_data: avatarData,
         avatar_url: avatarUrl,
@@ -95,9 +97,11 @@ export const useGradioApi = ({
         voice_id: 'EXAVITQu4vr4xnSDxMaL',
         conversation_history: [],
         bbox_shift: 0
-      });
+      };
+      onWebSocketEvent?.('sent', { event: 'chat_with_avatar', data: payload });
+      socketRef.current.emit('chat_with_avatar', payload);
     }
-  }, [avatarData, avatarUrl]);
+  }, [avatarData, avatarUrl, onWebSocketEvent]);
 
   const recordAndSend = useCallback(() => {
     // Not needed with continuous streaming
@@ -120,6 +124,7 @@ export const useGradioApi = ({
 
       socket.on('connect', () => {
         console.log('✅ Connected to backend');
+        onWebSocketEvent?.('received', { event: 'connect', data: { connected: true } });
         setIsConnected(true);
         onConnect?.();
         startMicrophone();
@@ -127,10 +132,12 @@ export const useGradioApi = ({
 
       socket.on('connected', (data) => {
         console.log('🎉 Backend ready:', data);
+        onWebSocketEvent?.('received', { event: 'connected', data });
       });
 
       socket.on('disconnect', () => {
         console.log('🔌 Disconnected from backend');
+        onWebSocketEvent?.('received', { event: 'disconnect', data: { connected: false } });
         setIsConnected(false);
         setIsSpeaking(false);
         stopMicrophone();
@@ -139,6 +146,7 @@ export const useGradioApi = ({
 
       socket.on('status', (data) => {
         console.log('📊 Status:', data);
+        onWebSocketEvent?.('received', { event: 'status', data });
         onMessage?.(data);
         if (data.stage === 'tts' || data.stage === 'avatar_generation') {
           setIsSpeaking(true);
@@ -152,16 +160,19 @@ export const useGradioApi = ({
 
       socket.on('transcription', (data) => {
         console.log('📝 Transcription:', data);
+        onWebSocketEvent?.('received', { event: 'transcription', data });
         onMessage?.({ type: 'transcription', ...data });
       });
 
       socket.on('ai_response', (data) => {
         console.log('🤖 AI Response:', data);
+        onWebSocketEvent?.('received', { event: 'ai_response', data });
         onMessage?.({ type: 'ai_response', ...data });
       });
 
       socket.on('chat_result', (data) => {
         console.log('✅ Chat result:', data);
+        onWebSocketEvent?.('received', { event: 'chat_result', data });
         setIsSpeaking(false);
         setIsGenerating(false);
         onMessage?.({ type: 'result', ...data });
@@ -175,6 +186,7 @@ export const useGradioApi = ({
 
       socket.on('error', (error) => {
         console.error('❌ Backend error:', error);
+        onWebSocketEvent?.('received', { event: 'error', data: error });
         setIsSpeaking(false);
         setIsGenerating(false);
         onError?.(error);
@@ -183,6 +195,7 @@ export const useGradioApi = ({
 
       socket.on('pong', () => {
         console.log('🏓 Pong received');
+        onWebSocketEvent?.('received', { event: 'pong', data: {} });
       });
 
     } catch (error) {

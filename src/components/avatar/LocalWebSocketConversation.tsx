@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, PhoneOff, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useGradioApi } from "@/hooks/useGradioApi";
+import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
 import "./elevenlabs-animation.css";
 
 interface LocalWebSocketConversationProps {
@@ -18,6 +19,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioVolume, setAudioVolume] = useState(0);
   const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
+  const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
 
   const getAvatarImage = () => {
     if (config.customAvatarImage) {
@@ -61,6 +63,10 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       setVideoUrl(videoUrl);
       setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
+    },
+    onWebSocketEvent: (direction, data) => {
+      const timestamp = new Date().toLocaleTimeString();
+      setWsMessages(prev => [...prev, { timestamp, direction, data }]);
     }
   });
 
@@ -241,6 +247,12 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           </ol>
         </div>
       </div>
+
+      {/* WebSocket Debug Panel */}
+      <WebSocketDebugPanel 
+        messages={wsMessages}
+        onClear={() => setWsMessages([])}
+      />
     </Card>
   );
 };
