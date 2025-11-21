@@ -58,10 +58,6 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   });
 
   const handleConnect = async () => {
-    if (!config.customAvatarImage) {
-      toast.error("Veuillez d'abord sélectionner un avatar");
-      return;
-    }
     try {
       console.log("🔌 Connecting to Gradio API...");
       toast.info("Connexion à l'API Gradio...");
@@ -98,10 +94,9 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
                 onClick={handleConnect}
                 size="sm"
                 className="gradient-primary text-primary-foreground gap-2"
-                disabled={!config.customAvatarImage}
               >
                 <Phone className="w-4 h-4" />
-                Connexion API
+                Tester la Connexion
               </Button>
             ) : (
               <>
@@ -150,8 +145,10 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
                 }`}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                <p>Sélectionnez un avatar pour commencer</p>
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <p className="text-muted-foreground">En attente de connexion...</p>
+                </div>
               </div>
             )}
             
@@ -231,7 +228,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           <p className="font-medium">📝 Instructions:</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
             <li>Assurez-vous que votre backend tourne sur http://51.255.153.127:8000</li>
-            <li>Cliquez sur "Connexion API" pour établir la connexion Socket.IO</li>
+            <li>Cliquez sur "Tester la Connexion" pour établir la connexion Socket.IO</li>
             <li>Parlez dans votre microphone pour interagir avec l'avatar</li>
             <li>La vidéo MuseTalk sera générée et affichée automatiquement</li>
             <li>Consultez l'historique pour rejouer les vidéos générées</li>
@@ -239,11 +236,13 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
         </div>
       </div>
 
-      {/* WebSocket Debug Panel */}
-      <WebSocketDebugPanel 
-        messages={wsMessages}
-        onClear={() => setWsMessages([])}
-      />
+      {/* WebSocket Debug Panel - En bas de page */}
+      <div className="mt-6">
+        <WebSocketDebugPanel 
+          messages={wsMessages}
+          onClear={() => setWsMessages([])}
+        />
+      </div>
     </Card>
   );
 };
