@@ -5,6 +5,7 @@ import { Phone, PhoneOff, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useGradioApi } from "@/hooks/useGradioApi";
 import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
+import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import "./elevenlabs-animation.css";
 
 interface LocalWebSocketConversationProps {
@@ -28,48 +29,81 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useGradioApi({
     avatarData: config.customAvatarImage,
     onConnect: () => {
-      console.log("✅ Connected to Gradio API");
+      console.log("✅ [CONNEXION] Connected to Gradio API");
       toast.success("Connecté à l'API Gradio");
     },
     onDisconnect: () => {
-      console.log("🔌 Disconnected from Gradio API");
+      console.log("🔌 [DÉCONNEXION] Disconnected from Gradio API");
       toast.info("Déconnecté");
     },
     onMessage: (message) => {
-      console.log("📨 Message:", message);
+      console.log("📨 [MESSAGE] Received:", JSON.stringify(message, null, 2));
+      
+      // Logger les appels à inference.py
+      if (message.stage === 'avatar_generation') {
+        console.log("🎬 [INFERENCE.PY] Avatar generation started - Calling inference.py");
+      }
+      if (message.stage === 'musetalk_processing') {
+        console.log("🎬 [INFERENCE.PY] MuseTalk processing in progress");
+      }
+      if (message.stage === 'complete') {
+        console.log("✅ [INFERENCE.PY] Processing completed");
+      }
+      
       if (message.type === 'video') {
+        console.log("🎥 [VIDEO] Video message received");
         toast.success("Vidéo reçue!");
+      }
+      if (message.type === 'transcription') {
+        console.log("📝 [TRANSCRIPTION] User said:", message.text);
+      }
+      if (message.type === 'ai_response') {
+        console.log("🤖 [AI RESPONSE] AI replied:", message.text);
       }
     },
     onError: (error) => {
-      console.error("❌ Error:", error);
+      console.error("❌ [ERROR] Error occurred:", JSON.stringify(error, null, 2));
       toast.error("Erreur de connexion");
     },
     onVideoGenerated: (videoUrl) => {
-      console.log("🎥 Video URL received:", videoUrl);
+      console.log("🎥 [VIDEO GENERATED] Video URL received:", videoUrl);
+      console.log("✅ [INFERENCE.PY] Video generation completed successfully");
       setVideoUrl(videoUrl);
       setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
     },
     onWebSocketEvent: (direction, data) => {
       const timestamp = new Date().toLocaleTimeString();
+      console.log(`🔄 [WEBSOCKET ${direction.toUpperCase()}] ${timestamp}`, JSON.stringify(data, null, 2));
+      
+      // Logger spécifiquement les événements liés à inference.py
+      if (data.event === 'status' && data.data?.stage) {
+        console.log(`⚙️ [INFERENCE.PY STATUS] Stage: ${data.data.stage}`);
+      }
+      if (data.event === 'chat_with_avatar') {
+        console.log("📤 [REQUEST TO INFERENCE.PY] Sending audio data to backend for processing");
+      }
+      
       setWsMessages(prev => [...prev, { timestamp, direction, data }]);
     }
   });
 
   const handleConnect = async () => {
     try {
-      console.log("🔌 Connecting to Gradio API...");
+      console.log("🔌 [INIT] Initializing connection to backend at http://51.255.153.127:8000");
+      console.log("📋 [CONFIG] Avatar data:", config.customAvatarImage ? "✅ Loaded" : "❌ Missing");
       toast.info("Connexion à l'API Gradio...");
       await connect();
+      console.log("✅ [INIT] Connection established, inference.py ready to process requests");
     } catch (error) {
-      console.error("❌ Error:", error);
+      console.error("❌ [ERROR] Connection failed:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast.error(`Erreur: ${errorMessage}`);
     }
   };
 
   const handleDisconnect = () => {
+    console.log("🔌 [DISCONNECT] Closing connection to backend");
     disconnect();
   };
 
@@ -243,6 +277,9 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           onClear={() => setWsMessages([])}
         />
       </div>
+
+      {/* Mobile Debug Overlay pour capturer tous les logs */}
+      <MobileDebugOverlay />
     </Card>
   );
 };
