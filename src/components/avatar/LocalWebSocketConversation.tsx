@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Phone, PhoneOff, Mic } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Wifi, WifiOff, Mic, Video, Volume2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useGradioApi } from "@/hooks/useGradioApi";
 import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
@@ -108,123 +109,132 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   };
 
   return (
-    <Card className="glass border-2 border-primary/30 p-8">
+    <Card className="w-full max-w-4xl mx-auto p-6">
       <div className="space-y-6">
-        <div className="text-center space-y-2">
-          <h3 className="text-2xl font-bold text-gradient">
-            Backend Local (Socket.IO)
-          </h3>
-          <p className="text-muted-foreground">
-            Connexion Socket.IO sur http://51.255.153.127:8000
+        {/* Header */}
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Backend Local - Conversation Avatar</h2>
+          <p className="text-sm text-muted-foreground">
+            Serveur: http://51.255.153.127:8000
           </p>
         </div>
 
-        {/* Avatar Display */}
-        <div className="relative space-y-2">
-          {/* Connection Button - Small, above avatar */}
-          <div className="flex justify-center gap-2">
-            {!isConnected ? (
-              <Button
-                onClick={handleConnect}
-                size="sm"
-                className="gradient-primary text-primary-foreground gap-2"
-              >
-                <Phone className="w-4 h-4" />
-                Tester la Connexion
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={recordAndSend}
-                  size="sm"
-                  className="gradient-primary text-primary-foreground gap-2"
-                  disabled={isGenerating}
-                >
-                  <Mic className="w-4 h-4" />
-                  {isGenerating ? "Génération..." : "Envoyer Audio"}
-                </Button>
-                <Button
-                  onClick={handleDisconnect}
-                  size="sm"
-                  variant="destructive"
-                  className="gap-2"
-                >
-                  <PhoneOff className="w-4 h-4" />
-                  Déconnecter
-                </Button>
-              </>
-            )}
+        {/* Connection Status Section */}
+        <div className="flex flex-col gap-4 p-4 bg-secondary/20 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Statut de la connexion</span>
+            <Badge variant={isConnected ? "default" : "secondary"} className="gap-2">
+              {isConnected ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  Connecté
+                </>
+              ) : (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-gray-400" />
+                  Déconnecté
+                </>
+              )}
+            </Badge>
           </div>
-
-          <div className={`relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 transition-all duration-300 ${
-            isSpeaking ? 'speaking-glow' : ''
-          }`}>
-            {videoUrl ? (
-              <video
-                src={videoUrl}
-                autoPlay
-                loop
-                className="w-full h-full object-cover"
-                onVolumeChange={(e) => {
-                  const video = e.currentTarget;
-                  setAudioVolume(video.volume * 100);
-                }}
-              />
-            ) : config.customAvatarImage ? (
-              <img
-                src={config.customAvatarImage}
-                alt="Avatar"
-                className={`w-full h-full object-cover transition-transform duration-100 ${
-                  isSpeaking ? 'animate-lipsync' : ''
-                }`}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <p className="text-muted-foreground">En attente de connexion...</p>
-                </div>
-              </div>
-            )}
+          
+          {/* Connection Buttons */}
+          <div className="flex gap-2">
+            <Button
+              onClick={handleConnect}
+              disabled={isConnected}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              <Wifi className="w-4 h-4 mr-2" />
+              Tester la Connexion
+            </Button>
             
-            {/* Status Indicator */}
-            <div className="absolute top-4 right-4">
-              <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm ${
-                isConnected 
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30" 
-                  : "bg-muted/50 text-muted-foreground border border-border/30"
-              }`}>
-                {isConnected ? "🟢 Connecté" : "⚫ Déconnecté"}
-              </div>
-            </div>
-
-            {/* Speaking Indicator */}
-            {isSpeaking && (
-              <div className="absolute bottom-4 left-4">
-                <div className="px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                  Parle...
-                </div>
-              </div>
-            )}
-
-            {/* Volume Gauge */}
-            {videoUrl && (
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="backdrop-blur-sm bg-black/30 rounded-lg p-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-white">🔊</span>
-                    <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-green-500 to-blue-500 transition-all duration-100"
-                        style={{ width: `${audioVolume}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {isConnected && (
+              <Button
+                onClick={handleDisconnect}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                <WifiOff className="w-4 h-4 mr-2" />
+                Déconnecter
+              </Button>
             )}
           </div>
+
+          {/* Processing Status */}
+          {isConnected && (
+            <div className="flex items-center gap-2 text-sm">
+              {isSpeaking && (
+                <Badge variant="outline" className="gap-2">
+                  <Mic className="w-3 h-3" />
+                  En écoute
+                </Badge>
+              )}
+              {isGenerating && (
+                <Badge variant="outline" className="gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Génération en cours
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Avatar Display */}
+        <div className="relative w-full aspect-square max-w-md mx-auto bg-secondary/10 rounded-lg overflow-hidden border-2 border-border">
+          {videoUrl ? (
+            <video
+              src={videoUrl}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              {config.customAvatarImage ? (
+                <img 
+                  src={config.customAvatarImage} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center space-y-2 p-4">
+                  <Video className="w-12 h-12 mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">En attente de connexion...</p>
+                </div>
+              )}
+            </div>
+          )}
+          {audioVolume > 0 && (
+            <div className="absolute top-4 right-4">
+              <Badge variant="default" className="gap-2">
+                <Volume2 className="w-3 h-3" />
+                {Math.round(audioVolume * 100)}%
+              </Badge>
+            </div>
+          )}
+        </div>
+
+        {/* Voice Controls - Only show when connected */}
+        {isConnected && (
+          <div className="flex justify-center">
+            <Button
+              onClick={() => recordAndSend()}
+              disabled={isSpeaking || isGenerating}
+              variant="default"
+              size="lg"
+              className="gap-2"
+            >
+              <Mic className="w-5 h-5" />
+              {isSpeaking ? "En écoute..." : isGenerating ? "Traitement..." : "Parler"}
+            </Button>
+          </div>
+        )}
 
         {/* Historique des vidéos */}
         {videoHistory.length > 0 && (
