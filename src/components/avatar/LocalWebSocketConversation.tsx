@@ -225,13 +225,13 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
           <div className="flex justify-center">
             <Button
               onClick={() => recordAndSend()}
-              disabled={isSpeaking || isGenerating}
-              variant="default"
+              disabled={isGenerating}
+              variant={isSpeaking ? "destructive" : "default"}
               size="lg"
               className="gap-2"
             >
               <Mic className="w-5 h-5" />
-              {isSpeaking ? "En écoute..." : isGenerating ? "Traitement..." : "Parler"}
+              {isSpeaking ? "Arrêter" : isGenerating ? "Traitement..." : "Parler"}
             </Button>
           </div>
         )}

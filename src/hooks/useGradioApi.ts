@@ -103,10 +103,22 @@ export const useGradioApi = ({
     }
   }, [avatarData, avatarUrl, onWebSocketEvent]);
 
-  const recordAndSend = useCallback(() => {
-    // Not needed with continuous streaming
-    console.log('Audio is streaming continuously...');
-  }, []);
+  const recordAndSend = useCallback(async () => {
+    if (!socketRef.current?.connected) {
+      toast.error('Non connecté au backend');
+      return;
+    }
+
+    if (!isSpeaking) {
+      console.log('🎤 Starting recording...');
+      setIsSpeaking(true);
+      await startMicrophone();
+    } else {
+      console.log('🎤 Stopping recording...');
+      setIsSpeaking(false);
+      stopMicrophone();
+    }
+  }, [isSpeaking]);
 
   const connect = useCallback(async () => {
     try {
@@ -127,7 +139,7 @@ export const useGradioApi = ({
         onWebSocketEvent?.('received', { event: 'connect', data: { connected: true } });
         setIsConnected(true);
         onConnect?.();
-        startMicrophone();
+        toast.success('Connecté au backend!');
       });
 
       socket.on('connected', (data) => {
