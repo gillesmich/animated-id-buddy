@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { io } from "npm:socket.io-client@4.8.1";
 
@@ -7,6 +8,72 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Convertir base64 en chunks pour éviter les problèmes mémoire
+function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let position = 0;
+  
+  while (position < base64String.length) {
+    const chunk = base64String.slice(position, position + chunkSize);
+    const binaryChunk = atob(chunk);
+    const bytes = new Uint8Array(binaryChunk.length);
+    
+    for (let i = 0; i < binaryChunk.length; i++) {
+      bytes[i] = binaryChunk.charCodeAt(i);
+    }
+    
+    chunks.push(bytes);
+    position += chunkSize;
+  }
+
+  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result;
+}
+
+// Transcrire l'audio avec Whisper
+async function transcribeAudio(audioBase64: string): Promise<string> {
+  try {
+    const binaryAudio = processBase64Chunks(audioBase64);
+    
+    const formData = new FormData();
+    // Créer un nouveau ArrayBuffer à partir du Uint8Array
+    const arrayBuffer = new ArrayBuffer(binaryAudio.length);
+    const view = new Uint8Array(arrayBuffer);
+    view.set(binaryAudio);
+    const blob = new Blob([arrayBuffer], { type: 'audio/webm' });
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Whisper API error:', error);
+      throw new Error(`Whisper API error: ${error}`);
+    }
+
+    const result = await response.json();
+    return result.text;
+  } catch (error) {
+    console.error('Transcription error:', error);
+    throw error;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -80,13 +147,42 @@ serve(async (req) => {
   });
 
   // Frontend to Backend relay
-  socket.onmessage = (event) => {
+  socket.onmessage = async (event) => {
     try {
       const message = JSON.parse(event.data);
       console.log("Received from frontend:", message.event);
       
       if (message.event === 'chat_with_avatar') {
-        backendSocket.emit('chat_with_avatar', message.data);
+        const { audio_data, ...restData } = message.data;
+        
+        // Transcrire l'audio avec Whisper
+        console.log("Transcribing audio with Whisper...");
+        socket.send(JSON.stringify({ 
+          event: 'status', 
+          data: { stage: 'transcription', message: 'Transcription en cours...', progress: 10 } 
+        }));
+        
+        try {
+          const transcription = await transcribeAudio(audio_data);
+          console.log("Transcription:", transcription);
+          
+          socket.send(JSON.stringify({ 
+            event: 'transcription', 
+            data: { text: transcription } 
+          }));
+          
+          // Envoyer le texte transcrit au backend au lieu de l'audio
+          backendSocket.emit('chat_with_avatar', {
+            ...restData,
+            user_text: transcription, // Envoyer le texte au lieu de l'audio
+          });
+        } catch (error) {
+          console.error("Transcription failed:", error);
+          socket.send(JSON.stringify({ 
+            event: 'error', 
+            data: { message: 'Échec de la transcription audio' } 
+          }));
+        }
       } else if (message.event === 'ping') {
         backendSocket.emit('ping', message.data);
       }
