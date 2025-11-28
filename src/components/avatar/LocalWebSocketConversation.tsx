@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, WifiOff, Mic, Video, Volume2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useGradioApi } from "@/hooks/useGradioApi";
+import { useMuseTalkBackend } from "@/hooks/useMuseTalkBackend";
 import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
 import "./elevenlabs-animation.css";
@@ -27,84 +27,70 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     return config.customAvatarImage || '';
   };
 
-  const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useGradioApi({
+  const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useMuseTalkBackend({
     avatarData: config.customAvatarImage,
     onConnect: () => {
-      console.log("✅ [CONNEXION] Connected to Gradio API");
-      toast.success("Connecté à l'API Gradio");
+      console.log("[MUSETALK] Connecté");
+      toast.success("Connecté au Backend MuseTalk");
     },
     onDisconnect: () => {
-      console.log("🔌 [DÉCONNEXION] Disconnected from Gradio API");
+      console.log("[MUSETALK] Déconnecté");
       toast.info("Déconnecté");
     },
     onMessage: (message) => {
-      console.log("📨 [MESSAGE] Received:", JSON.stringify(message, null, 2));
+      console.log("[MUSETALK] Message:", JSON.stringify(message, null, 2));
       
-      // Logger les appels à inference.py
       if (message.stage === 'avatar_generation') {
-        console.log("🎬 [INFERENCE.PY] Avatar generation started - Calling inference.py");
-      }
-      if (message.stage === 'musetalk_processing') {
-        console.log("🎬 [INFERENCE.PY] MuseTalk processing in progress");
+        console.log("[MUSETALK] Génération avatar démarrée");
       }
       if (message.stage === 'complete') {
-        console.log("✅ [INFERENCE.PY] Processing completed");
+        console.log("[MUSETALK] Traitement terminé");
       }
       
       if (message.type === 'video') {
-        console.log("🎥 [VIDEO] Video message received");
+        console.log("[MUSETALK] Vidéo reçue");
         toast.success("Vidéo reçue!");
       }
       if (message.type === 'transcription') {
-        console.log("📝 [TRANSCRIPTION] User said:", message.text);
+        console.log("[MUSETALK] Transcription:", message.text);
       }
       if (message.type === 'ai_response') {
-        console.log("🤖 [AI RESPONSE] AI replied:", message.text);
+        console.log("[MUSETALK] Réponse IA:", message.text);
       }
     },
     onError: (error) => {
-      console.error("❌ [ERROR] Error occurred:", JSON.stringify(error, null, 2));
+      console.error("[MUSETALK] Erreur:", JSON.stringify(error, null, 2));
       toast.error("Erreur de connexion");
     },
     onVideoGenerated: (videoUrl) => {
-      console.log("🎥 [VIDEO GENERATED] Video URL received:", videoUrl);
-      console.log("✅ [INFERENCE.PY] Video generation completed successfully");
+      console.log("[MUSETALK] Vidéo générée:", videoUrl);
       setVideoUrl(videoUrl);
       setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
     },
     onWebSocketEvent: (direction, data) => {
       const timestamp = new Date().toLocaleTimeString();
-      console.log(`🔄 [WEBSOCKET ${direction.toUpperCase()}] ${timestamp}`, JSON.stringify(data, null, 2));
-      
-      // Logger spécifiquement les événements liés à inference.py
-      if (data.event === 'status' && data.data?.stage) {
-        console.log(`⚙️ [INFERENCE.PY STATUS] Stage: ${data.data.stage}`);
-      }
-      if (data.event === 'chat_with_avatar') {
-        console.log("📤 [REQUEST TO INFERENCE.PY] Sending audio data to backend for processing");
-      }
-      
+      console.log(`[MUSETALK] ${direction.toUpperCase()} ${timestamp}`, JSON.stringify(data, null, 2));
       setWsMessages(prev => [...prev, { timestamp, direction, data }]);
     }
   });
 
   const handleConnect = async () => {
     try {
-      console.log("🔌 [INIT] Initializing connection to backend at http://51.255.153.127:8000");
-      console.log("📋 [CONFIG] Avatar data:", config.customAvatarImage ? "✅ Loaded" : "❌ Missing");
-      toast.info("Connexion à l'API Gradio...");
+      console.log("[MUSETALK] Connexion...");
+      console.log("[MUSETALK] Avatar:", config.customAvatarImage ? "✓" : "✗");
+      toast.info("Connexion au Backend MuseTalk...");
       await connect();
-      console.log("✅ [INIT] Connection established, inference.py ready to process requests");
+      console.log("[MUSETALK] Connexion établie");
     } catch (error) {
-      console.error("❌ [ERROR] Connection failed:", error);
+      console.error("[MUSETALK] Erreur connexion:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       toast.error(`Erreur: ${errorMessage}`);
     }
   };
 
   const handleDisconnect = () => {
-    console.log("🔌 [DISCONNECT] Closing connection to backend");
+    console.log("[MUSETALK] Déconnexion");
     disconnect();
   };
 
@@ -113,7 +99,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       <div className="space-y-6">
         {/* Header */}
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold">Backend Local - Conversation Avatar</h2>
+          <h2 className="text-2xl font-bold">Backend MuseTalk (Socket.IO)</h2>
           <p className="text-sm text-muted-foreground">
             Serveur: http://51.255.153.127:8000
           </p>
@@ -148,7 +134,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
               className="flex-1"
             >
               <Wifi className="w-4 h-4 mr-2" />
-              Tester la Connexion
+              Se Connecter
             </Button>
             
             {isConnected && (
