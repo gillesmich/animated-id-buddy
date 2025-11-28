@@ -1,5 +1,6 @@
 import { PRESET_AVATARS } from "@/config/avatars";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface AvatarSelectorProps {
@@ -42,6 +43,14 @@ const AvatarSelector = ({ selectedAvatar, onSelectAvatar }: AvatarSelectorProps)
           </button>
         ))}
       </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-4 w-full"
+        onClick={() => onSelectAvatar("")}
+      >
+        Réinitialiser la sélection
+      </Button>
     </Card>
   );
 };
