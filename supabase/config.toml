@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.elevenlabs-agent]
 verify_jwt = false
+
+[functions.musetalk-proxy]
+verify_jwt = false

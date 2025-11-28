@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { io, Socket } from 'socket.io-client';
 
 interface UseMuseTalkBackendProps {
   onConnect?: () => void;
@@ -13,7 +12,7 @@ interface UseMuseTalkBackendProps {
   avatarUrl?: string;
 }
 
-const BACKEND_URL = 'http://51.255.153.127:8000';
+const PROXY_URL = 'wss://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/musetalk-proxy';
 
 export const useMuseTalkBackend = ({
   onConnect,
@@ -28,7 +27,7 @@ export const useMuseTalkBackend = ({
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
@@ -52,7 +51,7 @@ export const useMuseTalkBackend = ({
       mediaRecorderRef.current = mediaRecorder;
       
       mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && socketRef.current?.connected) {
+        if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64Audio = reader.result as string;
@@ -85,7 +84,7 @@ export const useMuseTalkBackend = ({
   };
 
   const sendAudioToBackend = useCallback((audioBase64: string) => {
-    if (socketRef.current?.connected && (avatarData || avatarUrl)) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && (avatarData || avatarUrl)) {
       const payload = {
         audio_data: audioBase64,
         avatar_data: avatarData,
@@ -95,13 +94,14 @@ export const useMuseTalkBackend = ({
         conversation_history: [],
         bbox_shift: 0
       };
-      onWebSocketEvent?.('sent', { event: 'chat_with_avatar', data: payload });
-      socketRef.current.emit('chat_with_avatar', payload);
+      const message = { event: 'chat_with_avatar', data: payload };
+      onWebSocketEvent?.('sent', message);
+      wsRef.current.send(JSON.stringify(message));
     }
   }, [avatarData, avatarUrl, onWebSocketEvent]);
 
   const recordAndSend = useCallback(async () => {
-    if (!socketRef.current?.connected) {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       toast.error('Non connecté au backend');
       return;
     }
@@ -119,105 +119,117 @@ export const useMuseTalkBackend = ({
 
   const connect = useCallback(async () => {
     try {
-      console.log('[MUSETALK] Connexion au backend...');
+      console.log('[MUSETALK] Connexion au proxy WebSocket...');
       
-      const socket = io(BACKEND_URL, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+      const ws = new WebSocket(PROXY_URL);
+      wsRef.current = ws;
 
-      socketRef.current = socket;
-
-      socket.on('connect', () => {
-        console.log('[MUSETALK] Connecté');
+      ws.onopen = () => {
+        console.log('[MUSETALK] Connecté au proxy');
         onWebSocketEvent?.('received', { event: 'connect', data: { connected: true } });
         setIsConnected(true);
         onConnect?.();
-        toast.success('Connecté au Backend MuseTalk');
-      });
+        toast.success('Connecté au Backend MuseTalk via proxy');
+      };
 
-      socket.on('connected', (data) => {
-        console.log('[MUSETALK] Backend prêt:', data);
-        onWebSocketEvent?.('received', { event: 'connected', data });
-      });
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          const { event: eventName, data } = message;
+          
+          console.log('[MUSETALK] Message reçu:', eventName);
+          onWebSocketEvent?.('received', message);
 
-      socket.on('disconnect', () => {
+          switch (eventName) {
+            case 'backend_connected':
+            case 'connected':
+              console.log('[MUSETALK] Backend prêt:', data);
+              break;
+
+            case 'status':
+              console.log('[MUSETALK] Status:', data);
+              onMessage?.(data);
+              if (data.stage === 'tts' || data.stage === 'avatar_generation') {
+                setIsSpeaking(true);
+                setIsGenerating(true);
+              }
+              if (data.stage === 'complete') {
+                setIsSpeaking(false);
+                setIsGenerating(false);
+              }
+              break;
+
+            case 'transcription':
+              console.log('[MUSETALK] Transcription:', data);
+              onMessage?.({ type: 'transcription', ...data });
+              break;
+
+            case 'ai_response':
+              console.log('[MUSETALK] Réponse IA:', data);
+              onMessage?.({ type: 'ai_response', ...data });
+              break;
+
+            case 'chat_result':
+              console.log('[MUSETALK] Résultat:', data);
+              setIsSpeaking(false);
+              setIsGenerating(false);
+              onMessage?.({ type: 'result', ...data });
+              
+              if (data.download_url) {
+                onVideoGenerated?.(data.download_url);
+              }
+              break;
+
+            case 'error':
+              console.error('[MUSETALK] Erreur:', data);
+              setIsSpeaking(false);
+              setIsGenerating(false);
+              onError?.(data);
+              toast.error(data.message || 'Erreur du backend');
+              break;
+
+            case 'pong':
+              console.log('[MUSETALK] Pong reçu');
+              break;
+
+            case 'backend_disconnected':
+              console.log('[MUSETALK] Backend déconnecté:', data);
+              toast.error('Backend déconnecté');
+              break;
+          }
+        } catch (error) {
+          console.error('[MUSETALK] Erreur parsing message:', error);
+        }
+      };
+
+      ws.onclose = () => {
         console.log('[MUSETALK] Déconnecté');
         onWebSocketEvent?.('received', { event: 'disconnect', data: { connected: false } });
         setIsConnected(false);
         setIsSpeaking(false);
         stopMicrophone();
         onDisconnect?.();
-      });
+      };
 
-      socket.on('status', (data) => {
-        console.log('[MUSETALK] Status:', data);
-        onWebSocketEvent?.('received', { event: 'status', data });
-        onMessage?.(data);
-        if (data.stage === 'tts' || data.stage === 'avatar_generation') {
-          setIsSpeaking(true);
-          setIsGenerating(true);
-        }
-        if (data.stage === 'complete') {
-          setIsSpeaking(false);
-          setIsGenerating(false);
-        }
-      });
-
-      socket.on('transcription', (data) => {
-        console.log('[MUSETALK] Transcription:', data);
-        onWebSocketEvent?.('received', { event: 'transcription', data });
-        onMessage?.({ type: 'transcription', ...data });
-      });
-
-      socket.on('ai_response', (data) => {
-        console.log('[MUSETALK] Réponse IA:', data);
-        onWebSocketEvent?.('received', { event: 'ai_response', data });
-        onMessage?.({ type: 'ai_response', ...data });
-      });
-
-      socket.on('chat_result', (data) => {
-        console.log('[MUSETALK] Résultat:', data);
-        onWebSocketEvent?.('received', { event: 'chat_result', data });
-        setIsSpeaking(false);
-        setIsGenerating(false);
-        onMessage?.({ type: 'result', ...data });
-        
-        if (data.download_url) {
-          const videoUrl = `${BACKEND_URL}${data.download_url}`;
-          onVideoGenerated?.(videoUrl);
-        }
-      });
-
-      socket.on('error', (error) => {
-        console.error('[MUSETALK] Erreur:', error);
-        onWebSocketEvent?.('received', { event: 'error', data: error });
-        setIsSpeaking(false);
-        setIsGenerating(false);
+      ws.onerror = (error) => {
+        console.error('[MUSETALK] Erreur WebSocket:', error);
         onError?.(error);
-        toast.error(error.message || 'Erreur du backend');
-      });
-
-      socket.on('pong', () => {
-        console.log('[MUSETALK] Pong reçu');
-        onWebSocketEvent?.('received', { event: 'pong', data: {} });
-      });
+        toast.error('Erreur de connexion WebSocket');
+      };
 
     } catch (error) {
       console.error('[MUSETALK] Erreur de connexion:', error);
       onError?.(error);
       toast.error('Erreur de connexion');
     }
-  }, [onConnect, onDisconnect, onMessage, onError, onVideoGenerated, avatarData, avatarUrl]);
+  }, [onConnect, onDisconnect, onMessage, onError, onVideoGenerated]);
 
   const disconnect = useCallback(() => {
     console.log('[MUSETALK] Déconnexion...');
     
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     
     stopMicrophone();
