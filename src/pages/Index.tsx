@@ -65,7 +65,7 @@ const Index = () => {
       openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY || "",
       elevenlabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || "",
       elevenlabsAgentId: "",
-      selectedAvatar: "amy",
+      selectedAvatar: "",
       customAvatarImage: "",
       customAvatarVideo: "",
       selectedVoice: "EXAVITQu4vr4xnSDxMaL",
