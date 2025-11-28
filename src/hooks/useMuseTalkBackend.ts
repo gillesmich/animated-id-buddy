@@ -55,7 +55,9 @@ export const useMuseTalkBackend = ({
           const reader = new FileReader();
           reader.onloadend = () => {
             const base64Audio = reader.result as string;
-            sendAudioToBackend(base64Audio);
+            // Retirer le préfixe "data:audio/webm;base64," pour envoyer uniquement les données base64
+            const base64Data = base64Audio.split(',')[1] || base64Audio;
+            sendAudioToBackend(base64Data);
           };
           reader.readAsDataURL(event.data);
         }
