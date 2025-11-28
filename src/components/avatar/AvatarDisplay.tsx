@@ -86,8 +86,8 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
   const webRTCManagerRef = useRef<any>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
 
-  const [avatarForDID, setAvatarForDID] = useState<{ presenterId?: string; url?: string }>(getAvatarForDID('amy'));
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>(getAvatarImage('amy'));
+  const [avatarForDID, setAvatarForDID] = useState<{ presenterId?: string; url?: string }>({});
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('');
   const [isVideoLoading, setIsVideoLoading] = useState(false);
 
   // Auto-scroll to latest message
@@ -1031,56 +1031,71 @@ const AvatarDisplay = ({ config }: AvatarDisplayProps) => {
           
           {/* Deux éléments vidéo pour les transitions fluides */}
           <div className="relative w-full aspect-video">
-            {/* Image statique pour les avatars sans vidéo */}
-            {currentVideoUrl && !currentVideoUrl.match(/\.(mp4|webm|mov)$/i) && (
-              <img
-                src={currentVideoUrl}
-                alt="Avatar"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
-            
-            {/* Vidéo principale */}
-            <video
-              ref={videoRef}
-              className={`absolute inset-0 w-full h-full object-cover avatar-video-transition ${
-                isAvatarSpeaking ? 'avatar-speaking' : 'avatar-idle'
-              }`}
-              autoPlay
-              playsInline
-              muted={false}
-              src={currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? currentVideoUrl : undefined}
-              style={{ opacity: currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? 1 : 0 }}
-            />
-            
-            {/* Vidéo secondaire pour transitions */}
-            <video
-              ref={secondaryVideoRef}
-              className="absolute inset-0 w-full h-full object-cover avatar-video-transition"
-              playsInline
-              muted={false}
-              style={{ opacity: 0, display: 'none' }}
-            />
-            
-            {/* Indicateur d'état */}
-            {isAvatarSpeaking && (
-              <div className="absolute top-4 right-4 px-3 py-2 bg-primary/90 text-primary-foreground text-sm rounded-full flex items-center gap-2 animate-pulse">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                Parle...
+            {!currentVideoUrl ? (
+              // Placeholder quand aucun avatar n'est sélectionné
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+                <Video className="w-16 h-16 text-muted-foreground/50 mb-4" />
+                <h4 className="text-lg font-semibold text-muted-foreground mb-2">
+                  Aucun avatar sélectionné
+                </h4>
+                <p className="text-sm text-muted-foreground/70">
+                  Choisissez un avatar ou uploadez une image/vidéo pour commencer
+                </p>
               </div>
-            )}
-            
-            {isStreaming && !isAvatarSpeaking && (
-              <div className="absolute top-4 right-4 px-3 py-2 bg-green-500/90 text-white text-sm rounded-full flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-white" />
-                Prêt
-              </div>
-            )}
-            
-            {!isStreaming && !isAvatarSpeaking && (
-              <div className="absolute top-4 right-4 px-3 py-2 bg-yellow-500/90 text-white text-sm rounded-full animate-pulse">
-                Connexion...
-              </div>
+            ) : (
+              <>
+                {/* Image statique pour les avatars sans vidéo */}
+                {currentVideoUrl && !currentVideoUrl.match(/\.(mp4|webm|mov)$/i) && (
+                  <img
+                    src={currentVideoUrl}
+                    alt="Avatar"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
+                
+                {/* Vidéo principale */}
+                <video
+                  ref={videoRef}
+                  className={`absolute inset-0 w-full h-full object-cover avatar-video-transition ${
+                    isAvatarSpeaking ? 'avatar-speaking' : 'avatar-idle'
+                  }`}
+                  autoPlay
+                  playsInline
+                  muted={false}
+                  src={currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? currentVideoUrl : undefined}
+                  style={{ opacity: currentVideoUrl?.match(/\.(mp4|webm|mov)$/i) ? 1 : 0 }}
+                />
+                
+                {/* Vidéo secondaire pour transitions */}
+                <video
+                  ref={secondaryVideoRef}
+                  className="absolute inset-0 w-full h-full object-cover avatar-video-transition"
+                  playsInline
+                  muted={false}
+                  style={{ opacity: 0, display: 'none' }}
+                />
+                
+                {/* Indicateur d'état */}
+                {isAvatarSpeaking && (
+                  <div className="absolute top-4 right-4 px-3 py-2 bg-primary/90 text-primary-foreground text-sm rounded-full flex items-center gap-2 animate-pulse">
+                    <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    Parle...
+                  </div>
+                )}
+                
+                {isStreaming && !isAvatarSpeaking && (
+                  <div className="absolute top-4 right-4 px-3 py-2 bg-green-500/90 text-white text-sm rounded-full flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                    Prêt
+                  </div>
+                )}
+                
+                {!isStreaming && !isAvatarSpeaking && (
+                  <div className="absolute top-4 right-4 px-3 py-2 bg-yellow-500/90 text-white text-sm rounded-full animate-pulse">
+                    Connexion...
+                  </div>
+                )}
+              </>
             )}
           </div>
               
