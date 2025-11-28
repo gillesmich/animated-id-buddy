@@ -42,14 +42,16 @@ function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Arra
 // Transcrire l'audio avec Whisper
 async function transcribeAudio(audioBase64: string): Promise<string> {
   try {
-    const binaryAudio = processBase64Chunks(audioBase64);
-    
+    // Décoder toute la chaîne base64 en une seule fois pour éviter de corrompre l'audio
+    const binaryString = atob(audioBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
     const formData = new FormData();
-    // Créer un nouveau ArrayBuffer à partir du Uint8Array
-    const arrayBuffer = new ArrayBuffer(binaryAudio.length);
-    const view = new Uint8Array(arrayBuffer);
-    view.set(binaryAudio);
-    const blob = new Blob([arrayBuffer], { type: 'audio/webm' });
+    const blob = new Blob([bytes.buffer], { type: 'audio/webm' });
+    formData.append('file', blob, 'audio.webm');
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
