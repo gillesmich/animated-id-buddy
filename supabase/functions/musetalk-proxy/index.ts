@@ -42,17 +42,17 @@ function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Arra
 // Transcrire l'audio avec Whisper
 async function transcribeAudio(audioBase64: string): Promise<string> {
   try {
-    // Décoder toute la chaîne base64 en une seule fois pour éviter de corrompre l'audio
-    const binaryString = atob(audioBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+    // Nettoyer la chaîne base64 (supprimer un éventuel préfixe data:...)
+    const cleanedBase64 = audioBase64.includes(',')
+      ? audioBase64.split(',').pop()!.trim()
+      : audioBase64.trim();
+
+    // Décoder l'audio en utilisant un traitement par chunks pour éviter les problèmes mémoire
+    const binaryAudio = processBase64Chunks(cleanedBase64);
 
     const formData = new FormData();
-    const blob = new Blob([bytes.buffer], { type: 'audio/webm' });
-    formData.append('file', blob, 'audio.webm');
-    formData.append('file', blob, 'audio.webm');
+    const blob = new Blob([binaryAudio.buffer as ArrayBuffer], { type: 'audio/webm' });
+    formData.append('file', blob, 'audio/webm');
     formData.append('model', 'whisper-1');
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
