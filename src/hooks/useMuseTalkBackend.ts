@@ -38,7 +38,8 @@ export const useMuseTalkBackend = ({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 48000
         }
       });
       
@@ -51,20 +52,27 @@ export const useMuseTalkBackend = ({
       mediaRecorderRef.current = mediaRecorder;
       
       mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64Audio = reader.result as string;
-            // Retirer le préfixe "data:audio/webm;base64," pour envoyer uniquement les données base64
-            const base64Data = base64Audio.split(',')[1] || base64Audio;
-            sendAudioToBackend(base64Data);
-          };
-          reader.readAsDataURL(event.data);
+        if (event.data.size > 0) {
+          console.log(`[MUSETALK] Audio chunk reçu: ${event.data.size} bytes`);
+          
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64Audio = reader.result as string;
+              const base64Data = base64Audio.split(',')[1] || base64Audio;
+              console.log(`[MUSETALK] Envoi audio: ${base64Data.substring(0, 50)}...`);
+              sendAudioToBackend(base64Data);
+            };
+            reader.readAsDataURL(event.data);
+          } else {
+            console.warn('[MUSETALK] WebSocket non ouvert, audio ignoré');
+          }
         }
       };
       
-      mediaRecorder.start(1000);
-      console.log('[MUSETALK] Microphone actif');
+      // Enregistrer par chunks de 3 secondes pour Whisper
+      mediaRecorder.start(3000);
+      console.log('[MUSETALK] Microphone actif (chunks de 3s)');
     } catch (error) {
       console.error('[MUSETALK] Erreur microphone:', error);
       toast.error('Erreur d\'accès au microphone');
@@ -74,6 +82,9 @@ export const useMuseTalkBackend = ({
 
   const stopMicrophone = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log('[MUSETALK] Arrêt du MediaRecorder');
+      // Forcer l'envoi des données finales
+      mediaRecorderRef.current.requestData();
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
     }
@@ -86,20 +97,32 @@ export const useMuseTalkBackend = ({
   };
 
   const sendAudioToBackend = useCallback((audioBase64: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && (avatarData || avatarUrl)) {
-      const payload = {
-        audio_data: audioBase64,
-        avatar_data: avatarData,
-        avatar_url: avatarUrl,
-        voice_provider: 'elevenlabs',
-        voice_id: 'EXAVITQu4vr4xnSDxMaL',
-        conversation_history: [],
-        bbox_shift: 0
-      };
-      const message = { event: 'chat_with_avatar', data: payload };
-      onWebSocketEvent?.('sent', message);
-      wsRef.current.send(JSON.stringify(message));
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error('[MUSETALK] WebSocket non connecté');
+      return;
     }
+    
+    if (!avatarData && !avatarUrl) {
+      console.error('[MUSETALK] Aucune donnée avatar disponible');
+      toast.error('Veuillez uploader un avatar d\'abord');
+      return;
+    }
+    
+    console.log('[MUSETALK] Envoi audio au backend...');
+    const payload = {
+      audio_data: audioBase64,
+      avatar_data: avatarData,
+      avatar_url: avatarUrl,
+      voice_provider: 'elevenlabs',
+      voice_id: 'EXAVITQu4vr4xnSDxMaL',
+      conversation_history: [],
+      bbox_shift: 0
+    };
+    const message = { event: 'chat_with_avatar', data: payload };
+    console.log('[MUSETALK] Payload:', { ...payload, audio_data: `${audioBase64.substring(0, 50)}...` });
+    onWebSocketEvent?.('sent', message);
+    wsRef.current.send(JSON.stringify(message));
+    console.log('[MUSETALK] Message envoyé au backend');
   }, [avatarData, avatarUrl, onWebSocketEvent]);
 
   const recordAndSend = useCallback(async () => {
