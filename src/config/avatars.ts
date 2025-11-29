@@ -1,3 +1,9 @@
+import claraAvatar from '@/assets/clara-avatar.png';
+import avatarAmy from '@/assets/avatar-amy.jpg';
+import avatarJohn from '@/assets/avatar-john.jpg';
+import avatarMarcus from '@/assets/avatar-marcus.jpg';
+import avatarSophia from '@/assets/avatar-sophia.jpg';
+
 export interface AvatarConfig {
   id: string;
   name: string;
@@ -12,31 +18,31 @@ export const PRESET_AVATARS: AvatarConfig[] = [
     id: 'clara',
     name: 'Clara',
     description: 'Avatar assistant virtuel',
-    image: '/src/assets/clara-avatar.png',
+    image: claraAvatar,
   },
   {
     id: 'amy',
     name: 'Amy',
     description: 'Avatar professionnel',
-    image: '/src/assets/avatar-amy.jpg',
+    image: avatarAmy,
   },
   {
     id: 'john',
     name: 'John',
     description: 'Avatar masculin',
-    image: '/src/assets/avatar-john.jpg',
+    image: avatarJohn,
   },
   {
     id: 'marcus',
     name: 'Marcus',
     description: 'Avatar expert',
-    image: '/src/assets/avatar-marcus.jpg',
+    image: avatarMarcus,
   },
   {
     id: 'sophia',
     name: 'Sophia',
     description: 'Avatar consultant',
-    image: '/src/assets/avatar-sophia.jpg',
+    image: avatarSophia,
   },
 ];
 
