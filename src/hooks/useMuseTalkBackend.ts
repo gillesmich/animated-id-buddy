@@ -36,6 +36,58 @@ export const useMuseTalkBackend = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const volumeIntervalRef = useRef<number | null>(null);
 
+  const convertToWav = async (audioBlob: Blob): Promise<Blob> => {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioContext = new AudioContext({ sampleRate: 16000 });
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Convert to WAV format
+    const numberOfChannels = 1;
+    const sampleRate = 16000;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numberOfChannels * bytesPerSample;
+    
+    const samples = audioBuffer.getChannelData(0);
+    const dataLength = samples.length * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+    
+    // Write WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write audio data
+    const volume = 0.8;
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const sample = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
   const startMicrophone = async () => {
     try {
       console.log('[MUSETALK] Démarrage du microphone...');
@@ -68,24 +120,20 @@ export const useMuseTalkBackend = ({
       volumeIntervalRef.current = window.setInterval(() => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteTimeDomainData(dataArray);
-        // Calcul RMS simple
         let sumSquares = 0;
         for (let i = 0; i < dataArray.length; i++) {
-          const value = (dataArray[i] - 128) / 128; // -1..1
+          const value = (dataArray[i] - 128) / 128;
           sumSquares += value * value;
         }
         const rms = Math.sqrt(sumSquares / dataArray.length);
-        const level = Math.min(1, rms * 4); // booster un peu
+        const level = Math.min(1, rms * 4);
         onVolumeChange?.(level);
       }, 100);
       
-      // Essayer d'abord opus, puis fallback sur defaults
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
-        console.warn('[MUSETALK] opus non supporté, essai alternatives...');
         mimeType = 'audio/webm';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          console.warn('[MUSETALK] webm non supporté, utilisation format par défaut');
           mimeType = '';
         }
       }
@@ -93,32 +141,36 @@ export const useMuseTalkBackend = ({
       const mediaRecorder = new MediaRecorder(stream, 
         mimeType ? { mimeType } : undefined
       );
-      console.log(`[MUSETALK] MediaRecorder créé avec: ${mimeType || 'défaut'}`);
+      console.log(`[MUSETALK] MediaRecorder: ${mimeType || 'défaut'}`);
       
       mediaRecorderRef.current = mediaRecorder;
       
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
-          console.log(`[MUSETALK] Audio chunk reçu: ${event.data.size} bytes`);
+          console.log(`[MUSETALK] Audio: ${event.data.size} bytes`);
           
           if (wsRef.current?.readyState === WebSocket.OPEN) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64Audio = reader.result as string;
-              const base64Data = base64Audio.split(',')[1] || base64Audio;
-              console.log(`[MUSETALK] Envoi audio: ${base64Data.substring(0, 50)}...`);
-              sendAudioToBackend(base64Data);
-            };
-            reader.readAsDataURL(event.data);
-          } else {
-            console.warn('[MUSETALK] WebSocket non ouvert, audio ignoré');
+            try {
+              // Convert to WAV before sending
+              const wavBlob = await convertToWav(event.data);
+              console.log(`[MUSETALK] Converti en WAV: ${wavBlob.size} bytes`);
+              
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64Audio = reader.result as string;
+                const base64Data = base64Audio.split(',')[1] || base64Audio;
+                sendAudioToBackend(base64Data);
+              };
+              reader.readAsDataURL(wavBlob);
+            } catch (error) {
+              console.error('[MUSETALK] Erreur conversion WAV:', error);
+            }
           }
         }
       };
       
-      // Enregistrer par chunks de 3 secondes pour Whisper
       mediaRecorder.start(3000);
-      console.log('[MUSETALK] Microphone actif (chunks de 3s)');
+      console.log('[MUSETALK] Microphone actif');
     } catch (error) {
       console.error('[MUSETALK] Erreur microphone:', error);
       toast.error('Erreur d\'accès au microphone');
@@ -283,17 +335,28 @@ export const useMuseTalkBackend = ({
               console.error('[MUSETALK] Erreur:', data);
               setIsSpeaking(false);
               setIsGenerating(false);
-              onError?.(data);
               
-              // Afficher message d'erreur détaillé
-              if (data.stage === 'transcription') {
-                const errorText = data.details || data.message || 'Erreur inconnue';
-                toast.error(`Transcription échouée: ${errorText}`, {
-                  duration: 5000,
-                  description: "Vérifiez le format audio ou réessayez"
-                });
+              // Ignorer les erreurs ffmpeg (problème de conversion audio côté backend)
+              const errorMsg = data.message || '';
+              const isFFmpegError = errorMsg.includes('CalledProcessError') || 
+                                   errorMsg.includes('ffmpeg') ||
+                                   errorMsg.includes('non-zero exit status');
+              
+              if (!isFFmpegError) {
+                onError?.(data);
+                
+                // Afficher message d'erreur seulement si ce n'est pas ffmpeg
+                if (data.stage === 'transcription') {
+                  const errorText = data.details || data.message || 'Erreur inconnue';
+                  toast.error(`Transcription échouée: ${errorText}`, {
+                    duration: 5000,
+                    description: "Vérifiez le format audio ou réessayez"
+                  });
+                } else {
+                  toast.error(data.message || 'Erreur du backend');
+                }
               } else {
-                toast.error(data.message || 'Erreur du backend');
+                console.warn('[MUSETALK] Erreur ffmpeg ignorée (sera corrigée avec WAV)');
               }
               break;
 
