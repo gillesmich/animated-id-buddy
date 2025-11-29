@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Volume2, Loader2, Download, Radio } from "lucide-react";
+import { Video, Mic, Loader2, Download, Radio } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import io, { Socket } from "socket.io-client";
 
 interface LocalWebRTCConversationProps {
   config: {
@@ -16,78 +16,71 @@ interface LocalWebRTCConversationProps {
 const STORAGE_KEY = 'musetalk_webrtc_video_history';
 
 const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoKey, setVideoKey] = useState(0);
-  const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
-  const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [backendUrl] = useState('http://localhost:8000'); // URL du backend Python
+  const socketRef = useRef<Socket | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Charger l'historique des vidéos au démarrage
   useEffect(() => {
-    const loadVideoHistory = () => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          const history = parsed.map((item: any) => ({
-            url: item.url,
-            timestamp: new Date(item.timestamp)
-          }));
-          setVideoHistory(history);
-          
-          if (history.length > 0) {
-            const lastVideo = history[history.length - 1];
-            setVideoUrl(lastVideo.url);
-            setVideoKey(prev => prev + 1);
-            toast.success(`Dernière vidéo rechargée (${history.length} vidéos en cache)`);
-          }
-        }
-      } catch (error) {
-        console.error('Erreur chargement historique:', error);
+    return () => {
+      // Cleanup lors du démontage
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+      if (peerConnection) {
+        peerConnection.close();
       }
     };
-    loadVideoHistory();
-  }, []);
-
-  // Sauvegarder l'historique à chaque mise à jour
-  useEffect(() => {
-    if (videoHistory.length > 0) {
-      try {
-        const toStore = videoHistory.map(v => ({
-          url: v.url,
-          timestamp: v.timestamp.toISOString()
-        }));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
-      } catch (error) {
-        console.error('Erreur sauvegarde historique:', error);
-      }
-    }
-  }, [videoHistory]);
+  }, [peerConnection]);
 
   const handleConnect = async () => {
     try {
       console.log("[WebRTC] Initialisation de la connexion...");
-      toast.info("Connexion au serveur de signalisation...");
+      toast.info("Connexion au backend Python via Socket.IO...");
 
-      // 1. Créer une session via le serveur de signalisation
-      const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
-        'webrtc-signaling',
-        { 
-          body: { action: 'create-session' }
-        }
-      );
+      // 1. Établir la connexion Socket.IO
+      const socket = io(backendUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-      if (sessionError) throw sessionError;
-      
-      const newSessionId = sessionData.sessionId;
-      setSessionId(newSessionId);
-      console.log("[WebRTC] Session créée:", newSessionId);
+      socketRef.current = socket;
 
-      // 2. Créer une connexion RTCPeerConnection
+      socket.on('connect', () => {
+        console.log("[Socket.IO] Connecté au serveur");
+        toast.success("Socket.IO connecté");
+      });
+
+      socket.on('server_message', (data) => {
+        console.log("[Socket.IO] Message du serveur:", data);
+      });
+
+      socket.on('disconnect', () => {
+        console.log("[Socket.IO] Déconnecté du serveur");
+        setIsConnected(false);
+        toast.info("Déconnecté du serveur");
+      });
+
+      socket.on('webrtc_error', (data) => {
+        console.error("[WebRTC] Erreur:", data);
+        toast.error(data.error || "Erreur WebRTC");
+        setIsGenerating(false);
+      });
+
+      // Attendre la connexion Socket.IO
+      await new Promise<void>((resolve, reject) => {
+        socket.once('connect', () => resolve());
+        socket.once('connect_error', (err) => reject(err));
+        setTimeout(() => reject(new Error('Timeout Socket.IO')), 5000);
+      });
+
+      // 2. Créer la PeerConnection
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -95,123 +88,80 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         ]
       });
 
-      // 3. Créer un data channel pour échanger des données
-      const dc = pc.createDataChannel('musetalk', {
-        ordered: true
-      });
-
-      dc.onopen = () => {
-        console.log("[WebRTC] Data channel ouvert");
-        setIsConnected(true);
-        toast.success("Connexion WebRTC établie");
-      };
-
-      dc.onclose = () => {
-        console.log("[WebRTC] Data channel fermé");
-        setIsConnected(false);
-        toast.info("Connexion WebRTC fermée");
-      };
-
-      dc.onerror = (error) => {
-        console.error("[WebRTC] Erreur data channel:", error);
-        toast.error("Erreur dans le canal de données");
-      };
-
-      dc.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log("[WebRTC] Message reçu:", data);
-
-          if (data.type === 'video_ready') {
-            const newVideoUrl = data.url;
-            setVideoUrl(newVideoUrl);
-            setVideoKey(prev => prev + 1);
-            
-            setVideoHistory(prev => [
-              ...prev,
-              { url: newVideoUrl, timestamp: new Date() }
-            ]);
-            
-            setIsGenerating(false);
-            toast.success("Vidéo générée avec succès!");
-          } else if (data.type === 'status') {
-            toast.info(data.message);
-          } else if (data.type === 'error') {
-            toast.error(data.message);
-            setIsGenerating(false);
-          }
-        } catch (error) {
-          console.error("[WebRTC] Erreur parsing message:", error);
+      // 3. Gérer les tracks reçus (vidéo/audio du serveur)
+      pc.ontrack = (event) => {
+        console.log("[WebRTC] Track reçu:", event.track.kind);
+        if (videoRef.current && event.streams && event.streams[0]) {
+          videoRef.current.srcObject = event.streams[0];
+          toast.success("Flux vidéo reçu du serveur");
         }
       };
 
-      // 4. Gérer les événements ICE - envoyer au serveur de signalisation
-      pc.onicecandidate = async (event) => {
+      pc.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log("[WebRTC] ICE candidate:", event.candidate);
-          try {
-            await supabase.functions.invoke('webrtc-signaling', {
-              body: {
-                action: 'add-ice-candidate',
-                sessionId: newSessionId,
-                candidate: event.candidate
-              }
-            });
-          } catch (error) {
-            console.error("[WebRTC] Erreur envoi ICE candidate:", error);
-          }
+          console.log("[WebRTC] ICE candidate local:", event.candidate);
         }
       };
 
       pc.oniceconnectionstatechange = () => {
         console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed') {
+        if (pc.iceConnectionState === 'connected') {
+          setIsConnected(true);
+          toast.success("Connexion WebRTC établie");
+        } else if (pc.iceConnectionState === 'failed') {
           toast.error("Échec de la connexion ICE");
         }
       };
 
-      // 5. Créer une offre SDP
-      const offer = await pc.createOffer();
+      pc.onconnectionstatechange = () => {
+        console.log("[WebRTC] Connection state:", pc.connectionState);
+      };
+
+      // 4. Créer l'offre
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
       await pc.setLocalDescription(offer);
 
-      console.log("[WebRTC] Offre SDP créée");
+      console.log("[WebRTC] Offre créée:", offer);
 
-      // 6. Envoyer l'offre au serveur de signalisation et obtenir la réponse
-      toast.info("Échange des paramètres de connexion...");
-      const { data: answerData, error: answerError } = await supabase.functions.invoke(
-        'webrtc-signaling',
-        {
-          body: {
-            action: 'send-offer',
-            sessionId: newSessionId,
-            offer: pc.localDescription
-          }
+      // 5. Envoyer l'offre au serveur Python via Socket.IO
+      socket.emit('webrtc_offer', {
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
         }
-      );
+      });
 
-      if (answerError) throw answerError;
-
-      // 7. Définir la description distante avec la réponse
-      await pc.setRemoteDescription(new RTCSessionDescription(answerData.answer));
-      console.log("[WebRTC] Réponse SDP appliquée");
+      // 6. Attendre la réponse du serveur
+      socket.once('webrtc_answer', async (data) => {
+        console.log("[WebRTC] Answer reçue:", data.answer);
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          console.log("[WebRTC] Remote description définie");
+          toast.success("Connexion WebRTC établie avec le backend");
+        } catch (error) {
+          console.error("[WebRTC] Erreur setRemoteDescription:", error);
+          toast.error("Erreur lors de la configuration WebRTC");
+        }
+      });
 
       setPeerConnection(pc);
-      setDataChannel(dc);
-
-      toast.success("Connexion WebRTC initialisée");
 
     } catch (error) {
       console.error("[WebRTC] Erreur de connexion:", error);
-      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion WebRTC échouée'}`);
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = () => {
     console.log("[WebRTC] Déconnexion");
     
-    if (dataChannel) {
-      dataChannel.close();
-      setDataChannel(null);
+    if (socketRef.current) {
+      socketRef.current.emit('webrtc_close');
+      socketRef.current.disconnect();
+      socketRef.current = null;
     }
     
     if (peerConnection) {
@@ -219,19 +169,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       setPeerConnection(null);
     }
     
-    // Fermer la session sur le serveur de signalisation
-    if (sessionId) {
-      try {
-        await supabase.functions.invoke('webrtc-signaling', {
-          body: { 
-            action: 'close-session',
-            sessionId 
-          }
-        });
-      } catch (error) {
-        console.error("[WebRTC] Erreur fermeture session:", error);
-      }
-      setSessionId(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     
     setIsConnected(false);
@@ -239,8 +178,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   };
 
   const handleSpeak = async () => {
-    if (!dataChannel || dataChannel.readyState !== 'open') {
-      toast.error("Canal de données non disponible");
+    if (!socketRef.current || !socketRef.current.connected) {
+      toast.error("Socket.IO non connecté");
       return;
     }
 
@@ -248,10 +187,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       setIsSpeaking(true);
       setIsGenerating(true);
       
-      console.log("[WebRTC] Démarrage enregistrement audio...");
+      console.log("[Audio] Démarrage enregistrement...");
       toast.info("Enregistrement audio...");
 
-      // Obtenir l'accès au microphone
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       const audioChunks: Blob[] = [];
@@ -263,23 +201,19 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        console.log("[WebRTC] Audio enregistré:", audioBlob.size, "bytes");
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        console.log("[Audio] Enregistré:", audioBlob.size, "bytes");
 
-        // Convertir en base64
         const reader = new FileReader();
         reader.onloadend = () => {
-          const base64Audio = reader.result as string;
+          const base64Audio = (reader.result as string).split(',')[1];
           
-          // Envoyer via le data channel
-          dataChannel.send(JSON.stringify({
-            type: 'audio_data',
-            audio: base64Audio,
-            avatar_url: config.customAvatarVideo || config.customAvatarImage,
-            timestamp: new Date().toISOString()
-          }));
+          // Envoyer via Socket.IO
+          socketRef.current?.emit('upload_audio_b64', {
+            audio_base64: base64Audio
+          });
 
-          console.log("[WebRTC] Audio envoyé via data channel");
+          console.log("[Socket.IO] Audio envoyé");
           toast.success("Audio envoyé au serveur");
         };
         reader.readAsDataURL(audioBlob);
@@ -288,37 +222,34 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         setIsSpeaking(false);
       };
 
+      // Gérer les réponses du serveur
+      socketRef.current.once('upload_success', (data) => {
+        console.log("[Socket.IO] Audio uploadé avec succès:", data);
+        toast.success(`Audio traité (${data.duration.toFixed(2)}s)`);
+        setIsGenerating(false);
+      });
+
+      socketRef.current.once('upload_error', (data) => {
+        console.error("[Socket.IO] Erreur upload:", data);
+        toast.error(data.error || "Erreur lors de l'upload");
+        setIsGenerating(false);
+      });
+
       mediaRecorder.start();
       
-      // Enregistrer pendant 5 secondes
       setTimeout(() => {
         if (mediaRecorder.state === 'recording') {
           mediaRecorder.stop();
-          toast.info("Enregistrement terminé, traitement en cours...");
+          toast.info("Enregistrement terminé");
         }
       }, 5000);
 
     } catch (error) {
-      console.error("[WebRTC] Erreur enregistrement:", error);
-      toast.error("Erreur lors de l'enregistrement audio");
+      console.error("[Audio] Erreur:", error);
+      toast.error("Erreur lors de l'enregistrement");
       setIsSpeaking(false);
       setIsGenerating(false);
     }
-  };
-
-  const handleDownloadLastVideo = () => {
-    if (!videoUrl) {
-      toast.error("Aucune vidéo à télécharger");
-      return;
-    }
-    
-    const link = document.createElement('a');
-    link.href = videoUrl;
-    link.download = `musetalk_webrtc_${new Date().getTime()}.mp4`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Téléchargement démarré");
   };
 
   return (
@@ -380,35 +311,36 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           )}
         </div>
 
-        {/* Video Display */}
-        {videoUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Video className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">Vidéo générée</span>
-              </div>
-              <Badge variant="outline">
-                {videoHistory.length} vidéo{videoHistory.length > 1 ? 's' : ''}
-              </Badge>
+        {/* Video Display - WebRTC Stream */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Video className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">Flux vidéo WebRTC</span>
             </div>
-            
-            <div className="relative rounded-lg overflow-hidden border border-border/50 bg-black aspect-video">
-              <video
-                key={videoKey}
-                src={videoUrl}
-                controls
-                autoPlay
-                loop
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  console.error('[VIDEO] Erreur de chargement:', e);
-                  toast.error('Erreur de chargement de la vidéo');
-                }}
-              />
-            </div>
+            {isConnected && (
+              <Badge variant="default">En direct</Badge>
+            )}
           </div>
-        )}
+          
+          <div className="relative rounded-lg overflow-hidden border border-border/50 bg-black aspect-video">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                console.error('[VIDEO] Erreur:', e);
+                toast.error('Erreur vidéo');
+              }}
+            />
+            {!isConnected && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                <p className="text-sm text-muted-foreground">En attente de connexion...</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Voice Controls */}
         {isConnected && (
@@ -422,25 +354,16 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               <Mic className="w-5 h-5" />
               {isSpeaking ? "Enregistrement..." : isGenerating ? "Traitement..." : "Parler"}
             </Button>
-            {videoUrl && (
-              <Button
-                onClick={handleDownloadLastVideo}
-                variant="outline"
-                size="lg"
-                className="gap-2"
-              >
-                <Download className="w-5 h-5" />
-                Télécharger
-              </Button>
-            )}
           </div>
         )}
 
         {/* Info */}
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <strong>WebRTC:</strong> Connexion peer-to-peer directe pour une latence minimale.
-            Le data channel permet l'échange bidirectionnel de données en temps réel.
+            <strong>WebRTC + Socket.IO:</strong> Connexion au backend Python via Socket.IO pour la signalisation,
+            puis WebRTC pour le streaming vidéo/audio en temps réel avec aiortc.
+            <br />
+            <strong>Backend:</strong> {backendUrl}
           </p>
         </div>
       </div>
