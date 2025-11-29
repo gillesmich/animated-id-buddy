@@ -20,6 +20,7 @@ interface LocalWebSocketConversationProps {
 
 const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoKey, setVideoKey] = useState(0);
   const [audioVolume, setAudioVolume] = useState(0);
   const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
@@ -82,9 +83,11 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     },
     onVideoGenerated: (videoUrl) => {
       console.log("[MUSETALK] Vidéo reçue:", videoUrl);
-      // L'URL est déjà traitée par le hook
-      setVideoUrl(videoUrl);
-      setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
+      // Ajouter un timestamp pour forcer le rechargement
+      const cacheBustedUrl = `${videoUrl}?t=${Date.now()}`;
+      setVideoUrl(cacheBustedUrl);
+      setVideoKey(prev => prev + 1); // Force re-render du composant video
+      setVideoHistory(prev => [...prev, { url: cacheBustedUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
     },
     onWebSocketEvent: (direction, data) => {
@@ -195,12 +198,15 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
         <div className="relative w-full aspect-square max-w-md mx-auto bg-secondary/10 rounded-lg overflow-hidden border-2 border-border">
           {videoUrl ? (
             <video
+              key={videoKey}
               src={videoUrl}
               autoPlay
               loop
               muted
               playsInline
               className="w-full h-full object-cover"
+              onLoadedData={() => console.log("[MUSETALK] Vidéo chargée et prête")}
+              onError={(e) => console.error("[MUSETALK] Erreur chargement vidéo:", e)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -288,6 +294,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
                   className="relative group cursor-pointer rounded-lg overflow-hidden border-2 border-primary/20 hover:border-primary/50 transition-all"
                   onClick={() => {
                     setVideoUrl(video.url);
+                    setVideoKey(prev => prev + 1);
                     toast.info("Vidéo chargée");
                   }}
                 >
