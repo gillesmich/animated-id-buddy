@@ -257,11 +257,21 @@ export const useMuseTalkBackend = ({
               setIsGenerating(false);
               onMessage?.({ type: 'result', ...data });
               
-              // Chercher l'URL vidéo dans tous les champs possibles
-              const videoUrl = data.download_url || data.video_url || data.url || data.videoUrl;
-              if (videoUrl) {
-                console.log('[MUSETALK] URL vidéo trouvée:', videoUrl);
-                onVideoGenerated?.(videoUrl);
+              // Chercher l'URL vidéo (priorité: video_url > download_url)
+              const rawUrl = data.video_url || data.download_url || data.url || data.videoUrl;
+              if (rawUrl) {
+                console.log('[MUSETALK] URL vidéo brute:', rawUrl);
+                
+                // Si l'URL est complète (http/https), l'utiliser directement
+                // Sinon, construire l'URL complète avec le backend
+                let finalVideoUrl = rawUrl;
+                if (!rawUrl.startsWith('http')) {
+                  const backendUrl = 'http://51.255.153.127:8000';
+                  finalVideoUrl = `${backendUrl}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+                }
+                
+                console.log('[MUSETALK] URL vidéo finale:', finalVideoUrl);
+                onVideoGenerated?.(finalVideoUrl);
                 toast.success('Vidéo générée avec succès!');
               } else {
                 console.warn('[MUSETALK] Aucune URL vidéo dans le résultat:', data);
