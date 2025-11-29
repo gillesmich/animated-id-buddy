@@ -13,6 +13,7 @@ interface LocalWebSocketConversationProps {
   config: {
     selectedAvatar: string;
     customAvatarImage?: string;
+    customAvatarVideo?: string;
     elevenlabsAgentId?: string;
   };
 }
@@ -24,7 +25,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
 
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useMuseTalkBackend({
-    avatarUrl: config.customAvatarImage,
+    avatarUrl: config.customAvatarVideo || config.customAvatarImage,
     onConnect: () => {
       console.log("[MUSETALK] Connecté");
       toast.success("Connecté au Backend MuseTalk");
@@ -181,7 +182,16 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              {config.customAvatarImage ? (
+              {config.customAvatarVideo ? (
+                <video
+                  src={config.customAvatarVideo}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : config.customAvatarImage ? (
                 <img 
                   src={config.customAvatarImage} 
                   alt="Avatar Preview" 
