@@ -74,6 +74,16 @@ serve(async (req) => {
       
       console.log(`[Signaling] Offer received for session ${sessionId}`);
       
+      // Parse the offer SDP to get ice-ufrag and ice-pwd
+      const offerSdp = offer.sdp || '';
+      const iceUfragMatch = offerSdp.match(/a=ice-ufrag:(\S+)/);
+      const icePwdMatch = offerSdp.match(/a=ice-pwd:(\S+)/);
+      const fingerprintMatch = offerSdp.match(/a=fingerprint:sha-256 (\S+)/);
+      
+      const iceUfrag = iceUfragMatch ? iceUfragMatch[1] : crypto.randomUUID().slice(0, 8);
+      const icePwd = icePwdMatch ? icePwdMatch[1] : crypto.randomUUID();
+      const fingerprint = fingerprintMatch ? fingerprintMatch[1] : Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':');
+      
       // Create a mock answer (in production, forward to Python backend)
       const answer = {
         type: 'answer',
@@ -82,16 +92,19 @@ o=- ${Date.now()} 2 IN IP4 127.0.0.1
 s=-
 t=0 0
 a=group:BUNDLE 0
+a=extmap-allow-mixed
 a=msid-semantic: WMS
 m=application 9 UDP/DTLS/SCTP webrtc-datachannel
 c=IN IP4 0.0.0.0
-a=ice-ufrag:${crypto.randomUUID().slice(0, 8)}
-a=ice-pwd:${crypto.randomUUID()}
+a=ice-ufrag:${iceUfrag}
+a=ice-pwd:${icePwd}
 a=ice-options:trickle
-a=fingerprint:sha-256 ${Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':')}
+a=fingerprint:sha-256 ${fingerprint}
 a=setup:active
 a=mid:0
-a=sctp-port:5000`
+a=sctp-port:5000
+a=max-message-size:262144
+`
       };
       
       // Update session with answer
