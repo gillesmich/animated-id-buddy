@@ -252,13 +252,20 @@ export const useMuseTalkBackend = ({
               break;
 
             case 'chat_result':
-              console.log('[MUSETALK] Résultat:', data);
+              console.log('[MUSETALK] Résultat complet:', JSON.stringify(data, null, 2));
               setIsSpeaking(false);
               setIsGenerating(false);
               onMessage?.({ type: 'result', ...data });
               
-              if (data.download_url) {
-                onVideoGenerated?.(data.download_url);
+              // Chercher l'URL vidéo dans tous les champs possibles
+              const videoUrl = data.download_url || data.video_url || data.url || data.videoUrl;
+              if (videoUrl) {
+                console.log('[MUSETALK] URL vidéo trouvée:', videoUrl);
+                onVideoGenerated?.(videoUrl);
+                toast.success('Vidéo générée avec succès!');
+              } else {
+                console.warn('[MUSETALK] Aucune URL vidéo dans le résultat:', data);
+                toast.warning('Résultat reçu mais aucune URL vidéo trouvée');
               }
               break;
 
