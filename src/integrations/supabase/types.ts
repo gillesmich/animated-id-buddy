@@ -95,12 +95,42 @@ export type Database = {
         }
         Relationships: []
       }
+      webrtc_sessions: {
+        Row: {
+          answer: Json | null
+          created_at: string | null
+          expires_at: string | null
+          ice_candidates: Json | null
+          id: string
+          offer: Json | null
+          session_id: string
+        }
+        Insert: {
+          answer?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          ice_candidates?: Json | null
+          id?: string
+          offer?: Json | null
+          session_id: string
+        }
+        Update: {
+          answer?: Json | null
+          created_at?: string | null
+          expires_at?: string | null
+          ice_candidates?: Json | null
+          id?: string
+          offer?: Json | null
+          session_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clean_expired_webrtc_sessions: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
