@@ -57,7 +57,18 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
     },
     onError: (error) => {
       console.error("[MUSETALK] Erreur:", JSON.stringify(error, null, 2));
-      toast.error("Erreur de connexion");
+      const errorMsg = error.message || "Erreur de connexion";
+      const errorDetails = error.details || "";
+      const stage = error.stage || "";
+      
+      if (stage === 'transcription') {
+        toast.error(`❌ Transcription échouée: ${errorDetails}`, {
+          duration: 5000,
+          description: "Vérifiez que votre microphone fonctionne correctement"
+        });
+      } else {
+        toast.error(errorMsg);
+      }
     },
     onVideoGenerated: (videoUrl) => {
       console.log("[MUSETALK] Vidéo générée:", videoUrl);

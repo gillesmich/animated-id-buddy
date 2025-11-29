@@ -180,9 +180,14 @@ serve(async (req) => {
           });
         } catch (error) {
           console.error("Transcription failed:", error);
+          const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
           socket.send(JSON.stringify({ 
             event: 'error', 
-            data: { message: 'Échec de la transcription audio' } 
+            data: { 
+              message: 'Échec de la transcription audio',
+              details: errorMsg,
+              stage: 'transcription'
+            } 
           }));
         }
       } else if (message.event === 'ping') {

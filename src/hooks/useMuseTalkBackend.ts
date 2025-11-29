@@ -78,9 +78,21 @@ export const useMuseTalkBackend = ({
         onVolumeChange?.(level);
       }, 100);
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
+      // Essayer d'abord opus, puis fallback sur defaults
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        console.warn('[MUSETALK] opus non supporté, essai alternatives...');
+        mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          console.warn('[MUSETALK] webm non supporté, utilisation format par défaut');
+          mimeType = '';
+        }
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, 
+        mimeType ? { mimeType } : undefined
+      );
+      console.log(`[MUSETALK] MediaRecorder créé avec: ${mimeType || 'défaut'}`);
       
       mediaRecorderRef.current = mediaRecorder;
       
@@ -254,7 +266,17 @@ export const useMuseTalkBackend = ({
               setIsSpeaking(false);
               setIsGenerating(false);
               onError?.(data);
-              toast.error(data.message || 'Erreur du backend');
+              
+              // Afficher message d'erreur détaillé
+              if (data.stage === 'transcription') {
+                const errorText = data.details || data.message || 'Erreur inconnue';
+                toast.error(`Transcription échouée: ${errorText}`, {
+                  duration: 5000,
+                  description: "Vérifiez le format audio ou réessayez"
+                });
+              } else {
+                toast.error(data.message || 'Erreur du backend');
+              }
               break;
 
             case 'pong':
