@@ -29,8 +29,8 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    const body = await req.json();
+    const action = body.action;
 
     if (action === 'create-session') {
       const sessionId = crypto.randomUUID();
@@ -48,7 +48,7 @@ serve(async (req) => {
     }
 
     if (action === 'send-offer') {
-      const { sessionId, offer } = await req.json();
+      const { sessionId, offer } = body;
       
       if (!sessions.has(sessionId)) {
         throw new Error('Session not found');
@@ -89,7 +89,7 @@ a=max-message-size:262144`
     }
 
     if (action === 'add-ice-candidate') {
-      const { sessionId, candidate } = await req.json();
+      const { sessionId, candidate } = body;
       
       if (!sessions.has(sessionId)) {
         throw new Error('Session not found');
@@ -107,7 +107,7 @@ a=max-message-size:262144`
     }
 
     if (action === 'close-session') {
-      const { sessionId } = await req.json();
+      const { sessionId } = body;
       
       if (sessions.has(sessionId)) {
         sessions.delete(sessionId);

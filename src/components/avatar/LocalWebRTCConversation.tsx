@@ -77,8 +77,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
         'webrtc-signaling',
         { 
-          body: {},
-          method: 'POST'
+          body: { action: 'create-session' }
         }
       );
 
@@ -153,6 +152,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           try {
             await supabase.functions.invoke('webrtc-signaling', {
               body: {
+                action: 'add-ice-candidate',
                 sessionId: newSessionId,
                 candidate: event.candidate
               }
@@ -182,6 +182,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         'webrtc-signaling',
         {
           body: {
+            action: 'send-offer',
             sessionId: newSessionId,
             offer: pc.localDescription
           }
@@ -222,7 +223,10 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     if (sessionId) {
       try {
         await supabase.functions.invoke('webrtc-signaling', {
-          body: { sessionId }
+          body: { 
+            action: 'close-session',
+            sessionId 
+          }
         });
       } catch (error) {
         console.error("[WebRTC] Erreur fermeture session:", error);
