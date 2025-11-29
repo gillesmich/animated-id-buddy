@@ -40,6 +40,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const handleConnect = async () => {
     try {
       console.log("[WebRTC] Initialisation de la connexion...");
+      console.log("[WebRTC] Tentative de connexion à:", backendUrl);
       toast.info("Connexion au backend Python via Socket.IO...");
 
       // 1. Établir la connexion Socket.IO
@@ -48,12 +49,13 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
+        timeout: 15000,
       });
 
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log("[Socket.IO] Connecté au serveur");
+        console.log("[Socket.IO] ✅ Connecté au serveur");
         toast.success("Socket.IO connecté");
       });
 
@@ -73,11 +75,22 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         setIsGenerating(false);
       });
 
+      socket.on('connect_error', (err) => {
+        console.error("[Socket.IO] Erreur de connexion:", err.message);
+        toast.error(`Erreur Socket.IO: ${err.message}`);
+      });
+
       // Attendre la connexion Socket.IO
       await new Promise<void>((resolve, reject) => {
         socket.once('connect', () => resolve());
-        socket.once('connect_error', (err) => reject(err));
-        setTimeout(() => reject(new Error('Timeout Socket.IO')), 5000);
+        socket.once('connect_error', (err) => {
+          console.error("[Socket.IO] connect_error:", err);
+          reject(new Error(`Impossible de se connecter à ${backendUrl}: ${err.message}`));
+        });
+        setTimeout(() => {
+          console.error("[Socket.IO] Timeout après 15s");
+          reject(new Error(`Timeout Socket.IO (15s) - Le backend ${backendUrl} ne répond pas`));
+        }, 15000);
       });
 
       // 2. Créer la PeerConnection
