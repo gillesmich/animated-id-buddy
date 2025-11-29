@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Video, Mic, Volume2, Loader2, Download, Radio } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LocalWebRTCConversationProps {
   config: {
@@ -23,6 +24,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Charger l'historique des vidéos au démarrage
   useEffect(() => {
@@ -69,9 +71,24 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const handleConnect = async () => {
     try {
       console.log("[WebRTC] Initialisation de la connexion...");
-      toast.info("Connexion WebRTC en cours...");
+      toast.info("Connexion au serveur de signalisation...");
 
-      // Créer une connexion RTCPeerConnection
+      // 1. Créer une session via le serveur de signalisation
+      const { data: sessionData, error: sessionError } = await supabase.functions.invoke(
+        'webrtc-signaling',
+        { 
+          body: {},
+          method: 'POST'
+        }
+      );
+
+      if (sessionError) throw sessionError;
+      
+      const newSessionId = sessionData.sessionId;
+      setSessionId(newSessionId);
+      console.log("[WebRTC] Session créée:", newSessionId);
+
+      // 2. Créer une connexion RTCPeerConnection
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -79,7 +96,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         ]
       });
 
-      // Créer un data channel pour échanger des données
+      // 3. Créer un data channel pour échanger des données
       const dc = pc.createDataChannel('musetalk', {
         ordered: true
       });
@@ -129,37 +146,66 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         }
       };
 
-      // Gérer les événements ICE
-      pc.onicecandidate = (event) => {
+      // 4. Gérer les événements ICE - envoyer au serveur de signalisation
+      pc.onicecandidate = async (event) => {
         if (event.candidate) {
           console.log("[WebRTC] ICE candidate:", event.candidate);
+          try {
+            await supabase.functions.invoke('webrtc-signaling', {
+              body: {
+                sessionId: newSessionId,
+                candidate: event.candidate
+              }
+            });
+          } catch (error) {
+            console.error("[WebRTC] Erreur envoi ICE candidate:", error);
+          }
         }
       };
 
       pc.oniceconnectionstatechange = () => {
         console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed') {
+          toast.error("Échec de la connexion ICE");
+        }
       };
 
-      // Créer une offre SDP
+      // 5. Créer une offre SDP
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       console.log("[WebRTC] Offre SDP créée");
 
+      // 6. Envoyer l'offre au serveur de signalisation et obtenir la réponse
+      toast.info("Échange des paramètres de connexion...");
+      const { data: answerData, error: answerError } = await supabase.functions.invoke(
+        'webrtc-signaling',
+        {
+          body: {
+            sessionId: newSessionId,
+            offer: pc.localDescription
+          }
+        }
+      );
+
+      if (answerError) throw answerError;
+
+      // 7. Définir la description distante avec la réponse
+      await pc.setRemoteDescription(new RTCSessionDescription(answerData.answer));
+      console.log("[WebRTC] Réponse SDP appliquée");
+
       setPeerConnection(pc);
       setDataChannel(dc);
 
-      // Note: Dans une implémentation réelle, il faudrait échanger
-      // l'offre SDP avec le serveur via un serveur de signalisation
-      toast.info("Mode WebRTC local initialisé");
+      toast.success("Connexion WebRTC initialisée");
 
     } catch (error) {
       console.error("[WebRTC] Erreur de connexion:", error);
-      toast.error("Erreur lors de la connexion WebRTC");
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion WebRTC échouée'}`);
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     console.log("[WebRTC] Déconnexion");
     
     if (dataChannel) {
@@ -170,6 +216,18 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     if (peerConnection) {
       peerConnection.close();
       setPeerConnection(null);
+    }
+    
+    // Fermer la session sur le serveur de signalisation
+    if (sessionId) {
+      try {
+        await supabase.functions.invoke('webrtc-signaling', {
+          body: { sessionId }
+        });
+      } catch (error) {
+        console.error("[WebRTC] Erreur fermeture session:", error);
+      }
+      setSessionId(null);
     }
     
     setIsConnected(false);
