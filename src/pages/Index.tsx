@@ -12,6 +12,7 @@ import { GifGenerator } from "@/components/avatar/GifGenerator";
 import { AvatarCreator } from "@/components/avatar/AvatarCreator";
 import ElevenLabsConversation from "@/components/avatar/ElevenLabsConversation";
 import LocalWebSocketConversation from "@/components/avatar/LocalWebSocketConversation";
+import LocalWebRTCConversation from "@/components/avatar/LocalWebRTCConversation";
 import ElevenLabsImageLipsync from "@/components/avatar/ElevenLabsImageLipsync";
 import { Button } from "@/components/ui/button";
 import { Sparkles, LogOut, MessageCircle, Workflow } from "lucide-react";
@@ -222,14 +223,19 @@ const Index = () => {
             <div className="space-y-6">
               {selectedProvider === 'elevenlabs' ? (
                 <Tabs defaultValue="websocket" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="websocket">WebSocket Manuel</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="websocket">WebSocket</TabsTrigger>
+                    <TabsTrigger value="webrtc">WebRTC</TabsTrigger>
                     <TabsTrigger value="sdk">SDK React</TabsTrigger>
                     <TabsTrigger value="lipsync">Local</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="websocket" className="mt-6">
                     <LocalWebSocketConversation config={config} />
+                  </TabsContent>
+                  
+                  <TabsContent value="webrtc" className="mt-6">
+                    <LocalWebRTCConversation config={config} />
                   </TabsContent>
                   
                   <TabsContent value="sdk" className="mt-6">
@@ -287,14 +293,19 @@ const Index = () => {
 
                 <TabsContent value="elevenlabs" className="mt-6">
                   <Tabs defaultValue="websocket" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="websocket">WebSocket Manuel</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="websocket">WebSocket</TabsTrigger>
+                      <TabsTrigger value="webrtc">WebRTC</TabsTrigger>
                       <TabsTrigger value="sdk">SDK React</TabsTrigger>
                       <TabsTrigger value="lipsync">Image Lipsync</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="websocket" className="mt-6">
                       <LocalWebSocketConversation config={config} />
+                    </TabsContent>
+                    
+                    <TabsContent value="webrtc" className="mt-6">
+                      <LocalWebRTCConversation config={config} />
                     </TabsContent>
                     
                     <TabsContent value="sdk" className="mt-6">
