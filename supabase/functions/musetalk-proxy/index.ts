@@ -167,6 +167,8 @@ serve(async (req) => {
         } catch (error) {
           console.error("Transcription failed:", error);
           const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+
+          // Informer le frontend
           socket.send(JSON.stringify({ 
             event: 'error', 
             data: { 
@@ -175,6 +177,13 @@ serve(async (req) => {
               stage: 'transcription'
             } 
           }));
+
+          // Fallback : envoyer quand même l'audio brut au backend
+          console.log("[MUSETALK] Fallback: envoi de l'audio brut au backend");
+          backendSocket.emit('chat_with_avatar', {
+            ...restData,
+            audio_data,
+          });
         }
       } else if (message.event === 'ping') {
         backendSocket.emit('ping', message.data);
