@@ -91,8 +91,7 @@ a=ice-options:trickle
 a=fingerprint:sha-256 ${Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(':')}
 a=setup:active
 a=mid:0
-a=sctp-port:5000
-a=max-message-size:262144`
+a=sctp-port:5000`
       };
       
       // Update session with answer
