@@ -80,10 +80,16 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
         toast.error(errorMsg);
       }
     },
-    onVideoGenerated: (videoUrl) => {
-      console.log("[MUSETALK] Vidéo générée:", videoUrl);
-      setVideoUrl(videoUrl);
-      setVideoHistory(prev => [...prev, { url: videoUrl, timestamp: new Date() }]);
+    onVideoGenerated: (videoUrlFromBackend) => {
+      console.log("[MUSETALK] Vidéo générée (brute):", videoUrlFromBackend);
+      const backendBaseUrl = "http://51.255.153.127:8000";
+      const finalUrl = videoUrlFromBackend.startsWith("http")
+        ? videoUrlFromBackend
+        : `${backendBaseUrl}${videoUrlFromBackend}`;
+
+      console.log("[MUSETALK] Vidéo générée (finale):", finalUrl);
+      setVideoUrl(finalUrl);
+      setVideoHistory(prev => [...prev, { url: finalUrl, timestamp: new Date() }]);
       toast.success("Vidéo générée!");
     },
     onWebSocketEvent: (direction, data) => {
