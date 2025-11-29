@@ -52,7 +52,7 @@ async function transcribeAudio(audioBase64: string): Promise<string> {
 
     const formData = new FormData();
     const blob = new Blob([binaryAudio.buffer as ArrayBuffer], { type: 'audio/webm' });
-    formData.append('file', blob, 'audio/webm');
+    formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
