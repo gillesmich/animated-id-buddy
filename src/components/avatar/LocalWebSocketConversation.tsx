@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { useMuseTalkBackend } from "@/hooks/useMuseTalkBackend";
 import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
 import MobileDebugOverlay from "@/components/debug/MobileDebugOverlay";
-import { PRESET_AVATARS } from "@/config/avatars";
 import "./elevenlabs-animation.css";
 
 interface LocalWebSocketConversationProps {
@@ -24,24 +23,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
 
-  const getAvatarImage = () => {
-    if (config.customAvatarImage) {
-      return config.customAvatarImage;
-    }
-    const selectedPreset = PRESET_AVATARS.find(a => a.id === config.selectedAvatar);
-    return selectedPreset?.image || '';
-  };
-
-  const getAvatarUrl = () => {
-    if (config.customAvatarImage) {
-      return config.customAvatarImage;
-    }
-    const selectedPreset = PRESET_AVATARS.find(a => a.id === config.selectedAvatar);
-    return selectedPreset?.image || '';
-  };
-
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useMuseTalkBackend({
-    avatarUrl: getAvatarUrl(),
+    avatarUrl: config.customAvatarImage,
     onConnect: () => {
       console.log("[MUSETALK] Connecté");
       toast.success("Connecté au Backend MuseTalk");
@@ -90,10 +73,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
 
   const handleConnect = async () => {
     try {
-      const avatarUrl = getAvatarUrl();
       console.log("[MUSETALK] Connexion...");
-      console.log("[MUSETALK] Avatar URL:", avatarUrl ? "✓" : "✗");
-      console.log("[MUSETALK] Avatar sélectionné:", config.selectedAvatar);
+      console.log("[MUSETALK] Avatar URL:", config.customAvatarImage ? "✓" : "✗");
       toast.info("Connexion au Backend MuseTalk...");
       await connect();
       console.log("[MUSETALK] Connexion établie");
@@ -197,16 +178,16 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              {getAvatarImage() ? (
+              {config.customAvatarImage ? (
                 <img 
-                  src={getAvatarImage()} 
-                  alt="Avatar" 
+                  src={config.customAvatarImage} 
+                  alt="Avatar Preview" 
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="text-center space-y-2 p-4">
                   <Video className="w-12 h-12 mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">En attente de connexion...</p>
+                  <p className="text-sm text-muted-foreground">Uploadez un avatar pour commencer</p>
                 </div>
               )}
             </div>
