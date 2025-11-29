@@ -44,14 +44,15 @@ export const useMuseTalkBackend = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000
+          sampleRate: 16000,
+          channelCount: 1
         }
       });
       
       mediaStreamRef.current = stream;
       
       // Web Audio API pour niveau audio temps réel
-      const audioContext = new AudioContext({ sampleRate: 48000 });
+      const audioContext = new AudioContext({ sampleRate: 16000 });
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
