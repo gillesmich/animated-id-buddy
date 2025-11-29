@@ -1,27 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Store sessions in memory (in production, use a database)
-const sessions = new Map<string, {
-  offer?: any;
-  answer?: any;
-  iceCandidates: any[];
-  createdAt: number;
-}>();
-
-// Clean up old sessions (older than 1 hour)
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, session] of sessions.entries()) {
-    if (now - session.createdAt > 3600000) {
-      sessions.delete(sessionId);
-    }
-  }
-}, 300000); // Every 5 minutes
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,16 +12,32 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const body = await req.json();
     const action = body.action;
 
+    console.log(`[Signaling] Action: ${action}`);
+
     if (action === 'create-session') {
       const sessionId = crypto.randomUUID();
-      sessions.set(sessionId, {
-        iceCandidates: [],
-        createdAt: Date.now()
-      });
       
+      // Insert session into database
+      const { error } = await supabase
+        .from('webrtc_sessions')
+        .insert({
+          session_id: sessionId,
+          ice_candidates: []
+        });
+
+      if (error) {
+        console.error('[Signaling] Error creating session:', error);
+        throw new Error(`Failed to create session: ${error.message}`);
+      }
+
       console.log(`[Signaling] Session created: ${sessionId}`);
       
       return new Response(
@@ -50,12 +49,28 @@ serve(async (req) => {
     if (action === 'send-offer') {
       const { sessionId, offer } = body;
       
-      if (!sessions.has(sessionId)) {
+      // Check if session exists
+      const { data: session, error: fetchError } = await supabase
+        .from('webrtc_sessions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (fetchError || !session) {
+        console.error('[Signaling] Session not found:', sessionId);
         throw new Error('Session not found');
       }
-      
-      const session = sessions.get(sessionId)!;
-      session.offer = offer;
+
+      // Update session with offer
+      const { error: updateError } = await supabase
+        .from('webrtc_sessions')
+        .update({ offer })
+        .eq('session_id', sessionId);
+
+      if (updateError) {
+        console.error('[Signaling] Error updating offer:', updateError);
+        throw new Error(`Failed to update offer: ${updateError.message}`);
+      }
       
       console.log(`[Signaling] Offer received for session ${sessionId}`);
       
@@ -80,7 +95,11 @@ a=sctp-port:5000
 a=max-message-size:262144`
       };
       
-      session.answer = answer;
+      // Update session with answer
+      await supabase
+        .from('webrtc_sessions')
+        .update({ answer })
+        .eq('session_id', sessionId);
       
       return new Response(
         JSON.stringify({ answer }),
@@ -91,12 +110,31 @@ a=max-message-size:262144`
     if (action === 'add-ice-candidate') {
       const { sessionId, candidate } = body;
       
-      if (!sessions.has(sessionId)) {
+      // Get current session
+      const { data: session, error: fetchError } = await supabase
+        .from('webrtc_sessions')
+        .select('ice_candidates')
+        .eq('session_id', sessionId)
+        .single();
+
+      if (fetchError || !session) {
+        console.error('[Signaling] Session not found:', sessionId);
         throw new Error('Session not found');
       }
-      
-      const session = sessions.get(sessionId)!;
-      session.iceCandidates.push(candidate);
+
+      // Add new candidate
+      const currentCandidates = session.ice_candidates || [];
+      const updatedCandidates = [...currentCandidates, candidate];
+
+      const { error: updateError } = await supabase
+        .from('webrtc_sessions')
+        .update({ ice_candidates: updatedCandidates })
+        .eq('session_id', sessionId);
+
+      if (updateError) {
+        console.error('[Signaling] Error adding ICE candidate:', updateError);
+        throw new Error(`Failed to add ICE candidate: ${updateError.message}`);
+      }
       
       console.log(`[Signaling] ICE candidate added for session ${sessionId}`);
       
@@ -109,8 +147,14 @@ a=max-message-size:262144`
     if (action === 'close-session') {
       const { sessionId } = body;
       
-      if (sessions.has(sessionId)) {
-        sessions.delete(sessionId);
+      const { error } = await supabase
+        .from('webrtc_sessions')
+        .delete()
+        .eq('session_id', sessionId);
+
+      if (error) {
+        console.error('[Signaling] Error closing session:', error);
+      } else {
         console.log(`[Signaling] Session closed: ${sessionId}`);
       }
       
@@ -121,10 +165,14 @@ a=max-message-size:262144`
     }
 
     if (action === 'health') {
+      const { count } = await supabase
+        .from('webrtc_sessions')
+        .select('*', { count: 'exact', head: true });
+
       return new Response(
         JSON.stringify({ 
           status: 'healthy',
-          sessions: sessions.size
+          sessions: count || 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
