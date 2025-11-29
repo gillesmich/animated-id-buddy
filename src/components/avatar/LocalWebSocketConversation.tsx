@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Wifi, WifiOff, Mic, Video, Volume2, Loader2 } from "lucide-react";
+import { Wifi, WifiOff, Mic, Video, Volume2, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useMuseTalkBackend } from "@/hooks/useMuseTalkBackend";
 import { WebSocketDebugPanel } from "@/components/debug/WebSocketDebugPanel";
@@ -18,6 +18,8 @@ interface LocalWebSocketConversationProps {
   };
 }
 
+const STORAGE_KEY = 'musetalk_video_history';
+
 const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoKey, setVideoKey] = useState(0);
@@ -26,6 +28,49 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
   const [transcription, setTranscription] = useState<string>("");
   const [aiResponse, setAiResponse] = useState<string>("");
+
+  // Charger l'historique des vidéos au démarrage
+  useEffect(() => {
+    const loadVideoHistory = () => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const history = parsed.map((item: any) => ({
+            url: item.url,
+            timestamp: new Date(item.timestamp)
+          }));
+          setVideoHistory(history);
+          
+          // Charger automatiquement la dernière vidéo
+          if (history.length > 0) {
+            const lastVideo = history[history.length - 1];
+            setVideoUrl(lastVideo.url);
+            setVideoKey(prev => prev + 1);
+            toast.success(`Dernière vidéo rechargée (${history.length} vidéos en cache)`);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur chargement historique:', error);
+      }
+    };
+    loadVideoHistory();
+  }, []);
+
+  // Sauvegarder l'historique à chaque mise à jour
+  useEffect(() => {
+    if (videoHistory.length > 0) {
+      try {
+        const toStore = videoHistory.map(v => ({
+          url: v.url,
+          timestamp: v.timestamp.toISOString()
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+      } catch (error) {
+        console.error('Erreur sauvegarde historique:', error);
+      }
+    }
+  }, [videoHistory]);
 
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useMuseTalkBackend({
     avatarUrl: config.customAvatarVideo || config.customAvatarImage,
@@ -117,6 +162,21 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const handleDisconnect = () => {
     console.log("[MUSETALK] Déconnexion");
     disconnect();
+  };
+
+  const handleDownloadLastVideo = () => {
+    if (!videoUrl) {
+      toast.error("Aucune vidéo à télécharger");
+      return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = videoUrl;
+    link.download = `musetalk_video_${new Date().getTime()}.mp4`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Téléchargement démarré");
   };
 
   return (
@@ -269,7 +329,7 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
 
         {/* Voice Controls - Only show when connected */}
         {isConnected && (
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-3">
             <Button
               onClick={() => recordAndSend()}
               disabled={isGenerating}
@@ -280,6 +340,17 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
               <Mic className="w-5 h-5" />
               {isSpeaking ? "Arrêter" : isGenerating ? "Traitement..." : "Parler"}
             </Button>
+            {videoUrl && (
+              <Button
+                onClick={handleDownloadLastVideo}
+                variant="outline"
+                size="lg"
+                className="gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Télécharger
+              </Button>
+            )}
           </div>
         )}
 
