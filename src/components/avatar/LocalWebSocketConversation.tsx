@@ -23,6 +23,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
   const [audioVolume, setAudioVolume] = useState(0);
   const [videoHistory, setVideoHistory] = useState<Array<{ url: string; timestamp: Date }>>([]);
   const [wsMessages, setWsMessages] = useState<Array<{ timestamp: string; direction: 'sent' | 'received'; data: any }>>([]);
+  const [transcription, setTranscription] = useState<string>("");
+  const [aiResponse, setAiResponse] = useState<string>("");
 
   const { isConnected, isSpeaking, isGenerating, connect, disconnect, recordAndSend } = useMuseTalkBackend({
     avatarUrl: config.customAvatarVideo || config.customAvatarImage,
@@ -42,6 +44,11 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       }
       if (message.stage === 'complete') {
         console.log("[MUSETALK] Traitement terminé");
+        // Reset transcription et AI response après traitement
+        setTimeout(() => {
+          setTranscription("");
+          setAiResponse("");
+        }, 3000);
       }
       
       if (message.type === 'video') {
@@ -50,9 +57,12 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       }
       if (message.type === 'transcription') {
         console.log("[MUSETALK] Transcription:", message.text);
+        setTranscription(message.text);
+        toast.success("Transcription terminée");
       }
       if (message.type === 'ai_response') {
         console.log("[MUSETALK] Réponse IA:", message.text);
+        setAiResponse(message.text);
       }
     },
     onError: (error) => {
@@ -225,6 +235,30 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
             </div>
           )}
         </div>
+
+        {/* Transcription et IA Response Display */}
+        {(transcription || aiResponse) && (
+          <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+            {transcription && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Mic className="w-4 h-4" />
+                  Vous avez dit:
+                </div>
+                <p className="text-sm pl-6 text-foreground">{transcription}</p>
+              </div>
+            )}
+            {aiResponse && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-accent">
+                  <Volume2 className="w-4 h-4" />
+                  Réponse de l'IA:
+                </div>
+                <p className="text-sm pl-6 text-foreground">{aiResponse}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Voice Controls - Only show when connected */}
         {isConnected && (
