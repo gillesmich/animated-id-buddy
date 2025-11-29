@@ -225,7 +225,7 @@ const Index = () => {
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="websocket">WebSocket Manuel</TabsTrigger>
                     <TabsTrigger value="sdk">SDK React</TabsTrigger>
-                    <TabsTrigger value="lipsync">Image Lipsync</TabsTrigger>
+                    <TabsTrigger value="lipsync">Local</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="websocket" className="mt-6">

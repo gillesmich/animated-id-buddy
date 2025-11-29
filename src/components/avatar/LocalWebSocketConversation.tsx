@@ -68,6 +68,9 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
       const timestamp = new Date().toLocaleTimeString();
       console.log(`[MUSETALK] ${direction.toUpperCase()} ${timestamp}`, JSON.stringify(data, null, 2));
       setWsMessages(prev => [...prev, { timestamp, direction, data }]);
+    },
+    onVolumeChange: (level) => {
+      setAudioVolume(level);
     }
   });
 
