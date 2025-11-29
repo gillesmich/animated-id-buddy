@@ -8,6 +8,7 @@ interface UseMuseTalkBackendProps {
   onError?: (error: any) => void;
   onVideoGenerated?: (videoUrl: string) => void;
   onWebSocketEvent?: (direction: 'sent' | 'received', data: any) => void;
+  onVolumeChange?: (level: number) => void;
   avatarData?: string;
   avatarUrl?: string;
 }
@@ -21,6 +22,7 @@ export const useMuseTalkBackend = ({
   onError,
   onVideoGenerated,
   onWebSocketEvent,
+  onVolumeChange,
   avatarData,
   avatarUrl
 }: UseMuseTalkBackendProps = {}) => {
@@ -30,6 +32,9 @@ export const useMuseTalkBackend = ({
   const wsRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const volumeIntervalRef = useRef<number | null>(null);
 
   const startMicrophone = async () => {
     try {
@@ -44,6 +49,34 @@ export const useMuseTalkBackend = ({
       });
       
       mediaStreamRef.current = stream;
+      
+      // Web Audio API pour niveau audio temps réel
+      const audioContext = new AudioContext({ sampleRate: 48000 });
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      if (volumeIntervalRef.current) {
+        clearInterval(volumeIntervalRef.current);
+      }
+      volumeIntervalRef.current = window.setInterval(() => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+        // Calcul RMS simple
+        let sumSquares = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const value = (dataArray[i] - 128) / 128; // -1..1
+          sumSquares += value * value;
+        }
+        const rms = Math.sqrt(sumSquares / dataArray.length);
+        const level = Math.min(1, rms * 4); // booster un peu
+        onVolumeChange?.(level);
+      }, 100);
       
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm'
@@ -94,6 +127,17 @@ export const useMuseTalkBackend = ({
       mediaStreamRef.current = null;
       console.log('[MUSETALK] Microphone arrêté');
     }
+
+    if (volumeIntervalRef.current) {
+      clearInterval(volumeIntervalRef.current);
+      volumeIntervalRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    onVolumeChange?.(0);
   };
 
   const sendAudioToBackend = useCallback((audioBase64: string) => {
