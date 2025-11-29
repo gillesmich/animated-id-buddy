@@ -10,33 +10,19 @@ const corsHeaders = {
 };
 
 // Convertir base64 en chunks pour éviter les problèmes mémoire
-function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
-  const chunks: Uint8Array[] = [];
-  let position = 0;
-  
-  while (position < base64String.length) {
-    const chunk = base64String.slice(position, position + chunkSize);
-    const binaryChunk = atob(chunk);
-    const bytes = new Uint8Array(binaryChunk.length);
-    
-    for (let i = 0; i < binaryChunk.length; i++) {
-      bytes[i] = binaryChunk.charCodeAt(i);
-    }
-    
-    chunks.push(bytes);
-    position += chunkSize;
+function processBase64Chunks(base64String: string): Uint8Array {
+  // Important : ne pas découper la chaîne base64, sinon on casse l'encodage
+  // On nettoie puis on décode en une seule fois
+  const cleaned = base64String.replace(/[^A-Za-z0-9+/=]/g, "");
+  const binaryString = atob(cleaned);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
   }
 
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
+  return bytes;
 }
 
 // Transcrire l'audio avec Whisper
