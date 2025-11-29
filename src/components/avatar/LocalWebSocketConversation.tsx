@@ -202,8 +202,8 @@ const LocalWebSocketConversation = ({ config }: LocalWebSocketConversationProps)
               src={videoUrl}
               autoPlay
               loop
-              muted
               playsInline
+              controls
               className="w-full h-full object-cover"
               onLoadedData={() => console.log("[MUSETALK] Vidéo chargée et prête")}
               onError={(e) => console.error("[MUSETALK] Erreur chargement vidéo:", e)}
