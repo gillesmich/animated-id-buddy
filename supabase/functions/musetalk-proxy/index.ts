@@ -142,49 +142,23 @@ serve(async (req) => {
       
       if (message.event === 'chat_with_avatar') {
         const { audio_data, ...restData } = message.data;
-        
-        // Transcrire l'audio avec Whisper
-        console.log("Transcribing audio with Whisper...");
-        socket.send(JSON.stringify({ 
-          event: 'status', 
-          data: { stage: 'transcription', message: 'Transcription en cours...', progress: 10 } 
+        console.log("[MUSETALK PROXY] chat_with_avatar reçu, envoi direct de l'audio au backend (sans Whisper)");
+
+        // On notifie le frontend que la transcription ne sera pas disponible
+        socket.send(JSON.stringify({
+          event: 'status',
+          data: {
+            stage: 'transcription',
+            message: 'Transcription désactivée, envoi direct de l\'audio...',
+            progress: 0,
+          },
         }));
-        
-        try {
-          const transcription = await transcribeAudio(audio_data);
-          console.log("Transcription:", transcription);
-          
-          socket.send(JSON.stringify({ 
-            event: 'transcription', 
-            data: { text: transcription } 
-          }));
-          
-          // Envoyer le texte transcrit au backend au lieu de l'audio
-          backendSocket.emit('chat_with_avatar', {
-            ...restData,
-            user_text: transcription, // Envoyer le texte au lieu de l'audio
-          });
-        } catch (error) {
-          console.error("Transcription failed:", error);
-          const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
 
-          // Informer le frontend
-          socket.send(JSON.stringify({ 
-            event: 'error', 
-            data: { 
-              message: 'Échec de la transcription audio',
-              details: errorMsg,
-              stage: 'transcription'
-            } 
-          }));
-
-          // Fallback : envoyer quand même l'audio brut au backend
-          console.log("[MUSETALK] Fallback: envoi de l'audio brut au backend");
-          backendSocket.emit('chat_with_avatar', {
-            ...restData,
-            audio_data,
-          });
-        }
+        // Envoi direct au backend MuseTalk (comme à l'origine)
+        backendSocket.emit('chat_with_avatar', {
+          ...restData,
+          audio_data,
+        });
       } else if (message.event === 'ping') {
         backendSocket.emit('ping', message.data);
       }
