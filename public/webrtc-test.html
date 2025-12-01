@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebRTC + Socket.IO Local</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+        .config-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .config-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: 600;
+            min-width: 120px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            font-size: 14px;
+        }
+        input[type="text"]:focus {
+            outline: 2px solid #00d4ff;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #00d4ff;
+            color: #1a1a2e;
+        }
+        .btn-primary:hover {
+            background: #00b8e6;
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: #ff4757;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #ff3344;
+        }
+        .btn-success {
+            background: #2ed573;
+            color: #1a1a2e;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .status-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .status-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .status-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .status-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .status-value.connected {
+            color: #2ed573;
+        }
+        .status-value.disconnected {
+            color: #ff4757;
+        }
+        .status-value.pending {
+            color: #ffa502;
+        }
+        .video-section {
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            max-height: 400px;
+            background: #000;
+            border-radius: 8px;
+        }
+        .logs-section {
+            background: rgba(0,0,0,0.4);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        #logs {
+            background: #0a0a0f;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        .log-info {
+            color: #00d4ff;
+            background: rgba(0,212,255,0.1);
+        }
+        .log-success {
+            color: #2ed573;
+            background: rgba(46,213,115,0.1);
+        }
+        .log-error {
+            color: #ff4757;
+            background: rgba(255,71,87,0.1);
+        }
+        .log-warn {
+            color: #ffa502;
+            background: rgba(255,165,2,0.1);
+        }
+        .log-time {
+            color: #666;
+            margin-right: 10px;
+        }
+        .audio-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 15px;
+        }
+        #audioLevel {
+            flex: 1;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #audioLevelBar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #2ed573, #00d4ff);
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 Test WebRTC + Socket.IO</h1>
+
+        <!-- Configuration -->
+        <div class="config-section">
+            <h3 style="margin-bottom: 15px;">⚙️ Configuration</h3>
+            <div class="config-row">
+                <label>Backend URL:</label>
+                <input type="text" id="backendUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
+            </div>
+            <div class="buttons">
+                <button class="btn btn-primary" id="btnConnect" onclick="connect()">🔌 Connecter Socket.IO</button>
+                <button class="btn btn-danger" id="btnDisconnect" onclick="disconnect()" disabled>❌ Déconnecter</button>
+                <button class="btn btn-success" id="btnTestHealth" onclick="testHealth()">🏥 Test Health</button>
+            </div>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <h3 style="margin-bottom: 15px;">📊 État des connexions</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Socket.IO</div>
+                    <div class="status-value disconnected" id="socketStatus">Déconnecté</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">WebRTC Signaling</div>
+                    <div class="status-value disconnected" id="signalingStatus">Non initialisé</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">ICE Connection</div>
+                    <div class="status-value disconnected" id="iceStatus">Non initialisé</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Peer Connection</div>
+                    <div class="status-value disconnected" id="peerStatus">Non initialisé</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WebRTC Controls -->
+        <div class="config-section">
+            <h3 style="margin-bottom: 15px;">🎬 Contrôles WebRTC</h3>
+            <div class="buttons">
+                <button class="btn btn-primary" id="btnStartWebRTC" onclick="startWebRTC()" disabled>🚀 Démarrer WebRTC</button>
+                <button class="btn btn-danger" id="btnStopWebRTC" onclick="stopWebRTC()" disabled>🛑 Arrêter WebRTC</button>
+                <button class="btn btn-success" id="btnSpeak" onclick="startRecording()" disabled>🎤 Parler (5s)</button>
+            </div>
+            <div class="audio-controls">
+                <span>🔊 Niveau audio:</span>
+                <div id="audioLevel">
+                    <div id="audioLevelBar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Display -->
+        <div class="video-section">
+            <h3 style="margin-bottom: 15px;">📺 Flux Vidéo WebRTC</h3>
+            <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+
+        <!-- Logs -->
+        <div class="logs-section">
+            <div class="logs-header">
+                <h3>📝 Logs</h3>
+                <button class="btn btn-danger" onclick="clearLogs()" style="padding: 8px 16px; font-size: 12px;">🗑️ Effacer</button>
+            </div>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let socket = null;
+        let peerConnection = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // Éléments DOM
+        const logsDiv = document.getElementById('logs');
+        const videoElement = document.getElementById('remoteVideo');
+
+        // Fonction de log
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span>${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLogs() {
+            logsDiv.innerHTML = '';
+            log('Logs effacés', 'info');
+        }
+
+        // Mise à jour des statuts
+        function updateStatus(elementId, status, state) {
+            const el = document.getElementById(elementId);
+            el.textContent = status;
+            el.className = `status-value ${state}`;
+        }
+
+        // Test Health
+        async function testHealth() {
+            const url = document.getElementById('backendUrl').value;
+            log(`Test health: ${url}/health`, 'info');
+            
+            try {
+                const response = await fetch(`${url}/health`);
+                const data = await response.json();
+                log(`✅ Health OK: ${JSON.stringify(data)}`, 'success');
+            } catch (error) {
+                log(`❌ Health FAILED: ${error.message}`, 'error');
+            }
+        }
+
+        // Connexion Socket.IO
+        function connect() {
+            const url = document.getElementById('backendUrl').value;
+            log(`Connexion Socket.IO à: ${url}`, 'info');
+            
+            try {
+                socket = io(url, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000,
+                    timeout: 15000
+                });
+
+                socket.on('connect', () => {
+                    log(`✅ Socket.IO connecté! ID: ${socket.id}`, 'success');
+                    updateStatus('socketStatus', 'Connecté', 'connected');
+                    document.getElementById('btnConnect').disabled = true;
+                    document.getElementById('btnDisconnect').disabled = false;
+                    document.getElementById('btnStartWebRTC').disabled = false;
+                });
+
+                socket.on('disconnect', (reason) => {
+                    log(`⚠️ Socket.IO déconnecté: ${reason}`, 'warn');
+                    updateStatus('socketStatus', 'Déconnecté', 'disconnected');
+                    document.getElementById('btnConnect').disabled = false;
+                    document.getElementById('btnDisconnect').disabled = true;
+                    document.getElementById('btnStartWebRTC').disabled = true;
+                });
+
+                socket.on('connect_error', (error) => {
+                    log(`❌ Erreur connexion: ${error.message}`, 'error');
+                    updateStatus('socketStatus', 'Erreur', 'disconnected');
+                });
+
+                socket.on('server_message', (data) => {
+                    log(`📨 Message serveur: ${JSON.stringify(data)}`, 'info');
+                });
+
+                socket.on('webrtc_answer', async (data) => {
+                    log(`📥 WebRTC Answer reçue`, 'success');
+                    updateStatus('signalingStatus', 'Answer reçue', 'connected');
+                    try {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                        log(`✅ Remote description définie`, 'success');
+                    } catch (error) {
+                        log(`❌ Erreur setRemoteDescription: ${error.message}`, 'error');
+                    }
+                });
+
+                socket.on('webrtc_ice_candidate', async (data) => {
+                    log(`🧊 ICE Candidate reçu du serveur`, 'info');
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        log(`✅ ICE Candidate ajouté`, 'success');
+                    } catch (error) {
+                        log(`❌ Erreur addIceCandidate: ${error.message}`, 'error');
+                    }
+                });
+
+                socket.on('webrtc_error', (data) => {
+                    log(`❌ WebRTC Error: ${data.error}`, 'error');
+                });
+
+                socket.on('upload_success', (data) => {
+                    log(`✅ Audio uploadé: durée=${data.duration?.toFixed(2)}s`, 'success');
+                });
+
+                socket.on('upload_error', (data) => {
+                    log(`❌ Erreur upload: ${data.error}`, 'error');
+                });
+
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Déconnexion
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            stopWebRTC();
+            log('Déconnecté', 'info');
+        }
+
+        // Démarrer WebRTC
+        async function startWebRTC() {
+            if (!socket || !socket.connected) {
+                log('❌ Socket.IO non connecté', 'error');
+                return;
+            }
+
+            log('🚀 Création PeerConnection...', 'info');
+            updateStatus('peerStatus', 'Création...', 'pending');
+
+            try {
+                // Configuration ICE servers
+                const config = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                };
+
+                peerConnection = new RTCPeerConnection(config);
+                log('✅ PeerConnection créée', 'success');
+
+                // Event: Track reçu
+                peerConnection.ontrack = (event) => {
+                    log(`🎬 Track reçu: ${event.track.kind}`, 'success');
+                    if (event.streams && event.streams[0]) {
+                        videoElement.srcObject = event.streams[0];
+                        log('✅ Flux vidéo attaché', 'success');
+                    }
+                };
+
+                // Event: ICE Candidate
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        log(`🧊 ICE Candidate local: ${event.candidate.candidate.substring(0, 50)}...`, 'info');
+                        socket.emit('webrtc_ice_candidate', { candidate: event.candidate });
+                    } else {
+                        log('🧊 ICE Gathering terminé', 'success');
+                    }
+                };
+
+                // Event: ICE Connection State
+                peerConnection.oniceconnectionstatechange = () => {
+                    const state = peerConnection.iceConnectionState;
+                    log(`🔄 ICE State: ${state}`, state === 'connected' ? 'success' : 'info');
+                    updateStatus('iceStatus', state, state === 'connected' ? 'connected' : (state === 'failed' ? 'disconnected' : 'pending'));
+                    
+                    if (state === 'connected') {
+                        document.getElementById('btnSpeak').disabled = false;
+                    }
+                };
+
+                // Event: Connection State
+                peerConnection.onconnectionstatechange = () => {
+                    const state = peerConnection.connectionState;
+                    log(`🔄 Connection State: ${state}`, state === 'connected' ? 'success' : 'info');
+                    updateStatus('peerStatus', state, state === 'connected' ? 'connected' : (state === 'failed' ? 'disconnected' : 'pending'));
+                };
+
+                // Event: Signaling State
+                peerConnection.onsignalingstatechange = () => {
+                    log(`🔄 Signaling State: ${peerConnection.signalingState}`, 'info');
+                };
+
+                // Créer l'offre
+                log('📤 Création de l\'offre SDP...', 'info');
+                const offer = await peerConnection.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
+
+                await peerConnection.setLocalDescription(offer);
+                log('✅ Local description définie', 'success');
+
+                // Envoyer l'offre au serveur
+                log('📤 Envoi de l\'offre au serveur...', 'info');
+                updateStatus('signalingStatus', 'Offer envoyée', 'pending');
+                socket.emit('webrtc_offer', {
+                    offer: {
+                        type: offer.type,
+                        sdp: offer.sdp
+                    }
+                });
+
+                document.getElementById('btnStartWebRTC').disabled = true;
+                document.getElementById('btnStopWebRTC').disabled = false;
+
+            } catch (error) {
+                log(`❌ Erreur WebRTC: ${error.message}`, 'error');
+                updateStatus('peerStatus', 'Erreur', 'disconnected');
+            }
+        }
+
+        // Arrêter WebRTC
+        function stopWebRTC() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                log('🛑 PeerConnection fermée', 'info');
+            }
+            videoElement.srcObject = null;
+            
+            updateStatus('peerStatus', 'Fermé', 'disconnected');
+            updateStatus('iceStatus', 'Fermé', 'disconnected');
+            updateStatus('signalingStatus', 'Fermé', 'disconnected');
+            
+            document.getElementById('btnStartWebRTC').disabled = !socket?.connected;
+            document.getElementById('btnStopWebRTC').disabled = true;
+            document.getElementById('btnSpeak').disabled = true;
+            
+            if (socket?.connected) {
+                socket.emit('webrtc_close');
+            }
+        }
+
+        // Enregistrement audio
+        async function startRecording() {
+            try {
+                log('🎤 Démarrage enregistrement audio...', 'info');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                // Analyser audio pour le niveau
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                source.connect(analyser);
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const levelBar = document.getElementById('audioLevelBar');
+                
+                function updateLevel() {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        analyser.getByteFrequencyData(dataArray);
+                        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                        levelBar.style.width = `${Math.min(100, average * 2)}%`;
+                        requestAnimationFrame(updateLevel);
+                    } else {
+                        levelBar.style.width = '0%';
+                    }
+                }
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    log(`📦 Audio enregistré: ${audioBlob.size} bytes`, 'info');
+
+                    // Convertir en base64 et envoyer
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64Audio = reader.result.split(',')[1];
+                        socket.emit('upload_audio_b64', { audio_base64: base64Audio });
+                        log('📤 Audio envoyé au serveur', 'success');
+                    };
+                    reader.readAsDataURL(audioBlob);
+
+                    stream.getTracks().forEach(track => track.stop());
+                    audioContext.close();
+                    document.getElementById('btnSpeak').disabled = false;
+                };
+
+                mediaRecorder.start();
+                updateLevel();
+                document.getElementById('btnSpeak').disabled = true;
+                log('🎙️ Enregistrement en cours (5 secondes)...', 'warn');
+
+                // Arrêter après 5 secondes
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        log('⏹️ Enregistrement terminé', 'success');
+                    }
+                }, 5000);
+
+            } catch (error) {
+                log(`❌ Erreur micro: ${error.message}`, 'error');
+            }
+        }
+
+        // Message de bienvenue
+        log('🚀 Test WebRTC + Socket.IO prêt!', 'success');
+        log('1. Configurez l\'URL du backend Python', 'info');
+        log('2. Cliquez sur "Connecter Socket.IO"', 'info');
+        log('3. Cliquez sur "Démarrer WebRTC"', 'info');
+        log('4. Utilisez "Parler" pour envoyer de l\'audio', 'info');
+    </script>
+</body>
+</html>
