@@ -69,6 +69,20 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       } else {
         await connectDirect();
       }
+      
+      // Envoyer l'avatar au backend après connexion
+      if (config.customAvatarImage) {
+        console.log("[Avatar] Envoi de l'avatar au backend...");
+        setTimeout(() => {
+          emitEvent('set_avatar', { 
+            avatar_url: config.customAvatarImage,
+            avatar_type: 'image'
+          });
+          toast.success("Avatar configuré sur le backend");
+        }, 500);
+      } else {
+        toast.warning("Aucun avatar configuré - uploadez une image d'abord");
+      }
     } catch (error) {
       console.error("[WebRTC] Erreur:", error);
       toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
