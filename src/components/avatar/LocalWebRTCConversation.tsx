@@ -20,7 +20,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
-  const [backendUrl] = useState('http://localhost:8000'); // URL du backend Python local
+  const [backendUrl] = useState('http://localhost:5000'); // URL du backend Python local
   const socketRef = useRef<Socket | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
