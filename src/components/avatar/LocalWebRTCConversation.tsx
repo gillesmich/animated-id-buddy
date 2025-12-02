@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Loader2, Radio, MicOff, Settings } from "lucide-react";
+import { Video, Mic, Radio, MicOff, Settings, Shield } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface LocalWebRTCConversationProps {
   config: {
@@ -23,15 +25,23 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [aiResponse, setAiResponse] = useState<string>("");
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [backendUrl, setBackendUrl] = useState('http://51.255.153.127:5000');
+  const [useProxy, setUseProxy] = useState(true); // Utiliser le proxy par défaut
   const [showSettings, setShowSettings] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  // URL du proxy Supabase
+  const proxyUrl = `wss://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/socketio-proxy?backend=${encodeURIComponent(backendUrl)}`;
 
   useEffect(() => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
       }
       if (peerConnection) {
         peerConnection.close();
@@ -44,158 +54,155 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
 
   const handleConnect = async () => {
     try {
-      console.log("[WebRTC] Connexion à:", backendUrl);
-      toast.info("Connexion au backend...");
+      console.log("[WebRTC] Mode:", useProxy ? "Proxy HTTPS" : "Direct");
+      console.log("[WebRTC] Backend:", backendUrl);
+      toast.info(useProxy ? "Connexion via proxy HTTPS..." : "Connexion directe...");
 
-      // Créer la promesse de connexion AVANT de créer le socket
-      let resolveConnection: () => void;
-      let rejectConnection: (err: Error) => void;
-      const connectionPromise = new Promise<void>((resolve, reject) => {
-        resolveConnection = resolve;
-        rejectConnection = reject;
-      });
-
-      const socket = io(backendUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        timeout: 20000,
-      });
-
-      socketRef.current = socket;
-
-      // Timeout de 20s
-      const timeoutId = setTimeout(() => {
-        rejectConnection(new Error("Timeout connexion (20s)"));
-      }, 20000);
-
-      // Événements du backend
-      socket.on('connect', () => {
-        console.log("[Socket.IO] ✅ Transport connecté");
-      });
-
-      socket.on('connected', (data) => {
-        console.log("[Socket.IO] ✅ Session:", data?.client_id);
-        clearTimeout(timeoutId);
-        toast.success("Connecté au serveur");
-        resolveConnection();
-      });
-
-      socket.on('disconnect', () => {
-        console.log("[Socket.IO] Déconnecté");
-        setIsConnected(false);
-        toast.info("Déconnecté");
-      });
-
-      socket.on('error', (data) => {
-        console.error("[Backend] Erreur:", data.message);
-        toast.error(data.message || "Erreur serveur");
-      });
-
-      socket.on('status', (data) => {
-        console.log("[Status]", data);
-        setStatus(data.message);
-        setProgress(data.progress || 0);
-      });
-
-      socket.on('transcription', (data) => {
-        console.log("[Transcription]", data.text);
-        setTranscription(data.text);
-      });
-
-      socket.on('ai_response', (data) => {
-        console.log("[AI Response]", data.text);
-        setAiResponse(data.text);
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error("[Socket.IO] Erreur connexion:", err.message);
-        clearTimeout(timeoutId);
-        toast.error(`Erreur: ${err.message}`);
-        rejectConnection(err);
-      });
-
-      // Attendre la connexion
-      await connectionPromise;
-
-      // Créer PeerConnection
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-      });
-
-      // Recevoir les tracks du serveur
-      pc.ontrack = (event) => {
-        console.log("[WebRTC] Track reçu:", event.track.kind);
-        if (videoRef.current && event.streams[0]) {
-          videoRef.current.srcObject = event.streams[0];
-          toast.success("Flux vidéo reçu");
-        }
-      };
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log("[ICE] Candidate:", event.candidate.candidate?.substring(0, 50));
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        console.log("[ICE] State:", pc.iceConnectionState);
-        if (pc.iceConnectionState === 'connected') {
-          setIsConnected(true);
-          toast.success("WebRTC connecté");
-        } else if (pc.iceConnectionState === 'failed') {
-          toast.error("Échec ICE");
-        }
-      };
-
-      // Ajouter le track audio local pour l'envoi
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
-        stream.getTracks().forEach(track => {
-          pc.addTrack(track, stream);
-          console.log("[WebRTC] Track audio ajouté");
-        });
-      } catch (err) {
-        console.warn("[Audio] Pas d'accès micro:", err);
+      if (useProxy) {
+        // Connexion via WebSocket proxy
+        await connectViaProxy();
+      } else {
+        // Connexion directe Socket.IO
+        await connectDirect();
       }
-
-      // Créer et envoyer l'offre
-      const offer = await pc.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true
-      });
-      await pc.setLocalDescription(offer);
-
-      console.log("[WebRTC] Offre envoyée");
-      socket.emit('webrtc_offer', {
-        offer: { type: offer.type, sdp: offer.sdp }
-      });
-
-      // Attendre la réponse
-      socket.once('webrtc_answer', async (data) => {
-        console.log("[WebRTC] Answer reçue");
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-          console.log("[WebRTC] ✅ Remote description set");
-        } catch (error) {
-          console.error("[WebRTC] Erreur answer:", error);
-        }
-      });
-
-      setPeerConnection(pc);
-
-      // Envoyer l'avatar si configuré
-      if (config.customAvatarImage) {
-        socket.emit('set_avatar', { avatar_url: config.customAvatarImage });
-      }
-
     } catch (error) {
       console.error("[WebRTC] Erreur:", error);
       toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
+    }
+  };
+
+  const connectViaProxy = async () => {
+    return new Promise<void>((resolve, reject) => {
+      console.log("[Proxy] Connecting to:", proxyUrl);
+      
+      const ws = new WebSocket(proxyUrl);
+      wsRef.current = ws;
+
+      const timeoutId = setTimeout(() => {
+        ws.close();
+        reject(new Error("Timeout connexion proxy (20s)"));
+      }, 20000);
+
+      ws.onopen = () => {
+        console.log("[Proxy] ✅ WebSocket connecté");
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          console.log("[Proxy] Message:", message.event || message.type);
+
+          if (message.type === 'socketio_event') {
+            handleSocketIOEvent(message.event, message.data);
+            
+            if (message.event === 'connected') {
+              clearTimeout(timeoutId);
+              setIsConnected(true);
+              toast.success("Connecté via proxy HTTPS");
+              resolve();
+            } else if (message.event === 'connect_error') {
+              clearTimeout(timeoutId);
+              reject(new Error(message.data?.message || "Erreur connexion backend"));
+            }
+          }
+        } catch (err) {
+          console.error("[Proxy] Parse error:", err);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("[Proxy] WebSocket error:", error);
+        clearTimeout(timeoutId);
+        reject(new Error("Erreur WebSocket proxy"));
+      };
+
+      ws.onclose = () => {
+        console.log("[Proxy] WebSocket fermé");
+        setIsConnected(false);
+      };
+    });
+  };
+
+  const connectDirect = async () => {
+    // Créer la promesse de connexion
+    let resolveConnection: () => void;
+    let rejectConnection: (err: Error) => void;
+    const connectionPromise = new Promise<void>((resolve, reject) => {
+      resolveConnection = resolve;
+      rejectConnection = reject;
+    });
+
+    const socket = io(backendUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      timeout: 20000,
+    });
+
+    socketRef.current = socket;
+
+    const timeoutId = setTimeout(() => {
+      rejectConnection(new Error("Timeout connexion (20s)"));
+    }, 20000);
+
+    socket.on('connect', () => {
+      console.log("[Socket.IO] ✅ Transport connecté");
+    });
+
+    socket.on('connected', (data) => {
+      console.log("[Socket.IO] ✅ Session:", data?.client_id);
+      clearTimeout(timeoutId);
+      setIsConnected(true);
+      toast.success("Connecté au serveur");
+      resolveConnection();
+    });
+
+    socket.on('disconnect', () => {
+      console.log("[Socket.IO] Déconnecté");
+      setIsConnected(false);
+      toast.info("Déconnecté");
+    });
+
+    socket.on('error', (data) => handleSocketIOEvent('error', data));
+    socket.on('status', (data) => handleSocketIOEvent('status', data));
+    socket.on('transcription', (data) => handleSocketIOEvent('transcription', data));
+    socket.on('ai_response', (data) => handleSocketIOEvent('ai_response', data));
+
+    socket.on('connect_error', (err) => {
+      console.error("[Socket.IO] Erreur connexion:", err.message);
+      clearTimeout(timeoutId);
+      toast.error(`Erreur: ${err.message}`);
+      rejectConnection(err);
+    });
+
+    await connectionPromise;
+  };
+
+  const handleSocketIOEvent = (event: string, data: any) => {
+    console.log(`[Event] ${event}:`, data);
+    
+    switch (event) {
+      case 'error':
+        toast.error(data?.message || "Erreur serveur");
+        break;
+      case 'status':
+        setStatus(data?.message || "");
+        setProgress(data?.progress || 0);
+        break;
+      case 'transcription':
+        setTranscription(data?.text || "");
+        break;
+      case 'ai_response':
+        setAiResponse(data?.text || "");
+        break;
+    }
+  };
+
+  const emitEvent = (event: string, data: any = {}) => {
+    if (useProxy && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'emit', event, data }));
+    } else if (socketRef.current?.connected) {
+      socketRef.current.emit(event, data);
     }
   };
 
@@ -203,6 +210,11 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     
     if (peerConnection) {
@@ -226,7 +238,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   };
 
   const handleStartListening = () => {
-    if (!socketRef.current?.connected) {
+    if (!isConnected) {
       toast.error("Non connecté");
       return;
     }
@@ -234,15 +246,15 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     setIsListening(true);
     setTranscription("");
     setAiResponse("");
-    socketRef.current.emit('start_listening', {});
+    emitEvent('start_listening', {});
     toast.info("Écoute démarrée...");
   };
 
   const handleStopListening = () => {
-    if (!socketRef.current?.connected) return;
+    if (!isConnected) return;
 
     setIsListening(false);
-    socketRef.current.emit('stop_listening', {});
+    emitEvent('stop_listening', {});
     toast.info("Traitement en cours...");
   };
 
@@ -277,23 +289,42 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         {/* Settings */}
         {showSettings && (
           <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-3">
+            {/* Proxy Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                <Label htmlFor="use-proxy" className="text-xs font-medium">
+                  Utiliser Proxy HTTPS
+                </Label>
+              </div>
+              <Switch
+                id="use-proxy"
+                checked={useProxy}
+                onCheckedChange={setUseProxy}
+                disabled={isConnected}
+              />
+            </div>
+            
+            {useProxy && (
+              <div className="p-2 rounded bg-primary/10 border border-primary/30 text-xs">
+                <strong>✅ Mode sécurisé:</strong> Connexion via proxy Supabase (HTTPS).
+                Pas besoin de certificat SSL sur le backend.
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-xs font-medium">URL Backend:</label>
               <Input
                 value={backendUrl}
                 onChange={(e) => setBackendUrl(e.target.value)}
-                placeholder="https://IP:5000"
+                placeholder="http://IP:5000"
                 disabled={isConnected}
               />
             </div>
-            {window.location.protocol === 'https:' && backendUrl.startsWith('http://') && (
+            
+            {!useProxy && window.location.protocol === 'https:' && backendUrl.startsWith('http://') && (
               <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-xs">
-                <strong>⚠️ Mixed Content:</strong> Votre page est en HTTPS mais le backend en HTTP. 
-                Le navigateur bloque cette connexion. Solutions:
-                <ul className="list-disc ml-4 mt-1">
-                  <li>Configurer HTTPS sur le backend</li>
-                  <li>Ou tester en local (localhost)</li>
-                </ul>
+                <strong>⚠️ Mixed Content:</strong> Activez le proxy ou configurez HTTPS sur le backend.
               </div>
             )}
           </div>
@@ -397,9 +428,11 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         {/* Info */}
         <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
           <p className="text-xs text-muted-foreground">
+            <strong>Mode:</strong> {useProxy ? "Proxy HTTPS (Supabase)" : "Direct Socket.IO"}
+            <br />
             <strong>Backend:</strong> {backendUrl}
             <br />
-            <strong>Pipeline:</strong> Audio → Whisper → OpenAI → ElevenLabs → MuseTalk → WebRTC
+            <strong>Pipeline:</strong> Audio → Whisper → OpenAI → ElevenLabs → MuseTalk
           </p>
         </div>
       </div>
