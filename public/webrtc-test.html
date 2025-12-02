@@ -349,6 +349,11 @@
                     document.getElementById('btnStartWebRTC').disabled = false;
                 });
 
+                // Backend emits 'connected' with client_id
+                socket.on('connected', (data) => {
+                    log(`📨 Backend connected: client_id=${data.client_id}`, 'success');
+                });
+
                 socket.on('disconnect', (reason) => {
                     log(`⚠️ Socket.IO déconnecté: ${reason}`, 'warn');
                     updateStatus('socketStatus', 'Déconnecté', 'disconnected');
@@ -397,6 +402,30 @@
 
                 socket.on('upload_error', (data) => {
                     log(`❌ Erreur upload: ${data.error}`, 'error');
+                });
+
+                socket.on('error', (data) => {
+                    log(`❌ Erreur serveur: ${data.message}`, 'error');
+                });
+
+                socket.on('status', (data) => {
+                    log(`📊 Status: ${data.stage} - ${data.message} (${data.progress}%)`, 'info');
+                });
+
+                socket.on('transcription', (data) => {
+                    log(`🎤 Transcription: "${data.text}"`, 'success');
+                });
+
+                socket.on('ai_response', (data) => {
+                    log(`🤖 AI Response: "${data.text}"`, 'success');
+                });
+
+                socket.on('avatar_set', (data) => {
+                    log(`🖼️ Avatar configuré: ${JSON.stringify(data)}`, 'success');
+                });
+
+                socket.on('voice_set', (data) => {
+                    log(`🔊 Voix configurée: ${JSON.stringify(data)}`, 'success');
                 });
 
             } catch (error) {
