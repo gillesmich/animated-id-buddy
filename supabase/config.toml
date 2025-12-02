@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.musetalk-proxy]
 verify_jwt = false
+
+[functions.socketio-proxy]
+verify_jwt = false
