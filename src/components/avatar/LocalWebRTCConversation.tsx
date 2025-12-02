@@ -48,7 +48,10 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   useEffect(() => {
     if (videoUrl && videoRef.current) {
       console.log("[Video] Playing:", videoUrl);
-      videoRef.current.src = videoUrl;
+      // Ajouter un timestamp pour éviter le cache
+      const urlWithCache = videoUrl.includes('?') ? `${videoUrl}&t=${Date.now()}` : `${videoUrl}?t=${Date.now()}`;
+      videoRef.current.src = urlWithCache;
+      videoRef.current.load();
       videoRef.current.play().catch(err => {
         console.error("[Video] Play error:", err);
       });
@@ -324,7 +327,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           setStatus("Envoi de l'audio...");
           setProgress(10);
           
-          emitEvent('chat_with_avatar', {
+          // Utiliser send_audio_message (événement attendu par le backend)
+          emitEvent('send_audio_message', {
             audio_data: base64Audio,
             audio_format: 'webm',
           });

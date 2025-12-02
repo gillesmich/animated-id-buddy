@@ -50,12 +50,14 @@ serve(async (req) => {
         timeout: 20000,
       });
 
-      // Socket.IO events to relay
+      // Socket.IO events to relay - tous les événements du backend MuseTalk
       const eventsToRelay = [
         'connect', 'connected', 'disconnect', 'error',
         'status', 'transcription', 'ai_response', 'chat_result',
         'webrtc_answer', 'webrtc_ice_candidate',
-        'video_frame', 'audio_chunk', 'pong'
+        'video_frame', 'audio_chunk', 'pong',
+        'avatar_set', 'voice_set', 'listening_started',
+        'video_ready', 'video_url', 'video_done'
       ];
 
       backendSocket.on('connect', () => {
