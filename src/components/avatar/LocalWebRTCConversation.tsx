@@ -276,14 +276,26 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
 
         {/* Settings */}
         {showSettings && (
-          <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-2">
-            <label className="text-xs font-medium">URL Backend:</label>
-            <Input
-              value={backendUrl}
-              onChange={(e) => setBackendUrl(e.target.value)}
-              placeholder="http://IP:5000"
-              disabled={isConnected}
-            />
+          <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-3">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">URL Backend:</label>
+              <Input
+                value={backendUrl}
+                onChange={(e) => setBackendUrl(e.target.value)}
+                placeholder="https://IP:5000"
+                disabled={isConnected}
+              />
+            </div>
+            {window.location.protocol === 'https:' && backendUrl.startsWith('http://') && (
+              <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-xs">
+                <strong>⚠️ Mixed Content:</strong> Votre page est en HTTPS mais le backend en HTTP. 
+                Le navigateur bloque cette connexion. Solutions:
+                <ul className="list-disc ml-4 mt-1">
+                  <li>Configurer HTTPS sur le backend</li>
+                  <li>Ou tester en local (localhost)</li>
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
