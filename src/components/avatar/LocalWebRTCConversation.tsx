@@ -47,23 +47,38 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       console.log("[WebRTC] Connexion à:", backendUrl);
       toast.info("Connexion au backend...");
 
+      // Créer la promesse de connexion AVANT de créer le socket
+      let resolveConnection: () => void;
+      let rejectConnection: (err: Error) => void;
+      const connectionPromise = new Promise<void>((resolve, reject) => {
+        resolveConnection = resolve;
+        rejectConnection = reject;
+      });
+
       const socket = io(backendUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
-        timeout: 15000,
+        timeout: 20000,
       });
 
       socketRef.current = socket;
 
+      // Timeout de 20s
+      const timeoutId = setTimeout(() => {
+        rejectConnection(new Error("Timeout connexion (20s)"));
+      }, 20000);
+
       // Événements du backend
       socket.on('connect', () => {
-        console.log("[Socket.IO] ✅ Connecté");
+        console.log("[Socket.IO] ✅ Transport connecté");
       });
 
       socket.on('connected', (data) => {
-        console.log("[Socket.IO] Session:", data.client_id);
+        console.log("[Socket.IO] ✅ Session:", data?.client_id);
+        clearTimeout(timeoutId);
         toast.success("Connecté au serveur");
+        resolveConnection();
       });
 
       socket.on('disconnect', () => {
@@ -94,16 +109,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       });
 
       socket.on('connect_error', (err) => {
-        console.error("[Socket.IO] Erreur:", err.message);
+        console.error("[Socket.IO] Erreur connexion:", err.message);
+        clearTimeout(timeoutId);
         toast.error(`Erreur: ${err.message}`);
+        rejectConnection(err);
       });
 
       // Attendre la connexion
-      await new Promise<void>((resolve, reject) => {
-        socket.once('connected', () => resolve());
-        socket.once('connect_error', (err) => reject(err));
-        setTimeout(() => reject(new Error("Timeout 15s")), 15000);
-      });
+      await connectionPromise;
 
       // Créer PeerConnection
       const pc = new RTCPeerConnection({
