@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Radio, MicOff, Settings, Shield } from "lucide-react";
+import { Video, Mic, Radio, MicOff, Settings, Shield, Square } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
@@ -19,38 +19,41 @@ interface LocalWebRTCConversationProps {
 const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
   const [transcription, setTranscription] = useState<string>("");
   const [aiResponse, setAiResponse] = useState<string>("");
-  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [backendUrl, setBackendUrl] = useState('http://51.255.153.127:5000');
-  const [useProxy, setUseProxy] = useState(true); // Utiliser le proxy par défaut
+  const [useProxy, setUseProxy] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string>("");
+  
   const socketRef = useRef<Socket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // URL du proxy Supabase
   const proxyUrl = `wss://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/socketio-proxy?backend=${encodeURIComponent(backendUrl)}`;
 
   useEffect(() => {
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (peerConnection) {
-        peerConnection.close();
-      }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
+      handleDisconnect();
     };
-  }, [peerConnection]);
+  }, []);
+
+  // Jouer la vidéo quand l'URL change
+  useEffect(() => {
+    if (videoUrl && videoRef.current) {
+      console.log("[Video] Playing:", videoUrl);
+      videoRef.current.src = videoUrl;
+      videoRef.current.play().catch(err => {
+        console.error("[Video] Play error:", err);
+      });
+    }
+  }, [videoUrl]);
 
   const handleConnect = async () => {
     try {
@@ -59,10 +62,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       toast.info(useProxy ? "Connexion via proxy HTTPS..." : "Connexion directe...");
 
       if (useProxy) {
-        // Connexion via WebSocket proxy
         await connectViaProxy();
       } else {
-        // Connexion directe Socket.IO
         await connectDirect();
       }
     } catch (error) {
@@ -90,12 +91,12 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log("[Proxy] Message:", message.event || message.type);
+          console.log("[Proxy] Message:", message.event || message.type, message.data);
 
           if (message.type === 'socketio_event') {
             handleSocketIOEvent(message.event, message.data);
             
-            if (message.event === 'connected') {
+            if (message.event === 'connected' || message.event === 'connect') {
               clearTimeout(timeoutId);
               setIsConnected(true);
               toast.success("Connecté via proxy HTTPS");
@@ -124,7 +125,6 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   };
 
   const connectDirect = async () => {
-    // Créer la promesse de connexion
     let resolveConnection: () => void;
     let rejectConnection: (err: Error) => void;
     const connectionPromise = new Promise<void>((resolve, reject) => {
@@ -163,10 +163,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       toast.info("Déconnecté");
     });
 
+    // Events du backend
     socket.on('error', (data) => handleSocketIOEvent('error', data));
     socket.on('status', (data) => handleSocketIOEvent('status', data));
     socket.on('transcription', (data) => handleSocketIOEvent('transcription', data));
     socket.on('ai_response', (data) => handleSocketIOEvent('ai_response', data));
+    socket.on('chat_result', (data) => handleSocketIOEvent('chat_result', data));
+    socket.on('video_ready', (data) => handleSocketIOEvent('video_ready', data));
+    socket.on('video_url', (data) => handleSocketIOEvent('video_url', data));
 
     socket.on('connect_error', (err) => {
       console.error("[Socket.IO] Erreur connexion:", err.message);
@@ -178,35 +182,72 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     await connectionPromise;
   };
 
-  const handleSocketIOEvent = (event: string, data: any) => {
+  const handleSocketIOEvent = useCallback((event: string, data: any) => {
     console.log(`[Event] ${event}:`, data);
     
     switch (event) {
       case 'error':
         toast.error(data?.message || "Erreur serveur");
+        setIsProcessing(false);
         break;
       case 'status':
-        setStatus(data?.message || "");
+        setStatus(data?.message || data?.status || "");
         setProgress(data?.progress || 0);
         break;
       case 'transcription':
-        setTranscription(data?.text || "");
+        setTranscription(data?.text || data || "");
         break;
       case 'ai_response':
-        setAiResponse(data?.text || "");
+        setAiResponse(data?.text || data || "");
+        break;
+      case 'chat_result':
+        // Résultat complet avec vidéo
+        console.log("[chat_result] Data:", data);
+        if (data?.transcription) setTranscription(data.transcription);
+        if (data?.ai_response) setAiResponse(data.ai_response);
+        if (data?.video_url) {
+          // URL absolue ou relative au backend
+          const fullVideoUrl = data.video_url.startsWith('http') 
+            ? data.video_url 
+            : `${backendUrl}${data.video_url}`;
+          console.log("[chat_result] Video URL:", fullVideoUrl);
+          setVideoUrl(fullVideoUrl);
+        }
+        setIsProcessing(false);
+        break;
+      case 'video_ready':
+      case 'video_url':
+        // URL de la vidéo générée
+        console.log("[video] URL received:", data);
+        const url = data?.url || data?.video_url || data;
+        if (url) {
+          const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`;
+          setVideoUrl(fullUrl);
+        }
+        setIsProcessing(false);
         break;
     }
-  };
+  }, [backendUrl]);
 
-  const emitEvent = (event: string, data: any = {}) => {
+  const emitEvent = useCallback((event: string, data: any = {}) => {
+    console.log(`[Emit] ${event}:`, data);
     if (useProxy && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'emit', event, data }));
     } else if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
+    } else {
+      console.warn("[Emit] Not connected!");
     }
-  };
+  }, [useProxy]);
 
   const handleDisconnect = () => {
+    // Stop recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    audioChunksRef.current = [];
+
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
@@ -217,45 +258,103 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       wsRef.current = null;
     }
     
-    if (peerConnection) {
-      peerConnection.close();
-      setPeerConnection(null);
-    }
-
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
-    }
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    
     setIsConnected(false);
+    setIsListening(false);
+    setIsProcessing(false);
     setStatus("");
     setProgress(0);
-    toast.info("Déconnecté");
   };
 
-  const handleStartListening = () => {
+  const handleStartListening = async () => {
     if (!isConnected) {
       toast.error("Non connecté");
       return;
     }
 
-    setIsListening(true);
-    setTranscription("");
-    setAiResponse("");
-    emitEvent('start_listening', {});
-    toast.info("Écoute démarrée...");
+    try {
+      // Demander l'accès au microphone
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
+      
+      audioChunksRef.current = [];
+      
+      // Créer le MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+          ? 'audio/webm;codecs=opus' 
+          : 'audio/webm'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stopper le flux audio
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioChunksRef.current.length === 0) {
+          toast.error("Aucun audio enregistré");
+          setIsListening(false);
+          return;
+        }
+
+        // Créer le blob audio
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log("[Audio] Recorded blob size:", audioBlob.size);
+        
+        // Convertir en base64
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Audio = (reader.result as string).split(',')[1];
+          console.log("[Audio] Base64 length:", base64Audio.length);
+          
+          // Envoyer au backend avec le vrai audio
+          setIsProcessing(true);
+          setStatus("Envoi de l'audio...");
+          setProgress(10);
+          
+          emitEvent('chat_with_avatar', {
+            audio_data: base64Audio,
+            audio_format: 'webm',
+          });
+          
+          toast.info("Audio envoyé, traitement en cours...");
+        };
+        reader.readAsDataURL(audioBlob);
+        
+        audioChunksRef.current = [];
+      };
+
+      // Démarrer l'enregistrement
+      mediaRecorder.start(100); // Collecter des chunks toutes les 100ms
+      setIsListening(true);
+      setTranscription("");
+      setAiResponse("");
+      toast.info("🎤 Parlez maintenant...");
+      
+    } catch (error) {
+      console.error("[Mic] Error:", error);
+      toast.error("Erreur accès microphone");
+    }
   };
 
   const handleStopListening = () => {
-    if (!isConnected) return;
-
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log("[Audio] Stopping recording...");
+      mediaRecorderRef.current.stop();
+    }
     setIsListening(false);
-    emitEvent('stop_listening', {});
-    toast.info("Traitement en cours...");
   };
 
   return (
@@ -289,7 +388,6 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         {/* Settings */}
         {showSettings && (
           <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-3">
-            {/* Proxy Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
@@ -308,7 +406,6 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             {useProxy && (
               <div className="p-2 rounded bg-primary/10 border border-primary/30 text-xs">
                 <strong>✅ Mode sécurisé:</strong> Connexion via proxy Supabase (HTTPS).
-                Pas besoin de certificat SSL sur le backend.
               </div>
             )}
 
@@ -321,20 +418,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
                 disabled={isConnected}
               />
             </div>
-            
-            {!useProxy && window.location.protocol === 'https:' && backendUrl.startsWith('http://') && (
-              <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-xs">
-                <strong>⚠️ Mixed Content:</strong> Activez le proxy ou configurez HTTPS sur le backend.
-              </div>
-            )}
           </div>
         )}
 
         {/* Status */}
-        {status && (
+        {(status || isProcessing) && (
           <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">{status}</span>
+              <span className="text-sm font-medium">{status || "Traitement..."}</span>
               <span className="text-xs text-muted-foreground">{progress}%</span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
@@ -351,12 +442,12 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           <div className="space-y-2">
             {transcription && (
               <div className="p-2 rounded bg-muted/50 text-sm">
-                <span className="text-muted-foreground">Vous: </span>{transcription}
+                <span className="text-muted-foreground font-medium">Vous: </span>{transcription}
               </div>
             )}
             {aiResponse && (
               <div className="p-2 rounded bg-primary/10 text-sm">
-                <span className="text-primary">IA: </span>{aiResponse}
+                <span className="text-primary font-medium">IA: </span>{aiResponse}
               </div>
             )}
           </div>
@@ -381,9 +472,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Video className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Avatar WebRTC</span>
+              <span className="text-sm font-medium">Avatar Vidéo</span>
             </div>
-            {isConnected && <Badge variant="default">Live</Badge>}
+            {videoUrl && <Badge variant="default">Vidéo reçue</Badge>}
           </div>
           
           <div className="relative rounded-lg overflow-hidden border border-border/50 bg-black aspect-video">
@@ -391,11 +482,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               ref={videoRef}
               autoPlay
               playsInline
+              controls
               className="w-full h-full object-contain"
             />
-            {!isConnected && (
+            {!videoUrl && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <p className="text-sm text-muted-foreground">En attente de connexion...</p>
+                <p className="text-sm text-muted-foreground">
+                  {isProcessing ? "Génération vidéo en cours..." : "En attente de vidéo..."}
+                </p>
               </div>
             )}
           </div>
@@ -409,11 +503,17 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               size="lg"
               variant={isListening ? "destructive" : "default"}
               className="gap-2"
+              disabled={isProcessing}
             >
               {isListening ? (
                 <>
-                  <MicOff className="w-5 h-5" />
-                  Arrêter
+                  <Square className="w-5 h-5" />
+                  Arrêter l'enregistrement
+                </>
+              ) : isProcessing ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Traitement...
                 </>
               ) : (
                 <>
@@ -430,9 +530,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           <p className="text-xs text-muted-foreground">
             <strong>Mode:</strong> {useProxy ? "Proxy HTTPS (Supabase)" : "Direct Socket.IO"}
             <br />
-            <strong>Backend:</strong> {backendUrl}
-            <br />
-            <strong>Pipeline:</strong> Audio → Whisper → OpenAI → ElevenLabs → MuseTalk
+            <strong>Pipeline:</strong> Audio → Transcription → IA → TTS → MuseTalk → Vidéo
           </p>
         </div>
       </div>
