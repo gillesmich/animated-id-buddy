@@ -370,13 +370,20 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           </div>
         )}
 
+        {/* Warning for remote preview */}
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            <strong>⚠️ Test local requis:</strong> La preview Lovable ne peut pas accéder à localhost.
+            Testez avec la page HTML: <code className="bg-muted px-1 rounded">/webrtc-test.html</code>
+          </p>
+        </div>
+
         {/* Info */}
         <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
           <p className="text-xs text-muted-foreground">
-            <strong>WebRTC + Socket.IO:</strong> Connexion au backend Python via Socket.IO pour la signalisation,
-            puis WebRTC pour le streaming vidéo/audio en temps réel avec aiortc.
+            <strong>Backend Python:</strong> {backendUrl} (port 5000)
             <br />
-            <strong>Backend:</strong> {backendUrl}
+            <strong>WebRTC + Socket.IO:</strong> Signalisation via Socket.IO, streaming vidéo/audio avec aiortc.
           </p>
         </div>
       </div>
