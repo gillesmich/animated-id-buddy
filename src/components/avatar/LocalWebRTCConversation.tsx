@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Loader2, Download, Radio } from "lucide-react";
+import { Video, Mic, Loader2, Radio, MicOff, Settings } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
+import { Input } from "@/components/ui/input";
 
 interface LocalWebRTCConversationProps {
   config: {
@@ -13,87 +14,98 @@ interface LocalWebRTCConversationProps {
   };
 }
 
-const STORAGE_KEY = 'musetalk_webrtc_video_history';
-
 const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [status, setStatus] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
+  const [transcription, setTranscription] = useState<string>("");
+  const [aiResponse, setAiResponse] = useState<string>("");
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
-  const [backendUrl] = useState('http://51.255.153.127:5000'); // URL du backend Python
+  const [backendUrl, setBackendUrl] = useState('http://51.255.153.127:5000');
+  const [showSettings, setShowSettings] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  // Charger l'historique des vidéos au démarrage
   useEffect(() => {
     return () => {
-      // Cleanup lors du démontage
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
       if (peerConnection) {
         peerConnection.close();
       }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, [peerConnection]);
 
   const handleConnect = async () => {
     try {
-      console.log("[WebRTC] Initialisation de la connexion...");
-      console.log("[WebRTC] Tentative de connexion à:", backendUrl);
-      toast.info("Connexion au backend Python via Socket.IO...");
+      console.log("[WebRTC] Connexion à:", backendUrl);
+      toast.info("Connexion au backend...");
 
-      // 1. Établir la connexion Socket.IO
       const socket = io(backendUrl, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
         timeout: 15000,
       });
 
       socketRef.current = socket;
 
+      // Événements du backend
       socket.on('connect', () => {
-        console.log("[Socket.IO] ✅ Connecté au serveur");
-        toast.success("Socket.IO connecté");
+        console.log("[Socket.IO] ✅ Connecté");
       });
 
-      socket.on('server_message', (data) => {
-        console.log("[Socket.IO] Message du serveur:", data);
+      socket.on('connected', (data) => {
+        console.log("[Socket.IO] Session:", data.client_id);
+        toast.success("Connecté au serveur");
       });
 
       socket.on('disconnect', () => {
-        console.log("[Socket.IO] Déconnecté du serveur");
+        console.log("[Socket.IO] Déconnecté");
         setIsConnected(false);
-        toast.info("Déconnecté du serveur");
+        toast.info("Déconnecté");
       });
 
-      socket.on('webrtc_error', (data) => {
-        console.error("[WebRTC] Erreur:", data);
-        toast.error(data.error || "Erreur WebRTC");
-        setIsGenerating(false);
+      socket.on('error', (data) => {
+        console.error("[Backend] Erreur:", data.message);
+        toast.error(data.message || "Erreur serveur");
+      });
+
+      socket.on('status', (data) => {
+        console.log("[Status]", data);
+        setStatus(data.message);
+        setProgress(data.progress || 0);
+      });
+
+      socket.on('transcription', (data) => {
+        console.log("[Transcription]", data.text);
+        setTranscription(data.text);
+      });
+
+      socket.on('ai_response', (data) => {
+        console.log("[AI Response]", data.text);
+        setAiResponse(data.text);
       });
 
       socket.on('connect_error', (err) => {
-        console.error("[Socket.IO] Erreur de connexion:", err.message);
-        toast.error(`Erreur Socket.IO: ${err.message}`);
+        console.error("[Socket.IO] Erreur:", err.message);
+        toast.error(`Erreur: ${err.message}`);
       });
 
-      // Attendre la connexion Socket.IO
+      // Attendre la connexion
       await new Promise<void>((resolve, reject) => {
-        socket.once('connect', () => resolve());
-        socket.once('connect_error', (err) => {
-          console.error("[Socket.IO] connect_error:", err);
-          reject(new Error(`Impossible de se connecter à ${backendUrl}: ${err.message}`));
-        });
-        setTimeout(() => {
-          console.error("[Socket.IO] Timeout après 15s");
-          reject(new Error(`Timeout Socket.IO (15s) - Le backend ${backendUrl} ne répond pas`));
-        }, 15000);
+        socket.once('connected', () => resolve());
+        socket.once('connect_error', (err) => reject(err));
+        setTimeout(() => reject(new Error("Timeout 15s")), 15000);
       });
 
-      // 2. Créer la PeerConnection
+      // Créer PeerConnection
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -101,78 +113,81 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         ]
       });
 
-      // 3. Gérer les tracks reçus (vidéo/audio du serveur)
+      // Recevoir les tracks du serveur
       pc.ontrack = (event) => {
         console.log("[WebRTC] Track reçu:", event.track.kind);
-        if (videoRef.current && event.streams && event.streams[0]) {
+        if (videoRef.current && event.streams[0]) {
           videoRef.current.srcObject = event.streams[0];
-          toast.success("Flux vidéo reçu du serveur");
+          toast.success("Flux vidéo reçu");
         }
       };
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log("[WebRTC] ICE candidate local:", event.candidate);
+          console.log("[ICE] Candidate:", event.candidate.candidate?.substring(0, 50));
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
+        console.log("[ICE] State:", pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected') {
           setIsConnected(true);
-          toast.success("Connexion WebRTC établie");
+          toast.success("WebRTC connecté");
         } else if (pc.iceConnectionState === 'failed') {
-          toast.error("Échec de la connexion ICE");
+          toast.error("Échec ICE");
         }
       };
 
-      pc.onconnectionstatechange = () => {
-        console.log("[WebRTC] Connection state:", pc.connectionState);
-      };
+      // Ajouter le track audio local pour l'envoi
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        stream.getTracks().forEach(track => {
+          pc.addTrack(track, stream);
+          console.log("[WebRTC] Track audio ajouté");
+        });
+      } catch (err) {
+        console.warn("[Audio] Pas d'accès micro:", err);
+      }
 
-      // 4. Créer l'offre
+      // Créer et envoyer l'offre
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       await pc.setLocalDescription(offer);
 
-      console.log("[WebRTC] Offre créée:", offer);
-
-      // 5. Envoyer l'offre au serveur Python via Socket.IO
+      console.log("[WebRTC] Offre envoyée");
       socket.emit('webrtc_offer', {
-        offer: {
-          type: offer.type,
-          sdp: offer.sdp
-        }
+        offer: { type: offer.type, sdp: offer.sdp }
       });
 
-      // 6. Attendre la réponse du serveur
+      // Attendre la réponse
       socket.once('webrtc_answer', async (data) => {
-        console.log("[WebRTC] Answer reçue:", data.answer);
+        console.log("[WebRTC] Answer reçue");
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-          console.log("[WebRTC] Remote description définie");
-          toast.success("Connexion WebRTC établie avec le backend");
+          console.log("[WebRTC] ✅ Remote description set");
         } catch (error) {
-          console.error("[WebRTC] Erreur setRemoteDescription:", error);
-          toast.error("Erreur lors de la configuration WebRTC");
+          console.error("[WebRTC] Erreur answer:", error);
         }
       });
 
       setPeerConnection(pc);
 
+      // Envoyer l'avatar si configuré
+      if (config.customAvatarImage) {
+        socket.emit('set_avatar', { avatar_url: config.customAvatarImage });
+      }
+
     } catch (error) {
-      console.error("[WebRTC] Erreur de connexion:", error);
+      console.error("[WebRTC] Erreur:", error);
       toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
     }
   };
 
   const handleDisconnect = () => {
-    console.log("[WebRTC] Déconnexion");
-    
     if (socketRef.current) {
-      socketRef.current.emit('webrtc_close');
       socketRef.current.disconnect();
       socketRef.current = null;
     }
@@ -181,88 +196,41 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       peerConnection.close();
       setPeerConnection(null);
     }
+
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
     
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     
     setIsConnected(false);
-    toast.info("Déconnecté du serveur WebRTC");
+    setStatus("");
+    setProgress(0);
+    toast.info("Déconnecté");
   };
 
-  const handleSpeak = async () => {
-    if (!socketRef.current || !socketRef.current.connected) {
-      toast.error("Socket.IO non connecté");
+  const handleStartListening = () => {
+    if (!socketRef.current?.connected) {
+      toast.error("Non connecté");
       return;
     }
 
-    try {
-      setIsSpeaking(true);
-      setIsGenerating(true);
-      
-      console.log("[Audio] Démarrage enregistrement...");
-      toast.info("Enregistrement audio...");
+    setIsListening(true);
+    setTranscription("");
+    setAiResponse("");
+    socketRef.current.emit('start_listening', {});
+    toast.info("Écoute démarrée...");
+  };
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      const audioChunks: Blob[] = [];
+  const handleStopListening = () => {
+    if (!socketRef.current?.connected) return;
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        console.log("[Audio] Enregistré:", audioBlob.size, "bytes");
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          
-          // Envoyer via Socket.IO
-          socketRef.current?.emit('upload_audio_b64', {
-            audio_base64: base64Audio
-          });
-
-          console.log("[Socket.IO] Audio envoyé");
-          toast.success("Audio envoyé au serveur");
-        };
-        reader.readAsDataURL(audioBlob);
-
-        stream.getTracks().forEach(track => track.stop());
-        setIsSpeaking(false);
-      };
-
-      // Gérer les réponses du serveur
-      socketRef.current.once('upload_success', (data) => {
-        console.log("[Socket.IO] Audio uploadé avec succès:", data);
-        toast.success(`Audio traité (${data.duration.toFixed(2)}s)`);
-        setIsGenerating(false);
-      });
-
-      socketRef.current.once('upload_error', (data) => {
-        console.error("[Socket.IO] Erreur upload:", data);
-        toast.error(data.error || "Erreur lors de l'upload");
-        setIsGenerating(false);
-      });
-
-      mediaRecorder.start();
-      
-      setTimeout(() => {
-        if (mediaRecorder.state === 'recording') {
-          mediaRecorder.stop();
-          toast.info("Enregistrement terminé");
-        }
-      }, 5000);
-
-    } catch (error) {
-      console.error("[Audio] Erreur:", error);
-      toast.error("Erreur lors de l'enregistrement");
-      setIsSpeaking(false);
-      setIsGenerating(false);
-    }
+    setIsListening(false);
+    socketRef.current.emit('stop_listening', {});
+    toast.info("Traitement en cours...");
   };
 
   return (
@@ -275,65 +243,91 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               <Radio className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">WebRTC Connection</h3>
-              <p className="text-sm text-muted-foreground">Connexion peer-to-peer</p>
+              <h3 className="font-semibold text-lg">WebRTC Local</h3>
+              <p className="text-sm text-muted-foreground">Backend Python + MuseTalk</p>
             </div>
           </div>
-          <Badge variant={isConnected ? "default" : "secondary"}>
-            {isConnected ? "Connecté" : "Déconnecté"}
-          </Badge>
-        </div>
-
-        {/* Connection Status */}
-        <div className="p-4 rounded-lg border border-border/50 bg-muted/30 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">État de la connexion</span>
-            <Badge variant={isConnected ? "default" : "outline"}>
-              {isConnected ? "En ligne" : "Hors ligne"}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            <Badge variant={isConnected ? "default" : "secondary"}>
+              {isConnected ? "Connecté" : "Déconnecté"}
             </Badge>
           </div>
-          
-          {isGenerating && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Génération en cours...</span>
-            </div>
-          )}
         </div>
+
+        {/* Settings */}
+        {showSettings && (
+          <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-2">
+            <label className="text-xs font-medium">URL Backend:</label>
+            <Input
+              value={backendUrl}
+              onChange={(e) => setBackendUrl(e.target.value)}
+              placeholder="http://IP:5000"
+              disabled={isConnected}
+            />
+          </div>
+        )}
+
+        {/* Status */}
+        {status && (
+          <div className="p-3 rounded-lg border border-primary/30 bg-primary/5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">{status}</span>
+              <span className="text-xs text-muted-foreground">{progress}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div 
+                className="bg-primary h-2 rounded-full transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Transcription & Response */}
+        {(transcription || aiResponse) && (
+          <div className="space-y-2">
+            {transcription && (
+              <div className="p-2 rounded bg-muted/50 text-sm">
+                <span className="text-muted-foreground">Vous: </span>{transcription}
+              </div>
+            )}
+            {aiResponse && (
+              <div className="p-2 rounded bg-primary/10 text-sm">
+                <span className="text-primary">IA: </span>{aiResponse}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Connection Controls */}
         <div className="flex gap-3">
           {!isConnected ? (
-            <Button 
-              onClick={handleConnect}
-              className="flex-1"
-              size="lg"
-            >
+            <Button onClick={handleConnect} className="flex-1" size="lg">
               <Radio className="w-5 h-5 mr-2" />
-              Connecter WebRTC
+              Connecter
             </Button>
           ) : (
-            <Button 
-              onClick={handleDisconnect}
-              variant="outline"
-              className="flex-1"
-              size="lg"
-            >
+            <Button onClick={handleDisconnect} variant="outline" className="flex-1" size="lg">
               Déconnecter
             </Button>
           )}
         </div>
 
-        {/* Video Display - WebRTC Stream */}
+        {/* Video Display */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Video className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Flux vidéo WebRTC</span>
+              <span className="text-sm font-medium">Avatar WebRTC</span>
             </div>
-            {isConnected && (
-              <Badge variant="default">En direct</Badge>
-            )}
+            {isConnected && <Badge variant="default">Live</Badge>}
           </div>
           
           <div className="relative rounded-lg overflow-hidden border border-border/50 bg-black aspect-video">
@@ -342,10 +336,6 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               autoPlay
               playsInline
               className="w-full h-full object-contain"
-              onError={(e) => {
-                console.error('[VIDEO] Erreur:', e);
-                toast.error('Erreur vidéo');
-              }}
             />
             {!isConnected && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -357,33 +347,34 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
 
         {/* Voice Controls */}
         {isConnected && (
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center">
             <Button
-              onClick={handleSpeak}
-              disabled={isGenerating || isSpeaking}
+              onClick={isListening ? handleStopListening : handleStartListening}
               size="lg"
+              variant={isListening ? "destructive" : "default"}
               className="gap-2"
             >
-              <Mic className="w-5 h-5" />
-              {isSpeaking ? "Enregistrement..." : isGenerating ? "Traitement..." : "Parler"}
+              {isListening ? (
+                <>
+                  <MicOff className="w-5 h-5" />
+                  Arrêter
+                </>
+              ) : (
+                <>
+                  <Mic className="w-5 h-5" />
+                  Parler
+                </>
+              )}
             </Button>
           </div>
         )}
 
-        {/* Warning for remote preview */}
-        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            <strong>⚠️ Test local requis:</strong> La preview Lovable ne peut pas accéder à localhost.
-            Testez avec la page HTML: <code className="bg-muted px-1 rounded">/webrtc-test.html</code>
-          </p>
-        </div>
-
         {/* Info */}
-        <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="p-3 rounded-lg bg-muted/30 border border-border/30">
           <p className="text-xs text-muted-foreground">
-            <strong>Backend Python:</strong> {backendUrl} (port 5000)
+            <strong>Backend:</strong> {backendUrl}
             <br />
-            <strong>WebRTC + Socket.IO:</strong> Signalisation via Socket.IO, streaming vidéo/audio avec aiortc.
+            <strong>Pipeline:</strong> Audio → Whisper → OpenAI → ElevenLabs → MuseTalk → WebRTC
           </p>
         </div>
       </div>
