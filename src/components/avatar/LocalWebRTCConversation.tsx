@@ -212,10 +212,10 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         setProgress(data?.progress || 0);
         break;
       case 'transcription':
-        setTranscription(data?.text || data || "");
+        setTranscription(typeof data === 'string' ? data : (data?.text ?? ""));
         break;
       case 'ai_response':
-        setAiResponse(data?.text || data || "");
+        setAiResponse(typeof data === 'string' ? data : (data?.text ?? ""));
         break;
       case 'chat_result':
         // Résultat complet avec vidéo
