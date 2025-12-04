@@ -34,6 +34,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const lastVideoTimeRef = useRef<number>(0);
 
   // URL du proxy Supabase
   const proxyUrl = `wss://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/socketio-proxy?backend=${encodeURIComponent(backendUrl)}`;
@@ -55,8 +57,97 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       videoRef.current.play().catch(err => {
         console.error("[Video] Play error:", err);
       });
+      // Arrêter le polling quand on a une vidéo
+      stopPolling();
     }
   }, [videoUrl]);
+
+  // Fonction pour arrêter le polling
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      console.log("[Polling] Arrêt du polling");
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Fonction pour vérifier les nouvelles vidéos dans /downloads
+  const checkForNewVideo = useCallback(async () => {
+    try {
+      // Essayer de récupérer la liste des fichiers ou le dernier fichier
+      const listUrl = `${backendUrl}/downloads/`;
+      console.log("[Polling] Checking:", listUrl);
+      
+      const response = await fetch(listUrl, { 
+        method: 'GET',
+        headers: { 'Accept': 'text/html, application/json' }
+      });
+      
+      if (response.ok) {
+        const text = await response.text();
+        console.log("[Polling] Response:", text.substring(0, 500));
+        
+        // Chercher les fichiers .mp4 dans la réponse (HTML directory listing ou JSON)
+        const mp4Matches = text.match(/href="([^"]*\.mp4)"/gi) || 
+                          text.match(/"([^"]*\.mp4)"/gi) ||
+                          text.match(/([a-zA-Z0-9_-]+\.mp4)/gi);
+        
+        if (mp4Matches && mp4Matches.length > 0) {
+          // Prendre le dernier fichier (le plus récent)
+          const lastMatch = mp4Matches[mp4Matches.length - 1];
+          const filename = lastMatch.replace(/href="|"/gi, '').trim();
+          const videoFileUrl = `${backendUrl}/downloads/${filename}`;
+          
+          console.log("[Polling] Found video:", videoFileUrl);
+          
+          // Vérifier si c'est une nouvelle vidéo
+          const currentTime = Date.now();
+          if (currentTime - lastVideoTimeRef.current > 2000) {
+            lastVideoTimeRef.current = currentTime;
+            setVideoUrl(videoFileUrl);
+            setIsProcessing(false);
+            setStatus("Vidéo prête!");
+            setProgress(100);
+            toast.success("Vidéo récupérée!");
+            stopPolling();
+          }
+        }
+      }
+    } catch (error) {
+      console.log("[Polling] Error:", error);
+    }
+  }, [backendUrl, stopPolling]);
+
+  // Démarrer le polling quand le traitement commence
+  const startPolling = useCallback(() => {
+    if (pollingRef.current) return; // Déjà en cours
+    
+    console.log("[Polling] Démarrage du polling sur /downloads");
+    lastVideoTimeRef.current = Date.now(); // Ignorer les anciennes vidéos
+    
+    // Polling toutes les 2 secondes
+    pollingRef.current = setInterval(() => {
+      checkForNewVideo();
+    }, 2000);
+    
+    // Timeout après 60 secondes
+    setTimeout(() => {
+      if (pollingRef.current) {
+        console.log("[Polling] Timeout - arrêt");
+        stopPolling();
+      }
+    }, 60000);
+  }, [checkForNewVideo, stopPolling]);
+
+  // Démarrer le polling quand on atteint l'étape vidéo
+  useEffect(() => {
+    if (isProcessing && progress >= 70) {
+      startPolling();
+    }
+    return () => {
+      stopPolling();
+    };
+  }, [isProcessing, progress, startPolling, stopPolling]);
 
   const handleConnect = async () => {
     try {
@@ -287,6 +378,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   }, [useProxy]);
 
   const handleDisconnect = () => {
+    // Stop polling
+    stopPolling();
+    
     // Stop recording
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
