@@ -210,6 +210,16 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'status':
         setStatus(data?.message || data?.status || "");
         setProgress(data?.progress || 0);
+        // Check if status contains video URL
+        if (data?.video_url || data?.download_url || data?.url) {
+          const statusVideoUrl = data.video_url || data.download_url || data.url;
+          if (typeof statusVideoUrl === 'string') {
+            const fullUrl = statusVideoUrl.startsWith('http') ? statusVideoUrl : `${backendUrl}${statusVideoUrl}`;
+            console.log("[status] Video URL found in status:", fullUrl);
+            setVideoUrl(fullUrl);
+            setIsProcessing(false);
+          }
+        }
         break;
       case 'transcription':
         setTranscription(typeof data === 'string' ? data : (data?.text ?? ""));
@@ -234,11 +244,13 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         break;
       case 'video_ready':
       case 'video_url':
+      case 'video_done':
         // URL de la vidéo générée
-        console.log("[video] URL received:", data);
-        const url = data?.url || data?.video_url || data;
-        if (url) {
-          const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`;
+        console.log("[video] Event received:", event, data);
+        const videoData = typeof data === 'string' ? data : (data?.url || data?.video_url || data?.download_url || data?.path);
+        if (videoData && typeof videoData === 'string') {
+          const fullUrl = videoData.startsWith('http') ? videoData : `${backendUrl}${videoData}`;
+          console.log("[video] Setting video URL:", fullUrl);
           setVideoUrl(fullUrl);
         }
         setIsProcessing(false);
