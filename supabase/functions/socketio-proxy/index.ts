@@ -57,7 +57,7 @@ serve(async (req) => {
         'webrtc_answer', 'webrtc_ice_candidate',
         'video_frame', 'audio_chunk', 'pong',
         'avatar_set', 'voice_set', 'listening_started',
-        'video_ready', 'video_url', 'video_done'
+        'video_ready', 'video_url', 'video_done', 'result', 'complete', 'finished'
       ];
 
       backendSocket.on('connect', () => {
@@ -73,7 +73,7 @@ serve(async (req) => {
       eventsToRelay.forEach(eventName => {
         if (eventName !== 'connect') {
           backendSocket.on(eventName, (data: any) => {
-            console.log(`[Proxy] Backend → Client: ${eventName}`);
+            console.log(`[Proxy] Backend → Client: ${eventName}`, JSON.stringify(data).substring(0, 500));
             if (clientWs.readyState === WebSocket.OPEN) {
               clientWs.send(JSON.stringify({
                 type: 'socketio_event',
@@ -82,6 +82,20 @@ serve(async (req) => {
               }));
             }
           });
+        }
+      });
+
+      // Catch-all for any other events
+      backendSocket.onAny((eventName: string, data: any) => {
+        if (!eventsToRelay.includes(eventName)) {
+          console.log(`[Proxy] UNKNOWN Event: ${eventName}`, JSON.stringify(data).substring(0, 500));
+          if (clientWs.readyState === WebSocket.OPEN) {
+            clientWs.send(JSON.stringify({
+              type: 'socketio_event',
+              event: eventName,
+              data: data
+            }));
+          }
         }
       });
 

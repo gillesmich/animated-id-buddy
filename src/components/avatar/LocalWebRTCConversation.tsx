@@ -245,15 +245,32 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'video_ready':
       case 'video_url':
       case 'video_done':
+      case 'result':
+      case 'complete':
+      case 'finished':
         // URL de la vidéo générée
         console.log("[video] Event received:", event, data);
-        const videoData = typeof data === 'string' ? data : (data?.url || data?.video_url || data?.download_url || data?.path);
+        const videoData = typeof data === 'string' ? data : (data?.url || data?.video_url || data?.download_url || data?.path || data?.video);
         if (videoData && typeof videoData === 'string') {
           const fullUrl = videoData.startsWith('http') ? videoData : `${backendUrl}${videoData}`;
           console.log("[video] Setting video URL:", fullUrl);
           setVideoUrl(fullUrl);
         }
         setIsProcessing(false);
+        break;
+      default:
+        // Log unknown events for debugging
+        console.log(`[Unknown event] ${event}:`, data);
+        // Check if any unknown event contains video URL
+        if (data && typeof data === 'object') {
+          const possibleVideoUrl = data.url || data.video_url || data.download_url || data.video || data.path;
+          if (possibleVideoUrl && typeof possibleVideoUrl === 'string' && (possibleVideoUrl.includes('.mp4') || possibleVideoUrl.includes('.webm') || possibleVideoUrl.includes('video'))) {
+            console.log("[Unknown event] Found video URL:", possibleVideoUrl);
+            const fullUrl = possibleVideoUrl.startsWith('http') ? possibleVideoUrl : `${backendUrl}${possibleVideoUrl}`;
+            setVideoUrl(fullUrl);
+            setIsProcessing(false);
+          }
+        }
         break;
     }
   }, [backendUrl]);
