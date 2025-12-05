@@ -44,10 +44,14 @@ serve(async (req) => {
       console.log("[Proxy] Client WebSocket connected, connecting to backend Socket.IO...");
       
       // Connect to backend via Socket.IO client
+      // Use polling first (more reliable through proxies), then upgrade to websocket
       backendSocket = SocketIOClient(backendUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: false,
-        timeout: 20000,
+        transports: ['polling', 'websocket'],
+        reconnection: true,
+        reconnectionAttempts: 3,
+        reconnectionDelay: 1000,
+        timeout: 30000,
+        forceNew: true,
       });
 
       // Socket.IO events to relay - tous les événements du backend MuseTalk
