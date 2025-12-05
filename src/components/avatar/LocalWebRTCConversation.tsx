@@ -71,11 +71,11 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     }
   }, []);
 
-  // Fonction pour vérifier les nouvelles vidéos dans /downloads
+  // Fonction pour vérifier les nouvelles vidéos dans /results/output/v15/
   const checkForNewVideo = useCallback(async () => {
     try {
-      // Essayer de récupérer la liste des fichiers ou le dernier fichier
-      const listUrl = `${backendUrl}/downloads/`;
+      // Chemin correct vers les vidéos générées par MuseTalk
+      const listUrl = `${backendUrl}/results/output/v15/`;
       console.log("[Polling] Checking:", listUrl);
       
       const response = await fetch(listUrl, { 
