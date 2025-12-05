@@ -93,10 +93,10 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
                           text.match(/([a-zA-Z0-9_-]+\.mp4)/gi);
         
         if (mp4Matches && mp4Matches.length > 0) {
-          // Prendre le dernier fichier (le plus récent)
+          // Prendre le dernier fichier (le plus récent) - pattern: sample_fake_YYYYMMDD_HHMMSS.mp4
           const lastMatch = mp4Matches[mp4Matches.length - 1];
           const filename = lastMatch.replace(/href="|"/gi, '').trim();
-          const videoFileUrl = `${backendUrl}/downloads/${filename}`;
+          const videoFileUrl = `${backendUrl}/results/output/v15/${filename}`;
           
           console.log("[Polling] Found video:", videoFileUrl);
           
