@@ -28,6 +28,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [useProxy, setUseProxy] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string>("");
+  const [manualVideoPath, setManualVideoPath] = useState<string>("");
   
   const socketRef = useRef<Socket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -122,7 +123,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const startPolling = useCallback(() => {
     if (pollingRef.current) return; // Déjà en cours
     
-    console.log("[Polling] Démarrage du polling sur /downloads");
+    console.log("[Polling] Démarrage du polling sur /results/output/v15/");
     lastVideoTimeRef.current = Date.now(); // Ignorer les anciennes vidéos
     
     // Polling toutes les 2 secondes
@@ -616,6 +617,35 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               <span className="text-sm font-medium">Avatar Vidéo</span>
             </div>
             {videoUrl && <Badge variant="default">Vidéo reçue</Badge>}
+          </div>
+          
+          {/* Manual Video URL Input */}
+          <div className="flex gap-2">
+            <Input
+              value={manualVideoPath}
+              onChange={(e) => setManualVideoPath(e.target.value)}
+              placeholder="Ex: /results/output/v15/sample_fake_xxx.mp4"
+              className="text-xs"
+            />
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => {
+                if (manualVideoPath) {
+                  const fullUrl = manualVideoPath.startsWith('http') 
+                    ? manualVideoPath 
+                    : `${backendUrl}${manualVideoPath.startsWith('/') ? '' : '/'}${manualVideoPath}`;
+                  console.log("[Manual] Loading video:", fullUrl);
+                  setVideoUrl(fullUrl);
+                  setIsProcessing(false);
+                  setStatus("Vidéo chargée!");
+                  setProgress(100);
+                  toast.success("Vidéo chargée!");
+                }
+              }}
+            >
+              Charger
+            </Button>
           </div>
           
           <div className="relative rounded-lg overflow-hidden border border-border/50 bg-black aspect-video">
