@@ -592,7 +592,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             <Input
               value={manualVideoPath}
               onChange={(e) => setManualVideoPath(e.target.value)}
-              placeholder="/results/output/video_latest.mp4"
+              placeholder="/exports/video_latest.mp4"
               className="text-xs flex-1"
             />
             <Button 
@@ -618,8 +618,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               size="sm" 
               variant="secondary"
               onClick={() => {
-                console.log("[Refresh] Loading video_latest.mp4...");
-                const latestUrl = `${backendUrl}/results/output/video_latest.mp4`;
+                console.log("[Refresh] Loading video_latest.mp4 from /exports/...");
+                const latestUrl = `${backendUrl}/exports/video_latest.mp4`;
                 setVideoUrl(latestUrl);
                 setIsProcessing(false);
                 setStatus("Vidéo chargée!");
