@@ -617,14 +617,33 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             <Button 
               size="sm" 
               variant="secondary"
-              onClick={() => {
-                console.log("[Refresh] Loading video_latest.mp4 from /exports/...");
+              onClick={async () => {
                 const latestUrl = `${backendUrl}/exports/video_latest.mp4`;
-                setVideoUrl(latestUrl);
-                setIsProcessing(false);
-                setStatus("Vidéo chargée!");
-                setProgress(100);
-                toast.success("Vidéo video_latest.mp4 chargée!");
+                console.log("[Refresh] Fetching video via blob:", latestUrl);
+                toast.info("Chargement de la vidéo...");
+                
+                try {
+                  // Fetch video as blob to bypass CORS issues
+                  const response = await fetch(latestUrl, { mode: 'cors' });
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                  }
+                  const blob = await response.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  console.log("[Refresh] Blob URL created:", blobUrl);
+                  setVideoUrl(blobUrl);
+                  setIsProcessing(false);
+                  setStatus("Vidéo chargée!");
+                  setProgress(100);
+                  toast.success("Vidéo chargée avec succès!");
+                } catch (error) {
+                  console.error("[Refresh] Fetch error:", error);
+                  // Fallback: try direct URL anyway
+                  console.log("[Refresh] Fallback to direct URL:", latestUrl);
+                  setVideoUrl(latestUrl);
+                  setIsProcessing(false);
+                  toast.error(`Erreur fetch: ${error}. Essai direct...`);
+                }
               }}
               disabled={!isConnected}
             >
