@@ -40,18 +40,45 @@ serve(async (req) => {
 
     let backendSocket: any = null;
 
-    clientWs.onopen = () => {
+    clientWs.onopen = async () => {
       console.log("[Proxy] Client WebSocket connected, connecting to backend Socket.IO...");
+      console.log("[Proxy] Attempting connection to:", backendUrl);
+      
+      // First test if backend is reachable via HTTP
+      try {
+        const testUrl = backendUrl.replace(/\/$/, '');
+        console.log("[Proxy] Testing HTTP connectivity to:", testUrl);
+        const testResponse = await fetch(testUrl, { 
+          method: 'GET',
+          signal: AbortSignal.timeout(5000)
+        });
+        console.log("[Proxy] HTTP test response:", testResponse.status);
+      } catch (httpError) {
+        const errMsg = httpError instanceof Error ? httpError.message : 'Unknown error';
+        console.error("[Proxy] HTTP test failed - backend may not be reachable:", errMsg);
+        // Send error to client
+        if (clientWs.readyState === WebSocket.OPEN) {
+          clientWs.send(JSON.stringify({
+            type: 'socketio_event',
+            event: 'backend_unreachable',
+            data: { 
+              message: `Backend not reachable at ${backendUrl}. Check if server is running and accessible.`,
+              error: errMsg
+            }
+          }));
+        }
+      }
       
       // Connect to backend via Socket.IO client
-      // Use polling first (more reliable through proxies), then upgrade to websocket
+      // Use websocket only - polling often blocked in serverless environments
       backendSocket = SocketIOClient(backendUrl, {
-        transports: ['polling', 'websocket'],
+        transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: 3,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         timeout: 30000,
         forceNew: true,
+        upgrade: false,
       });
 
       // Socket.IO events to relay - tous les événements du backend MuseTalk
