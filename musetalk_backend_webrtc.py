@@ -177,6 +177,78 @@ if AIORTC_AVAILABLE:
 # -------------------------------------------------------------------
 # Routes Flask
 # -------------------------------------------------------------------
+
+@app.route("/exports/<path:filename>", methods=["GET", "OPTIONS"])
+def serve_export(filename):
+    """
+    Sert les fichiers vidéo exportés avec les headers CORS appropriés.
+    """
+    if request.method == "OPTIONS":
+        # Preflight CORS
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
+        return response
+    
+    exports_dir = os.path.join(os.path.dirname(__file__), "exports")
+    if not os.path.exists(exports_dir):
+        exports_dir = "/app/MuseTalk/exports"
+    
+    filepath = os.path.join(exports_dir, filename)
+    logger.info("Serving export file: %s", filepath)
+    
+    if not os.path.exists(filepath):
+        logger.error("File not found: %s", filepath)
+        return jsonify({"error": "File not found", "path": filepath}), 404
+    
+    response = send_file(
+        filepath,
+        mimetype="video/mp4",
+        as_attachment=False
+    )
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range"
+    response.headers["Accept-Ranges"] = "bytes"
+    return response
+
+
+@app.route("/results/output/<path:filename>", methods=["GET", "OPTIONS"])
+def serve_result(filename):
+    """
+    Sert les fichiers vidéo résultats avec les headers CORS appropriés.
+    """
+    if request.method == "OPTIONS":
+        response = app.make_default_options_response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Range"
+        return response
+    
+    results_dir = os.path.join(os.path.dirname(__file__), "results", "output")
+    if not os.path.exists(results_dir):
+        results_dir = "/app/MuseTalk/results/output"
+    
+    filepath = os.path.join(results_dir, filename)
+    logger.info("Serving result file: %s", filepath)
+    
+    if not os.path.exists(filepath):
+        logger.error("File not found: %s", filepath)
+        return jsonify({"error": "File not found", "path": filepath}), 404
+    
+    response = send_file(
+        filepath,
+        mimetype="video/mp4",
+        as_attachment=False
+    )
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range"
+    response.headers["Accept-Ranges"] = "bytes"
+    return response
+
+
 @app.route("/", methods=["GET"])
 def index():
     """
