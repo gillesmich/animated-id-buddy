@@ -142,10 +142,62 @@ serve(async (req) => {
       });
     };
 
-    clientWs.onmessage = (event) => {
+    clientWs.onmessage = async (event) => {
       try {
         const message = JSON.parse(event.data);
         console.log(`[Proxy] Client → Backend: ${message.event || message.type}`);
+        
+        // Intercepter get_latest_video pour récupérer directement la vidéo
+        if ((message.event === 'get_latest_video' || message.type === 'get_latest_video')) {
+          console.log("[Proxy] Fetching video list from backend...");
+          try {
+            // Récupérer la liste des fichiers dans /results/output/
+            const videoListUrl = `${backendUrl}/results/output/`;
+            console.log("[Proxy] Fetching:", videoListUrl);
+            
+            const response = await fetch(videoListUrl, {
+              method: 'GET',
+              headers: { 'Accept': 'text/html, application/json' },
+              signal: AbortSignal.timeout(10000)
+            });
+            
+            if (response.ok) {
+              const text = await response.text();
+              console.log("[Proxy] Video list response:", text.substring(0, 300));
+              
+              // Parser la liste pour trouver les fichiers .mp4
+              // Format HTML: <a href="filename.mp4">filename.mp4</a>
+              const mp4Regex = /href="([^"]*\.mp4)"/gi;
+              const matches = [...text.matchAll(mp4Regex)];
+              
+              if (matches.length > 0) {
+                // Prendre le dernier fichier (le plus récent)
+                const lastFile = matches[matches.length - 1][1];
+                const videoUrl = `${backendUrl}/results/output/${lastFile}`;
+                console.log("[Proxy] Found latest video:", videoUrl);
+                
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({
+                    type: 'socketio_event',
+                    event: 'latest_video',
+                    data: { 
+                      url: videoUrl,
+                      filename: lastFile,
+                      path: `/results/output/${lastFile}`
+                    }
+                  }));
+                }
+              } else {
+                console.log("[Proxy] No .mp4 files found in directory");
+              }
+            } else {
+              console.log("[Proxy] Video list fetch failed:", response.status);
+            }
+          } catch (fetchError) {
+            console.error("[Proxy] Error fetching video list:", fetchError);
+          }
+          return; // Ne pas relayer au backend
+        }
         
         if (message.type === 'emit' && backendSocket?.connected) {
           // Relay Socket.IO emit from client to backend
