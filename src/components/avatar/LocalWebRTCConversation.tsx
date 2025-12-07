@@ -592,7 +592,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             <Input
               value={manualVideoPath}
               onChange={(e) => setManualVideoPath(e.target.value)}
-              placeholder="/results/output/v15.mp4"
+              placeholder="/results/output/video_latest.mp4"
               className="text-xs flex-1"
             />
             <Button 
@@ -618,9 +618,13 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               size="sm" 
               variant="secondary"
               onClick={() => {
-                console.log("[Refresh] Requesting latest video...");
-                toast.info("Recherche de la dernière vidéo...");
-                emitEvent('get_latest_video', { path: '/results/output/' });
+                console.log("[Refresh] Loading video_latest.mp4...");
+                const latestUrl = `${backendUrl}/results/output/video_latest.mp4`;
+                setVideoUrl(latestUrl);
+                setIsProcessing(false);
+                setStatus("Vidéo chargée!");
+                setProgress(100);
+                toast.success("Vidéo video_latest.mp4 chargée!");
               }}
               disabled={!isConnected}
             >
