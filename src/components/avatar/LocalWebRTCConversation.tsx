@@ -51,9 +51,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   useEffect(() => {
     if (videoUrl && videoRef.current) {
       console.log("[Video] Playing:", videoUrl);
-      // Ajouter un timestamp pour éviter le cache
-      const urlWithCache = videoUrl.includes('?') ? `${videoUrl}&t=${Date.now()}` : `${videoUrl}?t=${Date.now()}`;
-      videoRef.current.src = urlWithCache;
+      // Les blob URLs ne supportent pas les query params - ne pas ajouter de timestamp
+      videoRef.current.src = videoUrl;
       videoRef.current.load();
       videoRef.current.play().catch(err => {
         console.error("[Video] Play error:", err);
