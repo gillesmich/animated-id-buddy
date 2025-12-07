@@ -44,12 +44,13 @@ serve(async (req) => {
     
     // Get the video content
     const videoData = await response.arrayBuffer();
-    console.log(`[VideoProxy] Video size: ${videoData.byteLength} bytes`);
+    const backendContentType = response.headers.get('content-type') || 'video/mp4';
+    console.log(`[VideoProxy] Video size: ${videoData.byteLength} bytes, Content-Type: ${backendContentType}`);
     
-    // Build response headers
+    // Build response headers - use the backend's content-type
     const responseHeaders: Record<string, string> = {
       ...corsHeaders,
-      'Content-Type': 'video/mp4',
+      'Content-Type': backendContentType,
       'Content-Length': videoData.byteLength.toString(),
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'no-cache',
