@@ -618,31 +618,28 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               size="sm" 
               variant="secondary"
               onClick={async () => {
-                const latestUrl = `${backendUrl}/exports/video_latest.mp4`;
-                console.log("[Refresh] Fetching video via blob:", latestUrl);
-                toast.info("Chargement de la vidéo...");
+                // Use edge function proxy to avoid mixed content blocking
+                const proxyUrl = `https://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/video-proxy?path=video_latest.mp4`;
+                console.log("[Refresh] Fetching video via proxy:", proxyUrl);
+                toast.info("Chargement de la vidéo via proxy...");
                 
                 try {
-                  // Fetch video as blob to bypass CORS issues
-                  const response = await fetch(latestUrl, { mode: 'cors' });
+                  const response = await fetch(proxyUrl);
                   if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
                   }
                   const blob = await response.blob();
                   const blobUrl = URL.createObjectURL(blob);
-                  console.log("[Refresh] Blob URL created:", blobUrl);
+                  console.log("[Refresh] Blob URL created:", blobUrl, "Size:", blob.size);
                   setVideoUrl(blobUrl);
                   setIsProcessing(false);
                   setStatus("Vidéo chargée!");
                   setProgress(100);
                   toast.success("Vidéo chargée avec succès!");
                 } catch (error) {
-                  console.error("[Refresh] Fetch error:", error);
-                  // Fallback: try direct URL anyway
-                  console.log("[Refresh] Fallback to direct URL:", latestUrl);
-                  setVideoUrl(latestUrl);
-                  setIsProcessing(false);
-                  toast.error(`Erreur fetch: ${error}. Essai direct...`);
+                  console.error("[Refresh] Proxy error:", error);
+                  toast.error(`Erreur: ${error instanceof Error ? error.message : 'Échec du chargement'}`);
                 }
               }}
               disabled={!isConnected}
