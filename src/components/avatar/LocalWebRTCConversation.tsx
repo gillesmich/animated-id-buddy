@@ -72,58 +72,32 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     }
   }, []);
 
-  // Fonction pour vérifier les nouvelles vidéos dans /results/output/v15/
-  const checkForNewVideo = useCallback(async () => {
-    try {
-      // Chemin correct vers les vidéos générées par MuseTalk
-      const listUrl = `${backendUrl}/results/output/v15/`;
-      console.log("[Polling] Checking:", listUrl);
-      
-      const response = await fetch(listUrl, { 
-        method: 'GET',
-        headers: { 'Accept': 'text/html, application/json' }
-      });
-      
-      if (response.ok) {
-        const text = await response.text();
-        console.log("[Polling] Response:", text.substring(0, 500));
-        
-        // Chercher les fichiers .mp4 dans la réponse (HTML directory listing ou JSON)
-        const mp4Matches = text.match(/href="([^"]*\.mp4)"/gi) || 
-                          text.match(/"([^"]*\.mp4)"/gi) ||
-                          text.match(/([a-zA-Z0-9_-]+\.mp4)/gi);
-        
-        if (mp4Matches && mp4Matches.length > 0) {
-          // Prendre le dernier fichier (le plus récent) - pattern: sample_fake_YYYYMMDD_HHMMSS.mp4
-          const lastMatch = mp4Matches[mp4Matches.length - 1];
-          const filename = lastMatch.replace(/href="|"/gi, '').trim();
-          const videoFileUrl = `${backendUrl}/results/output/v15/${filename}`;
-          
-          console.log("[Polling] Found video:", videoFileUrl);
-          
-          // Vérifier si c'est une nouvelle vidéo
-          const currentTime = Date.now();
-          if (currentTime - lastVideoTimeRef.current > 2000) {
-            lastVideoTimeRef.current = currentTime;
-            setVideoUrl(videoFileUrl);
-            setIsProcessing(false);
-            setStatus("Vidéo prête!");
-            setProgress(100);
-            toast.success("Vidéo récupérée!");
-            stopPolling();
-          }
-        }
-      }
-    } catch (error) {
-      console.log("[Polling] Error:", error);
+  // Fonction pour émettre des événements via WebSocket ou Socket.IO
+  const emitEvent = useCallback((event: string, data: any = {}) => {
+    console.log(`[Emit] ${event}:`, data);
+    if (useProxy && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'emit', event, data }));
+    } else if (socketRef.current?.connected) {
+      socketRef.current.emit(event, data);
+    } else {
+      console.warn("[Emit] Not connected!");
     }
-  }, [backendUrl, stopPolling]);
+  }, [useProxy]);
+
+  // Fonction pour vérifier les nouvelles vidéos via l'événement Socket.IO
+  // Le polling HTTP direct ne fonctionne pas à cause de CORS
+  // On utilise plutôt les événements du backend
+  const checkForNewVideo = useCallback(() => {
+    // Demander au backend la liste des vidéos via Socket.IO
+    console.log("[Polling] Requesting video list via Socket.IO");
+    emitEvent('get_latest_video', { path: '/results/output/' });
+  }, [emitEvent]);
 
   // Démarrer le polling quand le traitement commence
   const startPolling = useCallback(() => {
     if (pollingRef.current) return; // Déjà en cours
     
-    console.log("[Polling] Démarrage du polling sur /results/output/v15/");
+    console.log("[Polling] Démarrage du polling sur /results/output/");
     lastVideoTimeRef.current = Date.now(); // Ignorer les anciennes vidéos
     
     // Polling toutes les 2 secondes
@@ -294,6 +268,33 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const handleSocketIOEvent = useCallback((event: string, data: any) => {
     console.log(`[Event] ${event}:`, data);
     
+    // Fonction helper pour extraire et setter l'URL vidéo
+    const extractAndSetVideoUrl = (source: any): boolean => {
+      const possibleUrl = typeof source === 'string' ? source : 
+        (source?.url || source?.video_url || source?.download_url || source?.path || source?.video || source?.file);
+      
+      if (possibleUrl && typeof possibleUrl === 'string') {
+        // Construire l'URL complète - le chemin MuseTalk est /results/output/
+        let fullUrl = possibleUrl;
+        if (!possibleUrl.startsWith('http')) {
+          // Si c'est juste un nom de fichier, ajouter le chemin complet
+          if (!possibleUrl.startsWith('/')) {
+            fullUrl = `${backendUrl}/results/output/${possibleUrl}`;
+          } else {
+            fullUrl = `${backendUrl}${possibleUrl}`;
+          }
+        }
+        console.log("[Video] Setting URL:", fullUrl);
+        setVideoUrl(fullUrl);
+        setIsProcessing(false);
+        setStatus("Vidéo prête!");
+        setProgress(100);
+        stopPolling();
+        return true;
+      }
+      return false;
+    };
+    
     switch (event) {
       case 'error':
         toast.error(data?.message || "Erreur serveur");
@@ -303,15 +304,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         setStatus(data?.message || data?.status || "");
         setProgress(data?.progress || 0);
         // Check if status contains video URL
-        if (data?.video_url || data?.download_url || data?.url) {
-          const statusVideoUrl = data.video_url || data.download_url || data.url;
-          if (typeof statusVideoUrl === 'string') {
-            const fullUrl = statusVideoUrl.startsWith('http') ? statusVideoUrl : `${backendUrl}${statusVideoUrl}`;
-            console.log("[status] Video URL found in status:", fullUrl);
-            setVideoUrl(fullUrl);
-            setIsProcessing(false);
-          }
-        }
+        extractAndSetVideoUrl(data);
         break;
       case 'transcription':
         setTranscription(typeof data === 'string' ? data : (data?.text ?? ""));
@@ -324,15 +317,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         console.log("[chat_result] Data:", data);
         if (data?.transcription) setTranscription(data.transcription);
         if (data?.ai_response) setAiResponse(data.ai_response);
-        if (data?.video_url) {
-          // URL absolue ou relative au backend
-          const fullVideoUrl = data.video_url.startsWith('http') 
-            ? data.video_url 
-            : `${backendUrl}${data.video_url}`;
-          console.log("[chat_result] Video URL:", fullVideoUrl);
-          setVideoUrl(fullVideoUrl);
-        }
-        setIsProcessing(false);
+        extractAndSetVideoUrl(data);
         break;
       case 'video_ready':
       case 'video_url':
@@ -340,43 +325,26 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'result':
       case 'complete':
       case 'finished':
+      case 'latest_video':
+      case 'video_generated':
         // URL de la vidéo générée
         console.log("[video] Event received:", event, data);
-        const videoData = typeof data === 'string' ? data : (data?.url || data?.video_url || data?.download_url || data?.path || data?.video);
-        if (videoData && typeof videoData === 'string') {
-          const fullUrl = videoData.startsWith('http') ? videoData : `${backendUrl}${videoData}`;
-          console.log("[video] Setting video URL:", fullUrl);
-          setVideoUrl(fullUrl);
-        }
-        setIsProcessing(false);
+        extractAndSetVideoUrl(data);
         break;
       default:
         // Log unknown events for debugging
         console.log(`[Unknown event] ${event}:`, data);
         // Check if any unknown event contains video URL
         if (data && typeof data === 'object') {
-          const possibleVideoUrl = data.url || data.video_url || data.download_url || data.video || data.path;
-          if (possibleVideoUrl && typeof possibleVideoUrl === 'string' && (possibleVideoUrl.includes('.mp4') || possibleVideoUrl.includes('.webm') || possibleVideoUrl.includes('video'))) {
-            console.log("[Unknown event] Found video URL:", possibleVideoUrl);
-            const fullUrl = possibleVideoUrl.startsWith('http') ? possibleVideoUrl : `${backendUrl}${possibleVideoUrl}`;
-            setVideoUrl(fullUrl);
-            setIsProcessing(false);
+          const hasVideo = extractAndSetVideoUrl(data);
+          if (hasVideo) {
+            toast.success("Vidéo détectée!");
           }
         }
         break;
     }
-  }, [backendUrl]);
+  }, [backendUrl, stopPolling]);
 
-  const emitEvent = useCallback((event: string, data: any = {}) => {
-    console.log(`[Emit] ${event}:`, data);
-    if (useProxy && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'emit', event, data }));
-    } else if (socketRef.current?.connected) {
-      socketRef.current.emit(event, data);
-    } else {
-      console.warn("[Emit] Not connected!");
-    }
-  }, [useProxy]);
 
   const handleDisconnect = () => {
     // Stop polling
