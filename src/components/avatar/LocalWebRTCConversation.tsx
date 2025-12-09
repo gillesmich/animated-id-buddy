@@ -264,32 +264,61 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     await connectionPromise;
   };
 
-  const handleSocketIOEvent = useCallback((event: string, data: any) => {
+  const handleSocketIOEvent = useCallback(async (event: string, data: any) => {
     console.log(`[Event] ${event}:`, data);
     
-    // Fonction helper pour extraire et setter l'URL vidéo
-    const extractAndSetVideoUrl = (source: any): boolean => {
-      const possibleUrl = typeof source === 'string' ? source : 
-        (source?.url || source?.video_url || source?.download_url || source?.path || source?.video || source?.file);
-      
-      if (possibleUrl && typeof possibleUrl === 'string') {
-        // Construire l'URL complète - le chemin MuseTalk est /results/output/
-        let fullUrl = possibleUrl;
-        if (!possibleUrl.startsWith('http')) {
-          // Si c'est juste un nom de fichier, ajouter le chemin complet
-          if (!possibleUrl.startsWith('/')) {
-            fullUrl = `${backendUrl}/results/output/${possibleUrl}`;
-          } else {
-            fullUrl = `${backendUrl}${possibleUrl}`;
-          }
+    // Fonction helper pour charger la vidéo via le proxy HTTPS
+    const loadVideoViaProxy = async (videoPath: string): Promise<boolean> => {
+      try {
+        // Extraire le nom du fichier du chemin
+        let filename = videoPath;
+        if (videoPath.includes('/')) {
+          filename = videoPath.split('/').pop() || 'video_latest.mp4';
         }
-        console.log("[Video] Setting URL:", fullUrl);
-        setVideoUrl(fullUrl);
+        
+        // Utiliser le proxy edge function pour éviter le blocage HTTPS/HTTP
+        const proxyUrl = `https://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/video-proxy?path=${encodeURIComponent(filename)}`;
+        console.log("[Video] Loading via proxy:", proxyUrl);
+        
+        setStatus("Chargement de la vidéo...");
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        console.log("[Video] Blob loaded, size:", blob.size, "type:", blob.type);
+        
+        if (blob.size === 0) {
+          throw new Error("Vidéo vide reçue");
+        }
+        
+        const blobUrl = URL.createObjectURL(blob);
+        console.log("[Video] Blob URL created:", blobUrl);
+        
+        setVideoUrl(blobUrl);
         setIsProcessing(false);
         setStatus("Vidéo prête!");
         setProgress(100);
         stopPolling();
+        toast.success("Vidéo chargée!");
         return true;
+      } catch (error) {
+        console.error("[Video] Proxy load error:", error);
+        toast.error(`Erreur vidéo: ${error instanceof Error ? error.message : 'Échec'}`);
+        return false;
+      }
+    };
+    
+    // Fonction helper pour extraire le chemin vidéo et charger via proxy
+    const extractAndLoadVideo = async (source: any): Promise<boolean> => {
+      const possiblePath = typeof source === 'string' ? source : 
+        (source?.url || source?.video_url || source?.download_url || source?.path || source?.video || source?.file || source?.video_path);
+      
+      if (possiblePath && typeof possiblePath === 'string') {
+        return await loadVideoViaProxy(possiblePath);
       }
       return false;
     };
@@ -302,8 +331,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'status':
         setStatus(data?.message || data?.status || "");
         setProgress(data?.progress || 0);
-        // Check if status contains video URL
-        extractAndSetVideoUrl(data);
+        // Check if status contains video path
+        await extractAndLoadVideo(data);
         break;
       case 'transcription':
         setTranscription(typeof data === 'string' ? data : (data?.text ?? ""));
@@ -316,7 +345,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         console.log("[chat_result] Data:", data);
         if (data?.transcription) setTranscription(data.transcription);
         if (data?.ai_response) setAiResponse(data.ai_response);
-        extractAndSetVideoUrl(data);
+        await extractAndLoadVideo(data);
         break;
       case 'video_ready':
       case 'video_url':
@@ -328,21 +357,21 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'video_generated':
         // URL de la vidéo générée
         console.log("[video] Event received:", event, data);
-        extractAndSetVideoUrl(data);
+        await extractAndLoadVideo(data);
         break;
       default:
         // Log unknown events for debugging
         console.log(`[Unknown event] ${event}:`, data);
-        // Check if any unknown event contains video URL
+        // Check if any unknown event contains video path
         if (data && typeof data === 'object') {
-          const hasVideo = extractAndSetVideoUrl(data);
+          const hasVideo = await extractAndLoadVideo(data);
           if (hasVideo) {
             toast.success("Vidéo détectée!");
           }
         }
         break;
     }
-  }, [backendUrl, stopPolling]);
+  }, [stopPolling]);
 
 
   const handleDisconnect = () => {
