@@ -13,6 +13,7 @@ interface LocalWebRTCConversationProps {
   config: {
     customAvatarImage?: string;
     customAvatarVideo?: string;
+    selectedVoice?: string;
   };
 }
 
@@ -154,6 +155,11 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     }
   };
 
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  const isReconnectingRef = useRef(false);
+
   const connectViaProxy = async () => {
     return new Promise<void>((resolve, reject) => {
       console.log("[Proxy] Connecting to:", proxyUrl);
@@ -168,6 +174,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
 
       ws.onopen = () => {
         console.log("[Proxy] ✅ WebSocket connecté");
+        reconnectAttemptsRef.current = 0; // Reset reconnect counter on success
       };
 
       ws.onmessage = (event) => {
@@ -181,6 +188,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             if (message.event === 'connected' || message.event === 'connect') {
               clearTimeout(timeoutId);
               setIsConnected(true);
+              isReconnectingRef.current = false;
               toast.success("Connecté via proxy HTTPS");
               resolve();
             } else if (message.event === 'connect_error') {
@@ -202,6 +210,36 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       ws.onclose = () => {
         console.log("[Proxy] WebSocket fermé");
         setIsConnected(false);
+        
+        // Reconnexion automatique si pas une déconnexion volontaire
+        if (!isReconnectingRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          isReconnectingRef.current = true;
+          reconnectAttemptsRef.current++;
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
+          console.log(`[Proxy] Reconnexion dans ${delay}ms (tentative ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          toast.info(`Reconnexion... (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          
+          reconnectTimeoutRef.current = setTimeout(async () => {
+            try {
+              await connectViaProxy();
+              // Renvoyer l'avatar après reconnexion
+              if (config.customAvatarImage) {
+                setTimeout(() => {
+                  emitEvent('set_avatar', { 
+                    avatar_url: config.customAvatarImage,
+                    avatar_type: 'image'
+                  });
+                }, 500);
+              }
+            } catch (err) {
+              console.error("[Proxy] Reconnexion échouée:", err);
+              isReconnectingRef.current = false;
+            }
+          }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          toast.error("Connexion perdue. Cliquez sur Connecter pour réessayer.");
+          isReconnectingRef.current = false;
+        }
       };
     });
   };
@@ -375,6 +413,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
 
 
   const handleDisconnect = () => {
+    // Arrêter la reconnexion automatique
+    reconnectAttemptsRef.current = maxReconnectAttempts; // Empêcher nouvelle reconnexion
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    isReconnectingRef.current = false;
+    
     // Stop polling
     stopPolling();
     
@@ -400,6 +446,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     setIsProcessing(false);
     setStatus("");
     setProgress(0);
+    
+    // Reset reconnect counter pour prochaine connexion
+    reconnectAttemptsRef.current = 0;
   };
 
   const handleStartListening = async () => {
@@ -461,11 +510,13 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           setStatus("Envoi de l'audio...");
           setProgress(10);
           
-          // Utiliser send_audio_message (événement attendu par le backend)
+          // Utiliser send_audio_message avec la voix ElevenLabs sélectionnée
           emitEvent('send_audio_message', {
             audio_data: base64Audio,
             audio_format: 'webm',
+            voice_id: config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL', // Sarah par défaut
           });
+          console.log("[Audio] Voice ID envoyé:", config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL');
           
           toast.info("Audio envoyé, traitement en cours...");
         };
