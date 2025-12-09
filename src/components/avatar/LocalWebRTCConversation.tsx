@@ -136,19 +136,26 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         await connectDirect();
       }
       
-      // Envoyer l'avatar au backend après connexion
-      if (config.customAvatarImage) {
-        console.log("[Avatar] Envoi de l'avatar au backend...");
-        setTimeout(() => {
+      // Envoyer l'avatar vidéo au backend après connexion (remplace saint-paul.mp4)
+      setTimeout(() => {
+        if (config.customAvatarVideo) {
+          console.log("[Avatar] Envoi de la vidéo avatar au backend:", config.customAvatarVideo);
+          emitEvent('set_avatar', { 
+            avatar_url: config.customAvatarVideo,
+            avatar_type: 'video'
+          });
+          toast.success("Vidéo avatar envoyée au serveur");
+        } else if (config.customAvatarImage) {
+          console.log("[Avatar] Envoi de l'image avatar au backend:", config.customAvatarImage);
           emitEvent('set_avatar', { 
             avatar_url: config.customAvatarImage,
             avatar_type: 'image'
           });
-          toast.success("Avatar configuré sur le backend");
-        }, 500);
-      } else {
-        toast.warning("Aucun avatar configuré - uploadez une image d'abord");
-      }
+          toast.success("Image avatar envoyée au serveur");
+        } else {
+          toast.warning("Aucun avatar configuré - uploadez une image ou vidéo d'abord");
+        }
+      }, 500);
     } catch (error) {
       console.error("[WebRTC] Erreur:", error);
       toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
@@ -223,14 +230,19 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             try {
               await connectViaProxy();
               // Renvoyer l'avatar après reconnexion
-              if (config.customAvatarImage) {
-                setTimeout(() => {
+              setTimeout(() => {
+                if (config.customAvatarVideo) {
+                  emitEvent('set_avatar', { 
+                    avatar_url: config.customAvatarVideo,
+                    avatar_type: 'video'
+                  });
+                } else if (config.customAvatarImage) {
                   emitEvent('set_avatar', { 
                     avatar_url: config.customAvatarImage,
                     avatar_type: 'image'
                   });
-                }, 500);
-              }
+                }
+              }, 500);
             } catch (err) {
               console.error("[Proxy] Reconnexion échouée:", err);
               isReconnectingRef.current = false;
