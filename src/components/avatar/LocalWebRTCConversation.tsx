@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Radio, MicOff, Settings, Shield, Square, Upload, CheckCircle2 } from "lucide-react";
+import { Video, Mic, Radio, MicOff, Settings, Shield, Square, Upload, CheckCircle2, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [manualVideoPath, setManualVideoPath] = useState<string>("");
   const [avatarSent, setAvatarSent] = useState(false);
   const [avatarConfirmed, setAvatarConfirmed] = useState(false);
+  const [voiceSent, setVoiceSent] = useState(false);
+  const [voiceConfirmed, setVoiceConfirmed] = useState(false);
+  const [streamingStage, setStreamingStage] = useState<string>("");
   
   const socketRef = useRef<Socket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -158,6 +161,18 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
           toast.warning("Aucun avatar configuré - uploadez une image ou vidéo d'abord");
         }
       }, 500);
+      
+      // Envoyer la voix ElevenLabs au backend après connexion
+      setTimeout(() => {
+        const voiceId = config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL';
+        console.log("[Voice] Envoi de la voix ElevenLabs au backend:", voiceId);
+        emitEvent('set_voice', { 
+          voice_id: voiceId,
+          voice_provider: 'elevenlabs'
+        });
+        setVoiceSent(true);
+        toast.info(`Voix ElevenLabs envoyée: ${voiceId}`);
+      }, 700);
     } catch (error) {
       console.error("[WebRTC] Erreur:", error);
       toast.error(`Erreur: ${error instanceof Error ? error.message : 'Connexion échouée'}`);
@@ -383,6 +398,19 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'status':
         setStatus(data?.message || data?.status || "");
         setProgress(data?.progress || 0);
+        
+        // Traiter le stage streaming spécifiquement
+        if (data?.stage) {
+          setStreamingStage(data.stage);
+          console.log("[Status] Stage:", data.stage);
+          
+          if (data.stage === 'streaming') {
+            toast.success("🎬 Streaming vidéo en cours...");
+            // Charger automatiquement video_latest.mp4 via proxy
+            await loadVideoViaProxy('video_latest.mp4');
+          }
+        }
+        
         // Check if status contains video path
         await extractAndLoadVideo(data);
         break;
@@ -406,6 +434,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         console.log("[Avatar] Confirmation reçue du serveur:", data);
         setAvatarConfirmed(true);
         toast.success("Avatar vidéo chargé sur le serveur (sample.mp4)");
+        break;
+      case 'voice_confirmed':
+      case 'voice_received':
+      case 'voice_set':
+        // Confirmation de réception de la voix
+        console.log("[Voice] Confirmation reçue du serveur:", data);
+        setVoiceConfirmed(true);
+        toast.success(`Voix ElevenLabs configurée: ${data?.voice_id || config.selectedVoice}`);
         break;
       case 'video_ready':
       case 'video_url':
@@ -737,6 +773,56 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
                 Vidéo: {config.customAvatarVideo.substring(0, 60)}...
               </p>
             )}
+          </div>
+        )}
+
+        {/* Send Voice Button */}
+        {isConnected && (
+          <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Voix ElevenLabs</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {streamingStage === 'streaming' && (
+                  <Badge variant="default" className="bg-green-500 animate-pulse">
+                    🎬 Streaming
+                  </Badge>
+                )}
+                {voiceConfirmed && (
+                  <Badge variant="default" className="bg-green-600">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Configurée
+                  </Badge>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <Badge variant="outline" className="flex-1 justify-center py-1.5">
+                {config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL'} (Sarah)
+              </Badge>
+              <Button 
+                onClick={() => {
+                  const voiceId = config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL';
+                  console.log("[Voice] Envoi manuel de la voix:", voiceId);
+                  setVoiceSent(true);
+                  setVoiceConfirmed(false);
+                  emitEvent('set_voice', { 
+                    voice_id: voiceId,
+                    voice_provider: 'elevenlabs'
+                  });
+                  toast.info(`Envoi de la voix ElevenLabs: ${voiceId}`);
+                }}
+                disabled={voiceSent && !voiceConfirmed}
+                size="sm"
+                variant={voiceConfirmed ? "secondary" : "default"}
+              >
+                <Volume2 className="w-4 h-4 mr-1" />
+                {voiceSent && !voiceConfirmed ? "Envoi..." : voiceConfirmed ? "Renvoyer" : "Envoyer"}
+              </Button>
+            </div>
           </div>
         )}
 
