@@ -801,8 +801,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             </div>
             
             <div className="flex gap-2">
-              <Badge variant="outline" className="flex-1 justify-center py-1.5">
-                {config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL'} (Sarah)
+              <Badge variant="outline" className="flex-1 justify-center py-1.5 text-xs">
+                {config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL'}
               </Badge>
               <Button 
                 onClick={() => {
