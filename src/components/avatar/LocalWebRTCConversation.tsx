@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Radio, MicOff, Settings, Shield, Square } from "lucide-react";
+import { Video, Mic, Radio, MicOff, Settings, Shield, Square, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [showSettings, setShowSettings] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [manualVideoPath, setManualVideoPath] = useState<string>("");
+  const [avatarSent, setAvatarSent] = useState(false);
+  const [avatarConfirmed, setAvatarConfirmed] = useState(false);
   
   const socketRef = useRef<Socket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -397,6 +399,14 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         if (data?.ai_response) setAiResponse(data.ai_response);
         await extractAndLoadVideo(data);
         break;
+      case 'avatar_confirmed':
+      case 'avatar_received':
+      case 'avatar_set':
+        // Confirmation de réception de l'avatar
+        console.log("[Avatar] Confirmation reçue du serveur:", data);
+        setAvatarConfirmed(true);
+        toast.success("Avatar vidéo chargé sur le serveur (sample.mp4)");
+        break;
       case 'video_ready':
       case 'video_url':
       case 'video_done':
@@ -667,6 +677,68 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             </Button>
           )}
         </div>
+
+        {/* Send Avatar Button */}
+        {isConnected && (
+          <div className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Envoyer Avatar au Serveur</span>
+              </div>
+              {avatarConfirmed && (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                  sample.mp4 chargé
+                </Badge>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  if (config.customAvatarVideo) {
+                    console.log("[Avatar] Envoi manuel de la vidéo:", config.customAvatarVideo);
+                    setAvatarSent(true);
+                    setAvatarConfirmed(false);
+                    emitEvent('set_avatar', { 
+                      avatar_url: config.customAvatarVideo,
+                      avatar_type: 'video',
+                      save_as: 'sample.mp4'
+                    });
+                    toast.info("Envoi de l'avatar vidéo au serveur...");
+                  } else {
+                    toast.warning("Aucune vidéo avatar configurée. Uploadez une vidéo d'abord.");
+                  }
+                }}
+                disabled={!config.customAvatarVideo || avatarSent}
+                className="flex-1"
+                variant={avatarConfirmed ? "secondary" : "default"}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {avatarSent && !avatarConfirmed ? "Envoi en cours..." : avatarConfirmed ? "Renvoyer Avatar" : "Envoyer Avatar"}
+              </Button>
+              
+              {avatarSent && !avatarConfirmed && (
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => {
+                    setAvatarSent(false);
+                  }}
+                >
+                  ↻
+                </Button>
+              )}
+            </div>
+            
+            {config.customAvatarVideo && (
+              <p className="text-xs text-muted-foreground truncate">
+                Vidéo: {config.customAvatarVideo.substring(0, 60)}...
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Video Display */}
         <div className="space-y-3">
