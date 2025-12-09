@@ -440,8 +440,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
       case 'voice_set':
         // Confirmation de réception de la voix
         console.log("[Voice] Confirmation reçue du serveur:", data);
+        const confirmedVoiceId = config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL';
         setVoiceConfirmed(true);
-        toast.success(`Voix ElevenLabs configurée: ${data?.voice_id || config.selectedVoice}`);
+        toast.success(`Voix ElevenLabs configurée: ${confirmedVoiceId}`);
         break;
       case 'video_ready':
       case 'video_url':
