@@ -2,12 +2,19 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, Mic, Radio, MicOff, Settings, Shield, Square, Upload, CheckCircle2, Volume2 } from "lucide-react";
+import { Video, Mic, Radio, MicOff, Settings, Shield, Square, Upload, CheckCircle2, Volume2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import io, { Socket } from "socket.io-client";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Voice {
+  voice_id: string;
+  name: string;
+  category?: string;
+}
 
 interface LocalWebRTCConversationProps {
   config: {
@@ -35,6 +42,8 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
   const [voiceSent, setVoiceSent] = useState(false);
   const [voiceConfirmed, setVoiceConfirmed] = useState(false);
   const [streamingStage, setStreamingStage] = useState<string>("");
+  const [voicesMap, setVoicesMap] = useState<Record<string, string>>({});
+  const [autoLoadEnabled, setAutoLoadEnabled] = useState(true);
   
   const socketRef = useRef<Socket | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -51,6 +60,27 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
     return () => {
       handleDisconnect();
     };
+  }, []);
+
+  // Charger les voix ElevenLabs au montage pour obtenir les noms
+  useEffect(() => {
+    const fetchVoices = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('elevenlabs-voices');
+        if (error) throw error;
+        
+        const voices = data?.voices || [];
+        const map: Record<string, string> = {};
+        voices.forEach((voice: Voice) => {
+          map[voice.voice_id] = voice.name;
+        });
+        setVoicesMap(map);
+        console.log("[Voices] Loaded", Object.keys(map).length, "voices");
+      } catch (error) {
+        console.error("[Voices] Error loading voices:", error);
+      }
+    };
+    fetchVoices();
   }, []);
 
   // Jouer la vidéo quand l'URL change
@@ -441,8 +471,9 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
         // Confirmation de réception de la voix
         console.log("[Voice] Confirmation reçue du serveur:", data);
         const confirmedVoiceId = config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL';
+        const confirmedVoiceName = voicesMap[confirmedVoiceId] || confirmedVoiceId;
         setVoiceConfirmed(true);
-        toast.success(`Voix ElevenLabs configurée: ${confirmedVoiceId}`);
+        toast.success(`Voix configurée: ${confirmedVoiceName}`);
         break;
       case 'video_ready':
       case 'video_url':
@@ -802,19 +833,20 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             
             <div className="flex gap-2">
               <Badge variant="outline" className="flex-1 justify-center py-1.5 text-xs">
-                {config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL'}
+                {voicesMap[config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL'] || config.selectedVoice || 'Sarah'}
               </Badge>
               <Button 
                 onClick={() => {
                   const voiceId = config.selectedVoice || 'EXAVITQu4vr4xnSDxMaL';
-                  console.log("[Voice] Envoi manuel de la voix:", voiceId);
+                  const voiceName = voicesMap[voiceId] || voiceId;
+                  console.log("[Voice] Envoi manuel de la voix:", voiceName, voiceId);
                   setVoiceSent(true);
                   setVoiceConfirmed(false);
                   emitEvent('set_voice', { 
                     voice_id: voiceId,
                     voice_provider: 'elevenlabs'
                   });
-                  toast.info(`Envoi de la voix ElevenLabs: ${voiceId}`);
+                  toast.info(`Envoi de la voix: ${voiceName}`);
                 }}
                 disabled={voiceSent && !voiceConfirmed}
                 size="sm"
@@ -834,8 +866,55 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               <Video className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium">Avatar Vidéo</span>
             </div>
-            {videoUrl && <Badge variant="default">Vidéo reçue</Badge>}
+            <div className="flex items-center gap-2">
+              {videoUrl && <Badge variant="default">Vidéo reçue</Badge>}
+              <div className="flex items-center gap-1">
+                <Switch 
+                  id="auto-load" 
+                  checked={autoLoadEnabled}
+                  onCheckedChange={setAutoLoadEnabled}
+                  className="scale-75"
+                />
+                <Label htmlFor="auto-load" className="text-xs">Auto</Label>
+              </div>
+            </div>
           </div>
+          
+          {/* Auto-load button */}
+          {isConnected && (
+            <Button 
+              size="sm" 
+              variant="default"
+              className="w-full"
+              onClick={async () => {
+                const proxyUrl = `https://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/video-proxy?path=video_latest.mp4`;
+                console.log("[AutoLoad] Fetching video via proxy:", proxyUrl);
+                toast.info("Chargement automatique de la vidéo...");
+                
+                try {
+                  const response = await fetch(proxyUrl);
+                  if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                  }
+                  const blob = await response.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  console.log("[AutoLoad] Blob URL created:", blobUrl, "Size:", blob.size);
+                  setVideoUrl(blobUrl);
+                  setIsProcessing(false);
+                  setStatus("Vidéo chargée!");
+                  setProgress(100);
+                  toast.success("Vidéo chargée avec succès!");
+                } catch (error) {
+                  console.error("[AutoLoad] Proxy error:", error);
+                  toast.error(`Erreur: ${error instanceof Error ? error.message : 'Échec du chargement'}`);
+                }
+              }}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Charger video_latest.mp4
+            </Button>
+          )}
           
           {/* Manual Video URL Input */}
           <div className="flex gap-2">
@@ -868,7 +947,6 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               size="sm" 
               variant="secondary"
               onClick={async () => {
-                // Use edge function proxy to avoid mixed content blocking
                 const proxyUrl = `https://lmxcucdyvowoshqoblhk.supabase.co/functions/v1/video-proxy?path=video_latest.mp4`;
                 console.log("[Refresh] Fetching video via proxy:", proxyUrl);
                 toast.info("Chargement de la vidéo via proxy...");
@@ -894,7 +972,7 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
               }}
               disabled={!isConnected}
             >
-              🔄 Refresh
+              🔄
             </Button>
           </div>
           
