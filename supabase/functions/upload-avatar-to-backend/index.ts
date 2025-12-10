@@ -21,7 +21,8 @@ serve(async (req) => {
       );
     }
 
-    const MUSETALK_BACKEND = Deno.env.get('MUSETALK_BACKEND') || 'http://51.255.153.127:5000';
+    // Port 8000 = backend Python MuseTalk (le port 5000 était incorrect)
+    const MUSETALK_BACKEND = Deno.env.get('MUSETALK_BACKEND') || 'http://51.255.153.127:8000';
     
     console.log(`[UploadAvatar] Downloading from: ${avatar_url}`);
     console.log(`[UploadAvatar] Will save as: ${save_as}`);
