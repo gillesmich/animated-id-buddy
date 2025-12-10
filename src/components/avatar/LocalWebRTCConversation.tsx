@@ -764,17 +764,31 @@ const LocalWebRTCConversation = ({ config }: LocalWebRTCConversationProps) => {
             
             <div className="flex gap-2">
               <Button 
-                onClick={() => {
+                onClick={async () => {
                   if (config.customAvatarVideo) {
-                    console.log("[Avatar] Envoi manuel de la vidéo:", config.customAvatarVideo);
+                    console.log("[Avatar] Upload via edge function:", config.customAvatarVideo);
                     setAvatarSent(true);
                     setAvatarConfirmed(false);
-                    emitEvent('set_avatar', { 
-                      avatar_url: config.customAvatarVideo,
-                      avatar_type: 'video',
-                      save_as: 'sample.mp4'
-                    });
-                    toast.info("Envoi de l'avatar vidéo au serveur...");
+                    toast.info("Téléchargement et envoi de l'avatar au serveur...");
+                    
+                    try {
+                      const { data, error } = await supabase.functions.invoke('upload-avatar-to-backend', {
+                        body: {
+                          avatar_url: config.customAvatarVideo,
+                          save_as: 'sample.mp4'
+                        }
+                      });
+                      
+                      if (error) throw error;
+                      
+                      console.log("[Avatar] Upload success:", data);
+                      setAvatarConfirmed(true);
+                      toast.success("Avatar uploadé sur le serveur comme sample.mp4!");
+                    } catch (err) {
+                      console.error("[Avatar] Upload error:", err);
+                      setAvatarSent(false);
+                      toast.error(`Erreur upload: ${err instanceof Error ? err.message : 'Échec'}`);
+                    }
                   } else {
                     toast.warning("Aucune vidéo avatar configurée. Uploadez une vidéo d'abord.");
                   }
