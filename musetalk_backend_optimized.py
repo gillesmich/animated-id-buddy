@@ -536,6 +536,49 @@ def serve_results(filename):
     return send_from_directory(root, filename)
 
 
+@app.route('/upload_avatar', methods=['POST'])
+def upload_avatar():
+    """
+    Reçoit un fichier vidéo avatar et le sauvegarde comme sample.mp4 (ou autre nom).
+    Utilisé par l'edge function upload-avatar-to-backend.
+    """
+    try:
+        # Récupérer le fichier uploadé
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        save_as = request.form.get('save_as', 'sample.mp4')
+        
+        if file.filename == '':
+            return jsonify({'error': 'Empty filename'}), 400
+        
+        # Destination: dossier avatars avec le nom demandé
+        dest_path = AVATARS_DIR / save_as
+        
+        # Sauvegarder le fichier
+        file.save(str(dest_path))
+        file_size = dest_path.stat().st_size
+        
+        logger.info("✅ Avatar uploadé: %s (%d bytes)", dest_path, file_size)
+        
+        # Vérifier que le fichier est valide (au moins quelques KB)
+        if file_size < 1000:
+            return jsonify({'error': 'File too small, probably corrupted'}), 400
+        
+        return jsonify({
+            'success': True,
+            'message': f'Avatar saved as {save_as}',
+            'path': str(dest_path),
+            'size': file_size,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.exception("Erreur upload_avatar")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/', methods=['GET'])
 def root():
     """Endpoint racine"""
@@ -543,7 +586,7 @@ def root():
         "status": "ok",
         "message": "MuseTalk backend is running",
         "health_url": "/health",
-        "version": "2.0-fixed"
+        "version": "2.1-upload-avatar"
     })
 
 
